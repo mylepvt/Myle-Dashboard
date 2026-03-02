@@ -330,6 +330,19 @@ def admin_dashboard():
         "SELECT * FROM users WHERE status='pending' ORDER BY created_at DESC"
     ).fetchall()
 
+    # Today's report summary
+    import datetime
+    today = datetime.date.today().isoformat()
+    today_reports = db.execute(
+        "SELECT * FROM daily_reports WHERE report_date=? ORDER BY submitted_at DESC",
+        (today,)
+    ).fetchall()
+    approved_team = db.execute(
+        "SELECT username FROM users WHERE role='team' AND status='approved'"
+    ).fetchall()
+    missing_reports = [u['username'] for u in approved_team
+                       if u['username'] not in [r['username'] for r in today_reports]]
+
     db.close()
     return render_template('admin.html',
                            metrics=metrics,
@@ -338,7 +351,10 @@ def admin_dashboard():
                            monthly=monthly,
                            team_stats=team_stats,
                            pending_users=pending_users,
-                           payment_amount=PAYMENT_AMOUNT)
+                           payment_amount=PAYMENT_AMOUNT,
+                           today_reports=today_reports,
+                           missing_reports=missing_reports,
+                           today=today)
 
 
 # ─────────────────────────────────────────────
@@ -375,13 +391,22 @@ def team_dashboard():
         LIMIT 6
     """, (username,)).fetchall()
 
+    import datetime
+    today = datetime.date.today().isoformat()
+    today_report = db.execute(
+        "SELECT * FROM daily_reports WHERE username=? AND report_date=?",
+        (username, today)
+    ).fetchone()
+
     db.close()
     return render_template('dashboard.html',
                            metrics=metrics,
                            recent=recent,
                            status_data=status_data,
                            monthly=monthly,
-                           payment_amount=PAYMENT_AMOUNT)
+                           payment_amount=PAYMENT_AMOUNT,
+                           today_report=today_report,
+                           today=today)
 
 
 # ─────────────────────────────────────────────
@@ -678,6 +703,157 @@ def delete_team_member(member_id):
         flash(f'Member "{member["name"]}" removed.', 'warning')
     db.close()
     return redirect(url_for('team'))
+
+
+# ─────────────────────────────────────────────
+#  Daily Reports – Submit (team member)
+# ─────────────────────────────────────────────
+
+@app.route('/reports/submit', methods=['GET', 'POST'])
+@login_required
+def report_submit():
+    username = session['username']
+    today    = __import__('datetime').date.today().isoformat()
+    db       = get_db()
+
+    # Load today's existing report (if re-submitting / editing)
+    existing = db.execute(
+        "SELECT * FROM daily_reports WHERE username=? AND report_date=?",
+        (username, today)
+    ).fetchone()
+
+    if request.method == 'POST':
+        report_date      = request.form.get('report_date', today)
+        upline_name      = request.form.get('upline_name', '').strip()
+        try:
+            total_calling    = int(request.form.get('total_calling') or 0)
+            pdf_covered      = int(request.form.get('pdf_covered') or 0)
+            calls_picked     = int(request.form.get('calls_picked') or 0)
+            wrong_numbers    = int(request.form.get('wrong_numbers') or 0)
+            enrollments_done = int(request.form.get('enrollments_done') or 0)
+            pending_enroll   = int(request.form.get('pending_enroll') or 0)
+            underage         = int(request.form.get('underage') or 0)
+            plan_2cc         = int(request.form.get('plan_2cc') or 0)
+            seat_holdings    = int(request.form.get('seat_holdings') or 0)
+        except ValueError:
+            flash('Please enter valid numbers.', 'danger')
+            db.close()
+            return render_template('report_form.html', existing=existing, today=today)
+
+        leads_educated = request.form.get('leads_educated', '')
+        remarks        = request.form.get('remarks', '').strip()
+
+        # Upsert: insert or replace if same user + date
+        db.execute("""
+            INSERT INTO daily_reports
+                (username, upline_name, report_date, total_calling, pdf_covered,
+                 calls_picked, wrong_numbers, enrollments_done, pending_enroll,
+                 underage, leads_educated, plan_2cc, seat_holdings, remarks,
+                 submitted_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'))
+            ON CONFLICT(username, report_date) DO UPDATE SET
+                upline_name=excluded.upline_name,
+                total_calling=excluded.total_calling,
+                pdf_covered=excluded.pdf_covered,
+                calls_picked=excluded.calls_picked,
+                wrong_numbers=excluded.wrong_numbers,
+                enrollments_done=excluded.enrollments_done,
+                pending_enroll=excluded.pending_enroll,
+                underage=excluded.underage,
+                leads_educated=excluded.leads_educated,
+                plan_2cc=excluded.plan_2cc,
+                seat_holdings=excluded.seat_holdings,
+                remarks=excluded.remarks,
+                submitted_at=datetime('now','localtime')
+        """, (username, upline_name, report_date, total_calling, pdf_covered,
+              calls_picked, wrong_numbers, enrollments_done, pending_enroll,
+              underage, leads_educated, plan_2cc, seat_holdings, remarks))
+        db.commit()
+        db.close()
+        flash('✅ Daily report submitted successfully!', 'success')
+        return redirect(url_for('team_dashboard'))
+
+    db.close()
+    return render_template('report_form.html', existing=existing, today=today,
+                           username=username)
+
+
+# ─────────────────────────────────────────────
+#  Daily Reports – Admin View
+# ─────────────────────────────────────────────
+
+@app.route('/reports')
+@admin_required
+def reports_admin():
+    db          = get_db()
+    filter_date = request.args.get('date', '')
+    filter_user = request.args.get('user', '')
+
+    query  = "SELECT * FROM daily_reports WHERE 1=1"
+    params = []
+    if filter_date:
+        query += " AND report_date=?"
+        params.append(filter_date)
+    if filter_user:
+        query += " AND username=?"
+        params.append(filter_user)
+    query += " ORDER BY report_date DESC, submitted_at DESC"
+
+    reports = db.execute(query, params).fetchall()
+
+    # KPI totals across filtered reports
+    totals = db.execute(f"""
+        SELECT
+            COUNT(DISTINCT username || report_date) AS total_reports,
+            SUM(total_calling)    AS total_calling,
+            SUM(pdf_covered)      AS pdf_covered,
+            SUM(calls_picked)     AS calls_picked,
+            SUM(enrollments_done) AS enrollments_done,
+            SUM(plan_2cc)         AS plan_2cc
+        FROM daily_reports WHERE 1=1
+        {'AND report_date=?' if filter_date else ''}
+        {'AND username=?' if filter_user else ''}
+    """, params).fetchone()
+
+    # All distinct members who ever submitted
+    members = db.execute(
+        "SELECT DISTINCT username FROM daily_reports ORDER BY username"
+    ).fetchall()
+
+    # Today's submitters vs approved team members (who hasn't reported today?)
+    import datetime
+    today = datetime.date.today().isoformat()
+    submitted_today = [r['username'] for r in db.execute(
+        "SELECT username FROM daily_reports WHERE report_date=?", (today,)
+    ).fetchall()]
+    approved_team = [u['username'] for u in db.execute(
+        "SELECT username FROM users WHERE role='team' AND status='approved'"
+    ).fetchall()]
+    missing_today = [u for u in approved_team if u not in submitted_today]
+
+    # Daily trend data (last 14 days) for chart
+    trend = db.execute("""
+        SELECT report_date,
+               COUNT(DISTINCT username)  AS reporters,
+               SUM(total_calling)        AS calling,
+               SUM(enrollments_done)     AS enrolments
+        FROM daily_reports
+        WHERE report_date >= date('now', '-13 days')
+        GROUP BY report_date
+        ORDER BY report_date ASC
+    """).fetchall()
+
+    db.close()
+    return render_template('reports_admin.html',
+                           reports=reports,
+                           totals=totals,
+                           members=members,
+                           submitted_today=submitted_today,
+                           missing_today=missing_today,
+                           trend=trend,
+                           filter_date=filter_date,
+                           filter_user=filter_user,
+                           today=today)
 
 
 # ─────────────────────────────────────────────

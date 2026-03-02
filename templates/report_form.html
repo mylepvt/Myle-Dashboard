@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Daily Report – Myle Community{% endblock %}
+{% block page_title %}Daily Report{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-12 col-lg-8">
+
+<!-- Header card -->
+<div class="card border-0 shadow-sm mb-4" style="border-left: 4px solid #0d6efd !important;">
+  <div class="card-body py-3">
+    <div class="d-flex align-items-center gap-3">
+      <div class="kpi-icon bg-primary-subtle text-primary">
+        <i class="bi bi-clipboard2-check-fill fs-5"></i>
+      </div>
+      <div>
+        <h5 class="mb-0 fw-bold">{% if existing %}Update{% else %}Submit{% endif %} Daily Report</h5>
+        <div class="text-muted small">
+          <i class="bi bi-clock me-1"></i>Submit before 9:30 PM daily &nbsp;·&nbsp;
+          <i class="bi bi-person me-1"></i>{{ username }}
+        </div>
+      </div>
+      {% if existing %}
+      <span class="badge bg-success ms-auto"><i class="bi bi-check-circle me-1"></i>Submitted Today</span>
+      {% else %}
+      <span class="badge bg-warning text-dark ms-auto"><i class="bi bi-exclamation-circle me-1"></i>Not Yet Submitted</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<form method="post">
+
+  <!-- ── Section 1: Basic Info ── -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white border-bottom">
+      <span class="section-label mb-0"><i class="bi bi-calendar3 me-2 text-primary"></i>Basic Info</span>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-12 col-sm-6">
+          <label class="form-label fw-semibold small">Date <span class="text-danger">*</span></label>
+          <input type="date" name="report_date" class="form-control"
+                 value="{{ existing.report_date if existing else today }}" required>
+        </div>
+        <div class="col-12 col-sm-6">
+          <label class="form-label fw-semibold small">Upline Name <span class="text-danger">*</span></label>
+          <input type="text" name="upline_name" class="form-control"
+                 placeholder="Your upline's name"
+                 value="{{ existing.upline_name if existing else '' }}" required>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 2: Calling Data ── -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white border-bottom">
+      <span class="section-label mb-0"><i class="bi bi-telephone-fill me-2 text-success"></i>Calling Data</span>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-6 col-sm-4">
+          <label class="form-label fw-semibold small">Total Calling <span class="text-danger">*</span>
+            <span class="text-muted fw-normal">(Personal + Team)</span>
+          </label>
+          <input type="number" name="total_calling" class="form-control" min="0"
+                 value="{{ existing.total_calling if existing else 0 }}" required>
+        </div>
+        <div class="col-6 col-sm-4">
+          <label class="form-label fw-semibold small">PDF Covered <span class="text-danger">*</span></label>
+          <input type="number" name="pdf_covered" class="form-control" min="0"
+                 value="{{ existing.pdf_covered if existing else 0 }}" required>
+        </div>
+        <div class="col-6 col-sm-4">
+          <label class="form-label fw-semibold small">Calls Picked <span class="text-danger">*</span></label>
+          <input type="number" name="calls_picked" class="form-control" min="0"
+                 value="{{ existing.calls_picked if existing else 0 }}" required>
+        </div>
+        <div class="col-6 col-sm-4">
+          <label class="form-label fw-semibold small">Wrong Numbers</label>
+          <input type="number" name="wrong_numbers" class="form-control" min="0"
+                 value="{{ existing.wrong_numbers if existing else 0 }}">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 3: Enrolment Data ── -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white border-bottom">
+      <span class="section-label mb-0"><i class="bi bi-person-plus-fill me-2 text-warning"></i>Enrolment Data</span>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-6 col-sm-4">
+          <label class="form-label fw-semibold small">Total Enrolments Done <span class="text-danger">*</span></label>
+          <input type="number" name="enrollments_done" class="form-control" min="0"
+                 value="{{ existing.enrollments_done if existing else 0 }}" required>
+        </div>
+        <div class="col-6 col-sm-4">
+          <label class="form-label fw-semibold small">Pending Enrolments <span class="text-danger">*</span></label>
+          <input type="number" name="pending_enroll" class="form-control" min="0"
+                 value="{{ existing.pending_enroll if existing else 0 }}" required>
+        </div>
+        <div class="col-6 col-sm-4">
+          <label class="form-label fw-semibold small">Underage <span class="text-danger">*</span></label>
+          <input type="number" name="underage" class="form-control" min="0"
+                 value="{{ existing.underage if existing else 0 }}" required>
+        </div>
+        <div class="col-6 col-sm-4">
+          <label class="form-label fw-semibold small">2CC Plan Persons <span class="text-danger">*</span></label>
+          <input type="number" name="plan_2cc" class="form-control" min="0"
+                 value="{{ existing.plan_2cc if existing else 0 }}" required>
+        </div>
+        <div class="col-6 col-sm-4">
+          <label class="form-label fw-semibold small">Seat Holdings <span class="text-danger">*</span></label>
+          <input type="number" name="seat_holdings" class="form-control" min="0"
+                 value="{{ existing.seat_holdings if existing else 0 }}" required>
+        </div>
+        <div class="col-12 col-sm-4">
+          <label class="form-label fw-semibold small">Are Leads Educated? <span class="text-danger">*</span></label>
+          <div class="d-flex gap-3 mt-1 flex-wrap">
+            {% for opt in ['Yes', 'No', '50-50'] %}
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="leads_educated"
+                     value="{{ opt }}" id="edu_{{ opt }}"
+                     {% if existing and existing.leads_educated == opt %}checked{% endif %}
+                     {% if not existing and opt == 'Yes' %}checked{% endif %} required>
+              <label class="form-check-label small" for="edu_{{ opt }}">{{ opt }}</label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 4: Remarks ── -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-bottom">
+      <span class="section-label mb-0"><i class="bi bi-chat-text-fill me-2 text-info"></i>Remarks</span>
+    </div>
+    <div class="card-body">
+      <textarea name="remarks" class="form-control" rows="3"
+                placeholder="Any issues, challenges, or notes for your upline...">{{ existing.remarks if existing else '' }}</textarea>
+    </div>
+  </div>
+
+  <!-- Submit Button -->
+  <div class="d-grid gap-2 d-sm-flex justify-content-sm-end mb-4">
+    <a href="{{ url_for('team_dashboard') }}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Back
+    </a>
+    <button type="submit" class="btn btn-primary btn-lg px-5">
+      <i class="bi bi-send-fill me-2"></i>
+      {% if existing %}Update Report{% else %}Submit Report{% endif %}
+    </button>
+  </div>
+
+</form>
+</div>
+</div>
+{% endblock %}

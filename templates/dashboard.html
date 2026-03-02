@@ -4,6 +4,32 @@
 
 {% block content %}
 
+<!-- ── Daily Report Banner ───────────────────────────────── -->
+{% if today_report %}
+<div class="alert alert-success border-0 shadow-sm d-flex align-items-center justify-content-between mb-4 py-3" role="alert">
+  <div>
+    <i class="bi bi-check-circle-fill me-2 fs-5"></i>
+    <strong>Today's report submitted!</strong>
+    <span class="text-muted ms-2 small">{{ today_report.submitted_at[:16] }}</span>
+  </div>
+  <a href="{{ url_for('report_submit') }}" class="btn btn-sm btn-success">
+    <i class="bi bi-pencil-fill me-1"></i>Update
+  </a>
+</div>
+{% else %}
+<div class="alert border-0 shadow-sm d-flex align-items-center justify-content-between mb-4 py-3"
+     style="background:#fff3cd; border-left:4px solid #ffc107 !important;" role="alert">
+  <div>
+    <i class="bi bi-exclamation-triangle-fill me-2 fs-5 text-warning"></i>
+    <strong class="text-warning-emphasis">Daily report pending!</strong>
+    <span class="text-muted ms-2 small">Submit before 9:30 PM</span>
+  </div>
+  <a href="{{ url_for('report_submit') }}" class="btn btn-sm btn-warning text-dark fw-semibold">
+    <i class="bi bi-clipboard2-check-fill me-1"></i>Submit Now
+  </a>
+</div>
+{% endif %}
+
 <!-- ── KPI Cards ─────────────────────────────────────────── -->
 <div class="row g-3 mb-4">
 

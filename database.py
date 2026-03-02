@@ -40,6 +40,29 @@ def init_db():
         )
     """)
 
+    # Daily Reports table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS daily_reports (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            username         TEXT    NOT NULL,
+            upline_name      TEXT    NOT NULL DEFAULT '',
+            report_date      TEXT    NOT NULL,
+            total_calling    INTEGER NOT NULL DEFAULT 0,
+            pdf_covered      INTEGER NOT NULL DEFAULT 0,
+            calls_picked     INTEGER NOT NULL DEFAULT 0,
+            wrong_numbers    INTEGER NOT NULL DEFAULT 0,
+            enrollments_done INTEGER NOT NULL DEFAULT 0,
+            pending_enroll   INTEGER NOT NULL DEFAULT 0,
+            underage         INTEGER NOT NULL DEFAULT 0,
+            leads_educated   TEXT    NOT NULL DEFAULT '',
+            plan_2cc         INTEGER NOT NULL DEFAULT 0,
+            seat_holdings    INTEGER NOT NULL DEFAULT 0,
+            remarks          TEXT,
+            submitted_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+            UNIQUE(username, report_date)
+        )
+    """)
+
     # Team members table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS team_members (
@@ -99,6 +122,32 @@ def migrate_db():
                 phone        TEXT    NOT NULL DEFAULT '',
                 status       TEXT    NOT NULL DEFAULT 'pending',
                 created_at   TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+        """)
+    except Exception:
+        pass
+
+    # Ensure daily_reports table exists (migration for old databases)
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS daily_reports (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                username         TEXT    NOT NULL,
+                upline_name      TEXT    NOT NULL DEFAULT '',
+                report_date      TEXT    NOT NULL,
+                total_calling    INTEGER NOT NULL DEFAULT 0,
+                pdf_covered      INTEGER NOT NULL DEFAULT 0,
+                calls_picked     INTEGER NOT NULL DEFAULT 0,
+                wrong_numbers    INTEGER NOT NULL DEFAULT 0,
+                enrollments_done INTEGER NOT NULL DEFAULT 0,
+                pending_enroll   INTEGER NOT NULL DEFAULT 0,
+                underage         INTEGER NOT NULL DEFAULT 0,
+                leads_educated   TEXT    NOT NULL DEFAULT '',
+                plan_2cc         INTEGER NOT NULL DEFAULT 0,
+                seat_holdings    INTEGER NOT NULL DEFAULT 0,
+                remarks          TEXT,
+                submitted_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+                UNIQUE(username, report_date)
             )
         """)
     except Exception:

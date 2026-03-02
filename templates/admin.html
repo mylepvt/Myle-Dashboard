@@ -67,6 +67,74 @@
 </div>
 {% endif %}
 
+<!-- ── Today's Reports Widget ────────────────────────────── -->
+<div class="card border-0 shadow-sm mb-4" style="border-left: 4px solid #0d6efd !important;">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h6 class="mb-0">
+      <i class="bi bi-clipboard2-data-fill me-2 text-primary"></i>
+      Today's Daily Reports
+      <span class="badge bg-primary ms-2">{{ today_reports|length }} submitted</span>
+      {% if missing_reports %}
+      <span class="badge bg-danger ms-1">{{ missing_reports|length }} missing</span>
+      {% endif %}
+    </h6>
+    <a href="{{ url_for('reports_admin') }}" class="btn btn-sm btn-outline-primary">
+      All Reports <i class="bi bi-arrow-right ms-1"></i>
+    </a>
+  </div>
+  <div class="card-body">
+    {% if missing_reports %}
+    <div class="mb-3">
+      <div class="small fw-semibold text-danger mb-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>Not submitted yet:</div>
+      <div class="d-flex flex-wrap gap-2">
+        {% for u in missing_reports %}
+        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2">
+          <i class="bi bi-person-fill me-1"></i>{{ u }}
+        </span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% if today_reports %}
+    <div class="small fw-semibold text-success mb-2"><i class="bi bi-check-circle-fill me-1"></i>Submitted today:</div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Member</th>
+            <th class="text-center">Calls</th>
+            <th class="text-center">PDF</th>
+            <th class="text-center">Enrolled</th>
+            <th class="text-center">2CC</th>
+            <th class="text-center">Educated</th>
+            <th>Remarks</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in today_reports %}
+          <tr>
+            <td class="fw-semibold">{{ r.username }}</td>
+            <td class="text-center fw-bold text-primary">{{ r.total_calling }}</td>
+            <td class="text-center text-danger">{{ r.pdf_covered }}</td>
+            <td class="text-center fw-bold text-success">{{ r.enrollments_done }}</td>
+            <td class="text-center text-purple">{{ r.plan_2cc }}</td>
+            <td class="text-center">
+              <span class="badge {% if r.leads_educated=='Yes' %}bg-success{% elif r.leads_educated=='No' %}bg-danger{% else %}bg-warning text-dark{% endif %} small">
+                {{ r.leads_educated or '—' }}
+              </span>
+            </td>
+            <td class="text-muted small">{{ (r.remarks or '')[:40] }}{% if r.remarks and r.remarks|length > 40 %}…{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted small mb-0">No reports submitted today yet.</p>
+    {% endif %}
+  </div>
+</div>
+
 <!-- ── KPI Cards ─────────────────────────────────────────── -->
 <div class="row g-3 mb-4">
 
