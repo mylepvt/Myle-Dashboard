@@ -146,7 +146,7 @@ def register():
         db.execute(
             "INSERT INTO users (username, password, role, fbo_id, upline_name, phone, email, status) "
             "VALUES (?, ?, 'team', ?, ?, ?, ?, 'pending')",
-            (username, generate_password_hash(password), fbo_id, upline_name, phone, email)
+            (username, generate_password_hash(password, method='pbkdf2:sha256'), fbo_id, upline_name, phone, email)
         )
         db.commit()
         db.close()
@@ -189,7 +189,7 @@ def login():
                 password_ok = (stored == password)
                 if password_ok:
                     db.execute("UPDATE users SET password=? WHERE id=?",
-                               (generate_password_hash(password), user['id']))
+                               (generate_password_hash(password, method='pbkdf2:sha256'), user['id']))
                     db.commit()
 
         db.close()

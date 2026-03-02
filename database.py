@@ -180,7 +180,7 @@ def seed_users():
         # Fresh database: create admin with a securely hashed password
         cursor.execute(
             "INSERT INTO users (username, password, role, status) VALUES (?, ?, ?, ?)",
-            ('admin', generate_password_hash('admin123'), 'admin', 'approved')
+            ('admin', generate_password_hash('admin123', method='pbkdf2:sha256'), 'admin', 'approved')
         )
         conn.commit()
     else:
@@ -193,7 +193,7 @@ def seed_users():
             pwd = u[1]  # sqlite3.Row supports index access
             if not pwd.startswith(('pbkdf2:', 'scrypt:', 'argon2:')):
                 cursor.execute("UPDATE users SET password=? WHERE id=?",
-                               (generate_password_hash(pwd), u[0]))
+                               (generate_password_hash(pwd, method='pbkdf2:sha256'), u[0]))
 
         conn.commit()
     conn.close()
