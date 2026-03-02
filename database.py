@@ -1,5 +1,6 @@
 import sqlite3
 import os
+from werkzeug.security import generate_password_hash, check_password_hash
 
 DATABASE = os.path.join(os.path.dirname(__file__), 'leads.db')
 
@@ -121,20 +122,29 @@ def migrate_db():
 
 
 def seed_users():
-    """Create a default admin account if no users exist yet."""
+    """Create a default admin account if no users exist yet.
+       Also auto-upgrades any legacy plain-text passwords to hashed."""
     conn = get_db()
     cursor = conn.cursor()
     count = cursor.execute("SELECT COUNT(*) FROM users").fetchone()[0]
     if count == 0:
+        # Fresh database: create admin with a securely hashed password
         cursor.execute(
             "INSERT INTO users (username, password, role, status) VALUES (?, ?, ?, ?)",
-            ('admin', 'admin123', 'admin', 'approved')
+            ('admin', generate_password_hash('admin123'), 'admin', 'approved')
         )
         conn.commit()
     else:
-        # Ensure existing admin accounts are always approved (migration safety)
-        cursor.execute(
-            "UPDATE users SET status='approved' WHERE role='admin'"
-        )
+        # Ensure all admin accounts are always approved (migration safety)
+        cursor.execute("UPDATE users SET status='approved' WHERE role='admin'")
+
+        # Auto-upgrade any remaining plain-text passwords to hashed
+        users = cursor.execute("SELECT id, password FROM users").fetchall()
+        for u in users:
+            pwd = u[1]  # sqlite3.Row supports index access
+            if not pwd.startswith(('pbkdf2:', 'scrypt:', 'argon2:')):
+                cursor.execute("UPDATE users SET password=? WHERE id=?",
+                               (generate_password_hash(pwd), u[0]))
+
         conn.commit()
     conn.close()

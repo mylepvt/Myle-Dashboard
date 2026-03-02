@@ -1,9 +1,12 @@
+import os
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, session
+from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_db, init_db, migrate_db, seed_users
 
 app = Flask(__name__)
-app.secret_key = 'myle_community_secret_2024'
+# Use env variable on Render/production; fallback for local dev
+app.secret_key = os.environ.get('SECRET_KEY', 'myle_community_secret_2024_local')
 
 STATUSES = ['New', 'Contacted', 'Day 1', 'Day 2', 'Interview', 'Converted', 'Lost']
 SOURCES  = ['WhatsApp', 'Facebook', 'Instagram', 'LinkedIn',
@@ -143,7 +146,7 @@ def register():
         db.execute(
             "INSERT INTO users (username, password, role, fbo_id, upline_name, phone, email, status) "
             "VALUES (?, ?, 'team', ?, ?, ?, ?, 'pending')",
-            (username, password, fbo_id, upline_name, phone, email)
+            (username, generate_password_hash(password), fbo_id, upline_name, phone, email)
         )
         db.commit()
         db.close()
@@ -166,14 +169,32 @@ def login():
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip()
 
+        if not username or not password:
+            flash('Username and password are required.', 'danger')
+            return render_template('login.html')
+
         db   = get_db()
         user = db.execute(
-            "SELECT * FROM users WHERE username=? AND password=?",
-            (username, password)
+            "SELECT * FROM users WHERE username=?", (username,)
         ).fetchone()
+
+        # Check password – support both hashed and legacy plain-text
+        password_ok = False
+        if user:
+            stored = user['password']
+            if stored.startswith(('pbkdf2:', 'scrypt:', 'argon2:')):
+                password_ok = check_password_hash(stored, password)
+            else:
+                # Legacy plain-text: compare then auto-upgrade to hash
+                password_ok = (stored == password)
+                if password_ok:
+                    db.execute("UPDATE users SET password=? WHERE id=?",
+                               (generate_password_hash(password), user['id']))
+                    db.commit()
+
         db.close()
 
-        if user:
+        if user and password_ok:
             if user['status'] == 'pending':
                 flash('Your account is pending admin approval. Please check back soon.', 'warning')
                 return render_template('login.html')
@@ -410,15 +431,18 @@ def add_lead():
     team = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
 
     if request.method == 'POST':
-        name           = request.form['name'].strip()
-        phone          = request.form['phone'].strip()
+        name           = request.form.get('name', '').strip()
+        phone          = request.form.get('phone', '').strip()
         email          = request.form.get('email', '').strip()
         referred_by    = request.form.get('referred_by', '').strip()
         source         = request.form.get('source', '').strip()
         status         = request.form.get('status', 'New')
         payment_done   = 1 if request.form.get('payment_done') else 0
         payment_amount = PAYMENT_AMOUNT if payment_done else 0.0
-        revenue        = float(request.form.get('revenue') or 0)
+        try:
+            revenue = float(request.form.get('revenue') or 0)
+        except ValueError:
+            revenue = 0.0
         follow_up_date = request.form.get('follow_up_date', '').strip()
         notes          = request.form.get('notes', '').strip()
 
@@ -481,17 +505,27 @@ def edit_lead(lead_id):
         return redirect(url_for('leads'))
 
     if request.method == 'POST':
-        name           = request.form['name'].strip()
-        phone          = request.form['phone'].strip()
+        name           = request.form.get('name', '').strip()
+        phone          = request.form.get('phone', '').strip()
         email          = request.form.get('email', '').strip()
         referred_by    = request.form.get('referred_by', '').strip()
-        status         = request.form['status']
+        status         = request.form.get('status', lead['status'])
         payment_done   = 1 if request.form.get('payment_done') else 0
         payment_amount = PAYMENT_AMOUNT if payment_done else 0.0
         day1_done      = 1 if request.form.get('day1_done') else 0
         day2_done      = 1 if request.form.get('day2_done') else 0
         interview_done = 1 if request.form.get('interview_done') else 0
         notes          = request.form.get('notes', '').strip()
+
+        if not name or not phone:
+            flash('Name and Phone are required.', 'danger')
+            db.close()
+            return render_template('edit_lead.html',
+                                   lead=lead, statuses=STATUSES,
+                                   team=team, payment_amount=PAYMENT_AMOUNT)
+
+        if status not in STATUSES:
+            status = lead['status']
 
         # Only admin can reassign leads
         if session.get('role') == 'admin':
