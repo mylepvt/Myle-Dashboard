@@ -211,9 +211,65 @@ body {
 ::-webkit-scrollbar-thumb { background: #bbb; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #888; }
 
-/* ── Responsive ─────────────────────────────────────────── */
+/* ── Responsive / Mobile-first ───────────────────────────── */
 @media (max-width: 768px) {
-  #sidebar { width: 60px; }
-  #sidebar span, #sidebar small, #sidebar .fs-5 { display: none; }
-  #sidebar .nav-link { text-align: center; }
+
+  /* ── Sidebar becomes a slide-in overlay ── */
+  #sidebar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 260px !important;          /* always full-width on mobile  */
+    z-index: 1055;
+    transform: translateX(-100%);     /* hidden off-screen by default */
+    transition: transform 0.28s ease;
+    overflow-y: auto;
+  }
+
+  #sidebar.mobile-open {
+    transform: translateX(0);         /* slides in when toggled       */
+  }
+
+  /* Reset collapsed icon-only state – show full labels in overlay */
+  #sidebar.collapsed { width: 260px !important; overflow: visible; }
+  #sidebar.collapsed span,
+  #sidebar.collapsed .fs-5,
+  #sidebar.collapsed small { display: inline !important; }
+  #sidebar.collapsed .nav-link { text-align: left !important; padding: 0.5rem 1rem !important; }
+
+  /* ── Dark backdrop behind sidebar ── */
+  #sidebarBackdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 1040;
+    backdrop-filter: blur(1px);
+  }
+  #sidebarBackdrop.show { display: block; }
+
+  /* ── Page content takes full width ── */
+  #page-content-wrapper { width: 100% !important; }
+
+  /* ── Reduce page padding on mobile ── */
+  .container-fluid { padding: 0.6rem !important; }
+
+  /* ── Tighter navbar ── */
+  .navbar { padding-left: 0.6rem !important; padding-right: 0.6rem !important; }
+
+  /* ── KPI cards: 2 per row ── */
+  .kpi-card { margin-bottom: 0.5rem; }
+
+  /* ── Tables: hide on mobile (card layout used instead) ── */
+  .mobile-hide-table { display: none !important; }
+
+  /* ── Lead cards for mobile ── */
+  .lead-mobile-card {
+    border-radius: 12px;
+    border-left: 4px solid #0d6efd;
+  }
+
+  /* ── Bigger tap targets for buttons ── */
+  .btn-xs { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
 }
