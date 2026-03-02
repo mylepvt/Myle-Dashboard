@@ -343,6 +343,16 @@ def admin_dashboard():
     missing_reports = [u['username'] for u in approved_team
                        if u['username'] not in [r['username'] for r in today_reports]]
 
+    # Cross-verify: for each submitted report, check actual payments in leads table today
+    report_verification = {}
+    for r in today_reports:
+        actual_payments = db.execute("""
+            SELECT COUNT(*) as cnt FROM leads
+            WHERE assigned_to=? AND payment_done=1
+              AND date(updated_at) = ?
+        """, (r['username'], today)).fetchone()['cnt']
+        report_verification[r['username']] = actual_payments
+
     db.close()
     return render_template('admin.html',
                            metrics=metrics,
@@ -354,6 +364,7 @@ def admin_dashboard():
                            payment_amount=PAYMENT_AMOUNT,
                            today_reports=today_reports,
                            missing_reports=missing_reports,
+                           report_verification=report_verification,
                            today=today)
 
 

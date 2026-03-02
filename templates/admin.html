@@ -104,7 +104,8 @@
             <th>Member</th>
             <th class="text-center">Calls</th>
             <th class="text-center">PDF</th>
-            <th class="text-center">Enrolled</th>
+            <th class="text-center">Enrolled<br><small class="fw-normal text-muted">Reported</small></th>
+            <th class="text-center">₹196 Actual<br><small class="fw-normal text-muted">In System</small></th>
             <th class="text-center">2CC</th>
             <th class="text-center">Educated</th>
             <th>Remarks</th>
@@ -112,11 +113,26 @@
         </thead>
         <tbody>
           {% for r in today_reports %}
-          <tr>
-            <td class="fw-semibold">{{ r.username }}</td>
+          {% set actual = report_verification.get(r.username, 0) %}
+          {% set mismatch = r.enrollments_done > actual %}
+          <tr {% if mismatch %}class="table-warning"{% endif %}>
+            <td class="fw-semibold">
+              {{ r.username }}
+              {% if mismatch %}
+              <i class="bi bi-exclamation-triangle-fill text-warning ms-1"
+                 title="Reported enrollments ({{ r.enrollments_done }}) exceed actual payments in system ({{ actual }})"></i>
+              {% endif %}
+            </td>
             <td class="text-center fw-bold text-primary">{{ r.total_calling }}</td>
             <td class="text-center text-danger">{{ r.pdf_covered }}</td>
-            <td class="text-center fw-bold text-success">{{ r.enrollments_done }}</td>
+            <td class="text-center fw-bold {% if mismatch %}text-warning{% else %}text-success{% endif %}">
+              {{ r.enrollments_done }}
+            </td>
+            <td class="text-center">
+              <span class="badge {% if actual > 0 %}bg-success{% else %}bg-secondary{% endif %}">
+                {{ actual }}
+              </span>
+            </td>
             <td class="text-center text-purple">{{ r.plan_2cc }}</td>
             <td class="text-center">
               <span class="badge {% if r.leads_educated=='Yes' %}bg-success{% elif r.leads_educated=='No' %}bg-danger{% else %}bg-warning text-dark{% endif %} small">
@@ -128,6 +144,11 @@
           {% endfor %}
         </tbody>
       </table>
+    </div>
+    <div class="mt-2 text-muted" style="font-size:0.75rem;">
+      <i class="bi bi-info-circle me-1"></i>
+      <strong>₹196 Actual</strong> = leads marked payment done today in system.
+      <span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>Yellow row</span> = reported enrollments exceed system records — verify with member.
     </div>
     {% else %}
     <p class="text-muted small mb-0">No reports submitted today yet.</p>
