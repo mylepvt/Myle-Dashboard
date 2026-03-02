@@ -857,11 +857,13 @@ def reports_admin():
 
 
 # ─────────────────────────────────────────────
-#  Boot
+#  Boot  – runs on every startup (gunicorn + local)
 # ─────────────────────────────────────────────
 
+# Called at import time so gunicorn picks it up too
+init_db()
+migrate_db()
+seed_users()
+
 if __name__ == '__main__':
-    init_db()
-    migrate_db()
-    seed_users()
     app.run(debug=False, host='0.0.0.0', port=5001)
