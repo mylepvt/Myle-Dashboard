@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Edit Lead – Myle Community{% endblock %}
+{% block page_title %}Edit Lead{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-pencil-square me-2"></i>{{ lead.name }}</h5>
+        <span class="badge bg-dark">ID #{{ lead.id }}</span>
+      </div>
+      <div class="card-body p-4">
+        <form method="post">
+          <div class="row g-3">
+
+            <!-- Basic Info -->
+            <div class="col-12"><h6 class="text-muted fw-semibold text-uppercase small">Basic Info</h6><hr class="mt-1 mb-2"/></div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+              <input type="text" name="name" class="form-control" value="{{ lead.name }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Phone <span class="text-danger">*</span></label>
+              <input type="tel" name="phone" class="form-control" value="{{ lead.phone }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Email</label>
+              <input type="email" name="email" class="form-control" value="{{ lead.email or '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Referred By</label>
+              <select name="referred_by" class="form-select">
+                <option value="">— None —</option>
+                {% for m in team %}
+                  <option value="{{ m.name }}" {% if m.name == lead.referred_by %}selected{% endif %}>{{ m.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            {% if session.get('role') == 'admin' %}
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Assigned To</label>
+              <select name="assigned_to" class="form-select">
+                <option value="">— Unassigned —</option>
+                {% for m in team %}
+                  <option value="{{ m.name }}" {% if m.name == lead.assigned_to %}selected{% endif %}>{{ m.name }}</option>
+                {% endfor %}
+              </select>
+              <div class="form-text text-warning"><i class="bi bi-shield-lock-fill me-1"></i>Admin only — reassign this lead.</div>
+            </div>
+            {% else %}
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Assigned To</label>
+              <input type="text" class="form-control bg-light" value="{{ lead.assigned_to or '—' }}" disabled>
+              <div class="form-text">You cannot reassign leads.</div>
+            </div>
+            {% endif %}
+
+            <!-- Status -->
+            <div class="col-12 mt-2"><h6 class="text-muted fw-semibold text-uppercase small">Status & Funnel</h6><hr class="mt-1 mb-2"/></div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Lead Status</label>
+              <select name="status" class="form-select">
+                {% for s in statuses %}
+                  <option value="{{ s }}" {% if s == lead.status %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Funnel Checkboxes -->
+            <div class="col-md-8">
+              <label class="form-label fw-semibold d-block">Funnel Stages</label>
+              <div class="d-flex flex-wrap gap-3 mt-1">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" name="day1_done" id="day1"
+                         {% if lead.day1_done %}checked{% endif %}>
+                  <label class="form-check-label fw-semibold" for="day1">Day 1 Done</label>
+                </div>
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" name="day2_done" id="day2"
+                         {% if lead.day2_done %}checked{% endif %}>
+                  <label class="form-check-label fw-semibold" for="day2">Day 2 Done</label>
+                </div>
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" name="interview_done" id="interview"
+                         {% if lead.interview_done %}checked{% endif %}>
+                  <label class="form-check-label fw-semibold" for="interview">Interview Done</label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Payment -->
+            <div class="col-12 mt-2"><h6 class="text-muted fw-semibold text-uppercase small">Payment (₹{{ payment_amount|int }})</h6><hr class="mt-1 mb-2"/></div>
+            <div class="col-12">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="payment_done" id="payDone"
+                       {% if lead.payment_done %}checked{% endif %}>
+                <label class="form-check-label fw-semibold" for="payDone">
+                  ₹{{ payment_amount|int }} Payment Received
+                </label>
+              </div>
+              {% if lead.payment_done %}
+                <div class="alert alert-success mt-2 py-2 mb-0">
+                  <i class="bi bi-check-circle-fill me-2"></i>Payment of ₹{{ lead.payment_amount|int }} recorded.
+                </div>
+              {% endif %}
+            </div>
+
+            <!-- Notes -->
+            <div class="col-12 mt-2"><h6 class="text-muted fw-semibold text-uppercase small">Notes</h6><hr class="mt-1 mb-2"/></div>
+            <div class="col-12">
+              <textarea name="notes" class="form-control" rows="3">{{ lead.notes or '' }}</textarea>
+            </div>
+
+          </div>
+          <hr class="my-4" />
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-warning text-dark px-4 fw-semibold">
+              <i class="bi bi-save-fill me-1"></i>Save Changes
+            </button>
+            <a href="{{ url_for('leads') }}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+      <div class="card-footer text-muted small">
+        Added: {{ lead.created_at }} &bull; Last updated: {{ lead.updated_at }}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

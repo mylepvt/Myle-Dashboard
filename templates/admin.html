@@ -1,0 +1,396 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard – Myle Community{% endblock %}
+{% block page_title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- ── Pending Approvals Alert ───────────────────────────── -->
+{% if pending_users %}
+<div class="card border-0 shadow-sm mb-4" style="border-left: 4px solid #ffc107 !important;">
+  <div class="card-header bg-warning-subtle d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 text-warning-emphasis">
+      <i class="bi bi-hourglass-split me-2"></i>
+      Pending Registration Requests
+      <span class="badge bg-warning text-dark ms-2">{{ pending_users|length }}</span>
+    </h6>
+    <a href="{{ url_for('admin_approvals', filter='pending') }}" class="btn btn-sm btn-warning">
+      Review All <i class="bi bi-arrow-right ms-1"></i>
+    </a>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Username</th>
+            <th>Email</th>
+            <th>FBO ID</th>
+            <th>Upline</th>
+            <th>Phone</th>
+            <th>Requested</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in pending_users %}
+          <tr>
+            <td class="fw-semibold"><i class="bi bi-person-circle me-1 text-muted"></i>{{ u.username }}</td>
+            <td class="text-muted small">{{ u.email or '—' }}</td>
+            <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2">{{ u.fbo_id or '—' }}</span></td>
+            <td>{{ u.upline_name or '—' }}</td>
+            <td class="text-muted">{{ u.phone or '—' }}</td>
+            <td class="text-muted small">{{ u.created_at[:16] }}</td>
+            <td class="text-end">
+              <div class="d-flex gap-1 justify-content-end">
+                <form method="post" action="{{ url_for('approve_user', user_id=u.id) }}">
+                  <input type="hidden" name="current_filter" value="pending">
+                  <button type="submit" class="btn btn-sm btn-success"
+                          onclick="return confirm('Approve {{ u.username }}?')">
+                    <i class="bi bi-check-lg me-1"></i>Approve
+                  </button>
+                </form>
+                <form method="post" action="{{ url_for('reject_user', user_id=u.id) }}">
+                  <input type="hidden" name="current_filter" value="pending">
+                  <button type="submit" class="btn btn-sm btn-outline-danger"
+                          onclick="return confirm('Reject {{ u.username }}?')">
+                    <i class="bi bi-x-lg me-1"></i>Reject
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── KPI Cards ─────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+
+  <div class="col-6 col-md-3">
+    <div class="card kpi-card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <div class="kpi-icon bg-primary-subtle text-primary me-3">
+            <i class="bi bi-people-fill"></i>
+          </div>
+          <span class="text-muted small">Total Leads</span>
+        </div>
+        <h3 class="fw-bold mb-0">{{ metrics.total }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="card kpi-card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <div class="kpi-icon bg-success-subtle text-success me-3">
+            <i class="bi bi-check-circle-fill"></i>
+          </div>
+          <span class="text-muted small">Converted</span>
+        </div>
+        <h3 class="fw-bold mb-0">{{ metrics.converted }}
+          <small class="fs-6 text-success fw-normal">{{ metrics.conv_rate }}%</small>
+        </h3>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="card kpi-card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <div class="kpi-icon bg-warning-subtle text-warning me-3">
+            <i class="bi bi-currency-rupee"></i>
+          </div>
+          <span class="text-muted small">Total Revenue</span>
+        </div>
+        <h3 class="fw-bold mb-0">₹{{ "%.0f"|format(metrics.revenue) }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="card kpi-card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <div class="kpi-icon bg-info-subtle text-info me-3">
+            <i class="bi bi-credit-card-2-front-fill"></i>
+          </div>
+          <span class="text-muted small">Payments (₹{{ payment_amount|int }})</span>
+        </div>
+        <h3 class="fw-bold mb-0">{{ metrics.paid }}</h3>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Computed Rate Cards ───────────────────────────────── -->
+<div class="row g-3 mb-4">
+
+  <!-- ₹196 Conversion % -->
+  <div class="col-12 col-md-4">
+    <div class="card rate-card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-3">
+          <div class="kpi-icon bg-purple-subtle text-purple me-3">
+            <i class="bi bi-credit-card-fill"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">₹196 Conversion %</div>
+            <div class="text-muted" style="font-size:0.7rem;">paid196 / total_leads × 100</div>
+          </div>
+        </div>
+        <div class="d-flex align-items-end gap-3">
+          <h2 class="fw-bold mb-0 text-purple">{{ metrics.paid196_pct }}%</h2>
+          <span class="text-muted small mb-1">{{ metrics.paid }} of {{ metrics.total }}</span>
+        </div>
+        <div class="progress mt-3" style="height:6px;">
+          <div class="progress-bar bg-purple" style="width:{{ metrics.paid196_pct }}%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Close % -->
+  <div class="col-12 col-md-4">
+    <div class="card rate-card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-3">
+          <div class="kpi-icon bg-success-subtle text-success me-3">
+            <i class="bi bi-trophy-fill"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Close %</div>
+            <div class="text-muted" style="font-size:0.7rem;">closed / total_leads × 100</div>
+          </div>
+        </div>
+        <div class="d-flex align-items-end gap-3">
+          <h2 class="fw-bold mb-0 text-success">{{ metrics.close_pct }}%</h2>
+          <span class="text-muted small mb-1">{{ metrics.converted }} of {{ metrics.total }}</span>
+        </div>
+        <div class="progress mt-3" style="height:6px;">
+          <div class="progress-bar bg-success" style="width:{{ metrics.close_pct }}%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Revenue per Lead -->
+  <div class="col-12 col-md-4">
+    <div class="card rate-card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-3">
+          <div class="kpi-icon bg-warning-subtle text-warning me-3">
+            <i class="bi bi-graph-up-arrow"></i>
+          </div>
+          <div>
+            <div class="text-muted small fw-semibold">Revenue per Lead</div>
+            <div class="text-muted" style="font-size:0.7rem;">total_revenue / total_leads</div>
+          </div>
+        </div>
+        <div class="d-flex align-items-end gap-3">
+          <h2 class="fw-bold mb-0 text-warning">₹{{ "%.2f"|format(metrics.rev_per_lead) }}</h2>
+          <span class="text-muted small mb-1">from ₹{{ "%.0f"|format(metrics.revenue) }} total</span>
+        </div>
+        <div class="progress mt-3" style="height:6px;">
+          {% set rev_pct = [(metrics.rev_per_lead / 196 * 100), 100]|min %}
+          <div class="progress-bar bg-warning" style="width:{{ rev_pct|int }}%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Charts Row ────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h6 class="card-title text-muted mb-3"><i class="bi bi-funnel-fill me-2 text-primary"></i>Funnel Progress</h6>
+        <div class="funnel-step mb-2">
+          <div class="d-flex justify-content-between small mb-1">
+            <span>Day 1 Done</span><strong>{{ metrics.day1 }}</strong>
+          </div>
+          <div class="progress" style="height:8px;">
+            <div class="progress-bar bg-info" style="width:{{ ((metrics.day1/metrics.total)*100)|int if metrics.total else 0 }}%"></div>
+          </div>
+        </div>
+        <div class="funnel-step mb-2">
+          <div class="d-flex justify-content-between small mb-1">
+            <span>Day 2 Done</span><strong>{{ metrics.day2 }}</strong>
+          </div>
+          <div class="progress" style="height:8px;">
+            <div class="progress-bar bg-warning" style="width:{{ ((metrics.day2/metrics.total)*100)|int if metrics.total else 0 }}%"></div>
+          </div>
+        </div>
+        <div class="funnel-step mb-2">
+          <div class="d-flex justify-content-between small mb-1">
+            <span>Interview Done</span><strong>{{ metrics.interviews }}</strong>
+          </div>
+          <div class="progress" style="height:8px;">
+            <div class="progress-bar bg-danger" style="width:{{ ((metrics.interviews/metrics.total)*100)|int if metrics.total else 0 }}%"></div>
+          </div>
+        </div>
+        <div class="funnel-step">
+          <div class="d-flex justify-content-between small mb-1">
+            <span>Converted</span><strong>{{ metrics.converted }}</strong>
+          </div>
+          <div class="progress" style="height:8px;">
+            <div class="progress-bar bg-success" style="width:{{ ((metrics.converted/metrics.total)*100)|int if metrics.total else 0 }}%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h6 class="card-title text-muted mb-3"><i class="bi bi-pie-chart-fill me-2 text-warning"></i>Status Breakdown</h6>
+        <canvas id="statusChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h6 class="card-title text-muted mb-3"><i class="bi bi-bar-chart-fill me-2 text-success"></i>Monthly Revenue</h6>
+        <canvas id="revenueChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Team Performance Summary ──────────────────────────── -->
+{% if team_stats %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h6 class="mb-0"><i class="bi bi-trophy-fill me-2 text-warning"></i>Team Performance</h6>
+    <a href="{{ url_for('team') }}" class="btn btn-sm btn-outline-primary">Full View</a>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Member</th>
+            <th>Leads</th>
+            <th>Converted</th>
+            <th>Paid</th>
+            <th>Revenue</th>
+            <th>Conv %</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in team_stats|sort(attribute='stats.revenue', reverse=True) %}
+          {% set s = row.stats %}
+          <tr>
+            <td class="fw-semibold">{{ row.member.name }}</td>
+            <td>{{ s.total or 0 }}</td>
+            <td><span class="badge bg-success">{{ s.converted or 0 }}</span></td>
+            <td>{{ s.paid or 0 }}</td>
+            <td class="fw-semibold text-success">₹{{ (s.revenue or 0)|int }}</td>
+            <td>
+              {% if s.total %}
+                {{ ((s.converted or 0) / s.total * 100) | round(1) }}%
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Recent Leads ──────────────────────────────────────── -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h6 class="mb-0"><i class="bi bi-clock-history me-2 text-secondary"></i>Recent Leads</h6>
+    <a href="{{ url_for('leads') }}" class="btn btn-sm btn-outline-primary">View All</a>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Name</th><th>Phone</th><th>Assigned To</th>
+            <th>Status</th><th>Payment</th><th>Added</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lead in recent %}
+          <tr>
+            <td class="fw-semibold">{{ lead.name }}</td>
+            <td>{{ lead.phone }}</td>
+            <td>{{ lead.assigned_to or '—' }}</td>
+            <td><span class="badge status-{{ lead.status|replace(' ','') }}">{{ lead.status }}</span></td>
+            <td>
+              {% if lead.payment_done %}
+                <span class="badge bg-success"><i class="bi bi-check-lg me-1"></i>₹{{ lead.payment_amount|int }}</span>
+              {% else %}
+                <span class="badge bg-secondary">Pending</span>
+              {% endif %}
+            </td>
+            <td class="text-muted small">{{ lead.created_at[:10] }}</td>
+            <td>
+              <a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-xs btn-outline-secondary">
+                <i class="bi bi-pencil-fill"></i>
+              </a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="text-center text-muted py-4">No leads yet. <a href="{{ url_for('add_lead') }}">Add your first lead.</a></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Status Doughnut ──
+const statusCtx = document.getElementById('statusChart');
+const statusData = {
+  labels: [{% for s, c in status_data.items() %}'{{ s }}',{% endfor %}],
+  datasets: [{
+    data: [{% for s, c in status_data.items() %}{{ c }},{% endfor %}],
+    backgroundColor: ['#6c757d','#0dcaf0','#ffc107','#fd7e14','#6610f2','#198754','#dc3545'],
+    borderWidth: 2,
+    borderColor: '#fff'
+  }]
+};
+new Chart(statusCtx, { type: 'doughnut', data: statusData,
+  options: { plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } }, cutout: '65%' }
+});
+
+// ── Revenue Bar ──
+const revCtx = document.getElementById('revenueChart');
+const months  = [{% for r in monthly|reverse %}'{{ r.month }}',{% endfor %}];
+const amounts = [{% for r in monthly|reverse %}{{ r.total or 0 }},{% endfor %}];
+new Chart(revCtx, {
+  type: 'bar',
+  data: {
+    labels: months,
+    datasets: [{ label: '₹ Revenue', data: amounts,
+      backgroundColor: 'rgba(25,135,84,0.7)', borderRadius: 6 }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true, ticks: { callback: v => '₹'+v } } }
+  }
+});
+</script>
+{% endblock %}

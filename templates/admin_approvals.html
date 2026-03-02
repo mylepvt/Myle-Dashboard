@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Approvals – Myle Community{% endblock %}
+{% block page_title %}Team Approvals{% endblock %}
+
+{% block content %}
+
+<!-- ── Filter Tabs ─────────────────────────────────────── -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body py-2 px-3">
+    <ul class="nav nav-pills gap-1">
+      <li class="nav-item">
+        <a href="{{ url_for('admin_approvals') }}"
+           class="nav-link {% if filter_by == 'all' %}active{% endif %} py-1 px-3">
+          All
+          <span class="badge bg-secondary ms-1">{{ users|length if filter_by == 'all' else '' }}</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('admin_approvals', filter='pending') }}"
+           class="nav-link {% if filter_by == 'pending' %}active{% else %}text-warning{% endif %} py-1 px-3">
+          <i class="bi bi-hourglass-split me-1"></i>Pending
+          {% if pending_count > 0 %}
+            <span class="badge bg-warning text-dark ms-1">{{ pending_count }}</span>
+          {% endif %}
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('admin_approvals', filter='approved') }}"
+           class="nav-link {% if filter_by == 'approved' %}active{% else %}text-success{% endif %} py-1 px-3">
+          <i class="bi bi-check-circle me-1"></i>Approved
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('admin_approvals', filter='rejected') }}"
+           class="nav-link {% if filter_by == 'rejected' %}active{% else %}text-danger{% endif %} py-1 px-3">
+          <i class="bi bi-x-circle me-1"></i>Rejected
+        </a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<!-- ── Users Table ────────────────────────────────────── -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h6 class="mb-0">
+      <i class="bi bi-people-fill me-2 text-primary"></i>
+      Registration Requests
+    </h6>
+    <span class="badge bg-light text-dark border">{{ users|length }} record{{ 's' if users|length != 1 }}</span>
+  </div>
+  <div class="card-body p-0">
+    {% if users %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Username</th>
+            <th>Email</th>
+            <th>FBO ID</th>
+            <th>Upline</th>
+            <th>Phone</th>
+            <th>Requested</th>
+            <th>Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td class="fw-semibold">
+              <i class="bi bi-person-circle me-1 text-muted"></i>{{ u.username }}
+            </td>
+            <td class="text-muted small">{{ u.email or '—' }}</td>
+            <td>
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2">
+                {{ u.fbo_id or '—' }}
+              </span>
+            </td>
+            <td>{{ u.upline_name or '—' }}</td>
+            <td class="text-muted">{{ u.phone or '—' }}</td>
+            <td class="text-muted small">{{ u.created_at[:16] }}</td>
+            <td>
+              {% if u.status == 'pending' %}
+                <span class="badge bg-warning text-dark">
+                  <i class="bi bi-hourglass-split me-1"></i>Pending
+                </span>
+              {% elif u.status == 'approved' %}
+                <span class="badge bg-success">
+                  <i class="bi bi-check-circle-fill me-1"></i>Approved
+                </span>
+              {% elif u.status == 'rejected' %}
+                <span class="badge bg-danger">
+                  <i class="bi bi-x-circle-fill me-1"></i>Rejected
+                </span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <div class="d-flex gap-1 justify-content-end">
+                {% if u.status != 'approved' %}
+                <form method="post" action="{{ url_for('approve_user', user_id=u.id) }}">
+                  <input type="hidden" name="current_filter" value="{{ filter_by }}">
+                  <button type="submit" class="btn btn-sm btn-success"
+                          title="Approve {{ u.username }}"
+                          onclick="return confirm('Approve {{ u.username }}? They will be able to log in immediately.')">
+                    <i class="bi bi-check-lg me-1"></i>Approve
+                  </button>
+                </form>
+                {% endif %}
+                {% if u.status != 'rejected' %}
+                <form method="post" action="{{ url_for('reject_user', user_id=u.id) }}">
+                  <input type="hidden" name="current_filter" value="{{ filter_by }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger"
+                          title="Reject {{ u.username }}"
+                          onclick="return confirm('Reject {{ u.username }}\'s registration?')">
+                    <i class="bi bi-x-lg me-1"></i>Reject
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-inbox fs-1 d-block mb-2 opacity-25"></i>
+      No
+      {% if filter_by != 'all' %}{{ filter_by }}{% endif %}
+      registration requests found.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

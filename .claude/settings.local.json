@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m venv venv)",
+      "Bash(venv/bin/pip install -r requirements.txt -q)",
+      "Bash(python3 -c \"import flask; print\\(''Flask:'', flask.__version__\\)\")",
+      "Bash(pip3 install flask werkzeug)",
+      "Bash(python3 -c \":*)",
+      "Bash(python3 -:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} GET /\\\\n\" http://localhost:5000/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} GET /leads\\\\n\" http://localhost:5000/leads)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} GET /leads/add\\\\n\" http://localhost:5000/leads/add)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} GET /team\\\\n\" http://localhost:5000/team)",
+      "Bash(curl -s http://localhost:5000/)",
+      "Bash(curl -v http://localhost:5000/team)",
+      "Bash(lsof -i :5000)"
+    ]
+  }
+}

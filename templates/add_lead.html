@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% block title %}Add Lead – Myle Community{% endblock %}
+{% block page_title %}Add New Lead{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm">
+
+      <!-- Header -->
+      <div class="card-header bg-primary text-white d-flex align-items-center gap-2 py-3">
+        <i class="bi bi-person-plus-fill fs-5"></i>
+        <h5 class="mb-0">New Lead</h5>
+      </div>
+
+      <div class="card-body p-4">
+        <form method="post" novalidate>
+
+          <!-- ── Section 1: Contact Info ─────────────────────── -->
+          <div class="section-label">
+            <i class="bi bi-person-lines-fill text-primary me-2"></i>Contact Information
+          </div>
+
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">
+                Full Name <span class="text-danger">*</span>
+              </label>
+              <div class="input-group">
+                <span class="input-group-text bg-light border-end-0">
+                  <i class="bi bi-person text-muted"></i>
+                </span>
+                <input type="text" name="name" class="form-control border-start-0"
+                       placeholder="e.g. Rahul Sharma" required autofocus>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">
+                Phone <span class="text-danger">*</span>
+              </label>
+              <div class="input-group">
+                <span class="input-group-text bg-light border-end-0">
+                  <i class="bi bi-telephone text-muted"></i>
+                </span>
+                <input type="tel" name="phone" class="form-control border-start-0"
+                       placeholder="9876543210" required>
+              </div>
+            </div>
+
+            <div class="col-md-12">
+              <label class="form-label fw-semibold">Email</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light border-end-0">
+                  <i class="bi bi-envelope text-muted"></i>
+                </span>
+                <input type="email" name="email" class="form-control border-start-0"
+                       placeholder="rahul@example.com">
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Section 2: Source & Assignment ────────────────── -->
+          <div class="section-label">
+            <i class="bi bi-diagram-3 text-info me-2"></i>Source &amp; Assignment
+          </div>
+
+          <div class="row g-3 mb-4">
+            <!-- Source -->
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Lead Source</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light border-end-0">
+                  <i class="bi bi-broadcast text-muted"></i>
+                </span>
+                <select name="source" class="form-select border-start-0">
+                  <option value="">— Select Source —</option>
+                  {% for s in sources %}
+                    <option value="{{ s }}">{{ s }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+
+            <!-- Referred By -->
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Referred By</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light border-end-0">
+                  <i class="bi bi-share text-muted"></i>
+                </span>
+                <select name="referred_by" class="form-select border-start-0">
+                  <option value="">— None —</option>
+                  {% for m in team %}
+                    <option value="{{ m.name }}">{{ m.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+
+            <!-- Assigned To -->
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Assigned To</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light border-end-0">
+                  <i class="bi bi-person-check text-muted"></i>
+                </span>
+                <select name="assigned_to" class="form-select border-start-0">
+                  <option value="">— Unassigned —</option>
+                  {% for m in team %}
+                    <option value="{{ m.name }}">{{ m.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="form-text">Team member responsible for this lead.</div>
+            </div>
+          </div>
+
+          <!-- ── Section 3: Status & Follow-up ─────────────────── -->
+          <div class="section-label">
+            <i class="bi bi-funnel text-warning me-2"></i>Status &amp; Follow-up
+          </div>
+
+          <div class="row g-3 mb-4">
+            <!-- Status -->
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Lead Status</label>
+              <select name="status" class="form-select" id="statusSelect">
+                {% for s in statuses %}
+                  <option value="{{ s }}" {% if s == 'New' %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+              <div class="form-text">Current position in your funnel.</div>
+            </div>
+
+            <!-- Follow-up Date -->
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">
+                <i class="bi bi-calendar-event me-1 text-muted"></i>Follow-up Date
+              </label>
+              <input type="date" name="follow_up_date" class="form-control"
+                     min="{{ '' }}">
+              <div class="form-text">Schedule your next touchpoint.</div>
+            </div>
+          </div>
+
+          <!-- ── Section 4: Payment & Revenue ──────────────────── -->
+          <div class="section-label">
+            <i class="bi bi-currency-rupee text-success me-2"></i>Payment &amp; Revenue
+          </div>
+
+          <div class="row g-3 mb-4">
+            <!-- ₹196 Payment Checkbox -->
+            <div class="col-md-6">
+              <label class="form-label fw-semibold d-block">₹196 Registration Payment</label>
+              <div class="payment-toggle p-3 rounded border" id="paymentBox">
+                <div class="form-check form-switch mb-0">
+                  <input class="form-check-input" type="checkbox" name="payment_done"
+                         id="paymentDone" onchange="togglePaymentStyle()">
+                  <label class="form-check-label fw-semibold" for="paymentDone">
+                    Mark ₹196 as Received
+                  </label>
+                </div>
+                <div class="mt-2" id="paymentConfirm" style="display:none;">
+                  <span class="badge bg-success fs-6 px-3 py-2">
+                    <i class="bi bi-check-circle-fill me-1"></i>₹196 Payment Confirmed
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Revenue -->
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">
+                Additional Revenue (₹)
+              </label>
+              <div class="input-group">
+                <span class="input-group-text bg-success-subtle text-success fw-bold">₹</span>
+                <input type="number" name="revenue" class="form-control"
+                       placeholder="0.00" min="0" step="0.01">
+              </div>
+              <div class="form-text">Any revenue beyond the ₹196 payment.</div>
+            </div>
+          </div>
+
+          <!-- ── Section 5: Notes ───────────────────────────────── -->
+          <div class="section-label">
+            <i class="bi bi-journal-text text-secondary me-2"></i>Notes
+          </div>
+
+          <div class="mb-4">
+            <textarea name="notes" class="form-control" rows="3"
+                      placeholder="Add any remarks, conversation summary, or follow-up action…"></textarea>
+          </div>
+
+          <!-- ── Actions ────────────────────────────────────────── -->
+          <hr class="my-3" />
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="submit" class="btn btn-primary px-4 fw-semibold">
+              <i class="bi bi-plus-lg me-1"></i>Add Lead
+            </button>
+            <button type="reset" class="btn btn-outline-secondary">
+              <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+            </button>
+            <a href="{{ url_for('leads') }}" class="btn btn-ghost text-muted ms-auto">
+              Cancel
+            </a>
+          </div>
+
+        </form>
+      </div><!-- /card-body -->
+    </div><!-- /card -->
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ── ₹196 payment toggle visual feedback ──────────────
+  function togglePaymentStyle() {
+    const cb      = document.getElementById('paymentDone');
+    const box     = document.getElementById('paymentBox');
+    const confirm = document.getElementById('paymentConfirm');
+    if (cb.checked) {
+      box.classList.add('border-success', 'bg-success-subtle');
+      confirm.style.display = 'block';
+    } else {
+      box.classList.remove('border-success', 'bg-success-subtle');
+      confirm.style.display = 'none';
+    }
+  }
+
+  // ── Status badge colour on select ────────────────────
+  const statusMap = {
+    'New':       '#6c757d',
+    'Contacted': '#0dcaf0',
+    'Day 1':     '#ffc107',
+    'Day 2':     '#fd7e14',
+    'Interview': '#6610f2',
+    'Converted': '#198754',
+    'Lost':      '#dc3545',
+  };
+  const sel = document.getElementById('statusSelect');
+  function applyStatusColor() {
+    sel.style.borderColor = statusMap[sel.value] || '#dee2e6';
+    sel.style.boxShadow   = `0 0 0 0.15rem ${statusMap[sel.value] || '#dee2e6'}40`;
+  }
+  sel.addEventListener('change', applyStatusColor);
+  applyStatusColor();
+
+  // ── Set min date for follow-up to today ──────────────
+  document.querySelector('input[name="follow_up_date"]').min =
+    new Date().toISOString().split('T')[0];
+</script>
+{% endblock %}
