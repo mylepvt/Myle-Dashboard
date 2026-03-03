@@ -2,6 +2,12 @@
 body {
   background: #f4f6fb;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  animation: pageFadeIn 0.25s ease;
+}
+
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 #wrapper {
@@ -24,59 +30,64 @@ body {
 
 #sidebar.collapsed span,
 #sidebar.collapsed .fs-5,
-#sidebar.collapsed small {
+#sidebar.collapsed small,
+#sidebar.collapsed .badge {
   display: none;
 }
 
 #sidebar.collapsed .nav-link {
   text-align: center;
   padding: 0.6rem 0;
+  justify-content: center;
 }
 
 #sidebar .nav-link {
   border-radius: 8px;
-  transition: background 0.15s;
+  transition: background 0.18s ease, transform 0.1s ease;
 }
 
 #sidebar .nav-link:hover {
-  background: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.14);
+  transform: translateX(2px);
 }
 
 #sidebar .nav-link.active {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.22);
   font-weight: 600;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.1);
 }
 
 /* ── KPI Cards ──────────────────────────────────────────── */
 .kpi-card {
   border-radius: 12px;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .kpi-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.08) !important;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
 }
 
 .kpi-icon {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.2rem;
+  flex-shrink: 0;
 }
 
 /* ── Rate / Computed Metric Cards ──────────────────────── */
 .rate-card {
   border-radius: 12px;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .rate-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.08) !important;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
 }
 
 /* Purple utility tokens (Bootstrap 5.3 doesn't ship these) */
@@ -109,13 +120,51 @@ body {
   border-radius: 6px;
 }
 
+/* ── Buttons – smooth transitions ───────────────────────── */
+.btn {
+  transition: all 0.18s ease;
+}
+.btn:active {
+  transform: scale(0.97);
+}
+
+/* ── Button loading state ───────────────────────────────── */
+.btn-loading {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.8;
+}
+.btn-loading::after {
+  content: '';
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: btnSpin 0.6s linear infinite;
+  margin-left: 6px;
+  vertical-align: text-bottom;
+}
+@keyframes btnSpin {
+  to { transform: rotate(360deg); }
+}
+
 /* ── Cards ──────────────────────────────────────────────── */
 .card {
   border-radius: 12px;
+  transition: box-shadow 0.18s ease;
 }
 
 .card-header {
   border-radius: 12px 12px 0 0 !important;
+}
+
+/* ── Form inputs – better focus ─────────────────────────── */
+.form-control:focus,
+.form-select:focus {
+  box-shadow: 0 0 0 0.2rem rgba(99,102,241,0.2);
+  border-color: #6366f1;
 }
 
 /* ── Form Section Labels ────────────────────────────────── */
@@ -143,7 +192,7 @@ body {
   color: #6c757d;
   cursor: pointer;
   user-select: none;
-  list-style: none;        /* hide default triangle */
+  list-style: none;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -191,6 +240,11 @@ body {
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.table-hover tbody tr {
+  transition: background 0.12s ease;
 }
 
 /* ── Navbar ─────────────────────────────────────────────── */
@@ -198,11 +252,16 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
+  backdrop-filter: blur(8px);
+  background: rgba(255,255,255,0.95) !important;
 }
 
 /* ── Progress ───────────────────────────────────────────── */
 .progress {
   border-radius: 99px;
+}
+.progress-bar {
+  transition: width 0.6s ease;
 }
 
 /* ── Scrollbar ──────────────────────────────────────────── */
@@ -210,6 +269,43 @@ body {
 ::-webkit-scrollbar-track { background: #f1f1f1; }
 ::-webkit-scrollbar-thumb { background: #bbb; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #888; }
+
+/* ── Alert auto-dismiss animation ──────────────────────── */
+.alert-autodismiss {
+  animation: alertFadeOut 0.4s ease forwards;
+  animation-delay: 4s;
+  animation-play-state: paused;
+}
+.alert-autodismiss.start-dismiss {
+  animation-play-state: running;
+}
+@keyframes alertFadeOut {
+  from { opacity: 1; max-height: 200px; margin-bottom: 1rem; }
+  to   { opacity: 0; max-height: 0;   margin-bottom: 0;    padding: 0; overflow: hidden; }
+}
+
+/* ── Empty state ────────────────────────────────────────── */
+.empty-state {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: #adb5bd;
+}
+.empty-state i {
+  font-size: 3.5rem;
+  display: block;
+  margin-bottom: 1rem;
+  opacity: 0.4;
+}
+.empty-state p {
+  font-size: 0.95rem;
+  margin-bottom: 1.25rem;
+}
+
+/* ── Team member card header ────────────────────────────── */
+.team-member-header {
+  background: linear-gradient(135deg, #f8f9ff 0%, #eef0ff 100%);
+  border-bottom: 1px solid #e0e4f0;
+}
 
 /* ── Responsive / Mobile-first ───────────────────────────── */
 @media (max-width: 768px) {
@@ -220,23 +316,24 @@ body {
     top: 0;
     left: 0;
     height: 100vh;
-    width: 260px !important;          /* always full-width on mobile  */
+    width: 260px !important;
     z-index: 1055;
-    transform: translateX(-100%);     /* hidden off-screen by default */
+    transform: translateX(-100%);
     transition: transform 0.28s ease;
     overflow-y: auto;
   }
 
   #sidebar.mobile-open {
-    transform: translateX(0);         /* slides in when toggled       */
+    transform: translateX(0);
   }
 
   /* Reset collapsed icon-only state – show full labels in overlay */
   #sidebar.collapsed { width: 260px !important; overflow: visible; }
   #sidebar.collapsed span,
   #sidebar.collapsed .fs-5,
-  #sidebar.collapsed small { display: inline !important; }
-  #sidebar.collapsed .nav-link { text-align: left !important; padding: 0.5rem 1rem !important; }
+  #sidebar.collapsed small,
+  #sidebar.collapsed .badge { display: inline !important; }
+  #sidebar.collapsed .nav-link { text-align: left !important; padding: 0.5rem 1rem !important; justify-content: flex-start !important; }
 
   /* ── Dark backdrop behind sidebar ── */
   #sidebarBackdrop {
@@ -245,7 +342,7 @@ body {
     inset: 0;
     background: rgba(0, 0, 0, 0.55);
     z-index: 1040;
-    backdrop-filter: blur(1px);
+    backdrop-filter: blur(2px);
   }
   #sidebarBackdrop.show { display: block; }
 

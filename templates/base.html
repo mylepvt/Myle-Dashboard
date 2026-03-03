@@ -145,18 +145,21 @@
 
   <!-- ── Page content ─────────────────────────────────────── -->
   <div id="page-content-wrapper" class="w-100">
-    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom px-4 py-2">
-      <button class="btn btn-sm btn-outline-secondary me-3" id="sidebarToggle">
+    <nav class="navbar navbar-expand-lg navbar-light border-bottom px-4 py-2">
+      <button class="btn btn-sm btn-outline-secondary me-3" id="sidebarToggle" aria-label="Toggle sidebar">
         <i class="bi bi-list fs-5"></i>
       </button>
       <span class="fw-semibold text-secondary">{% block page_title %}{% endblock %}</span>
       <div class="ms-auto d-flex align-items-center gap-2">
+        {% if session.get('role') == 'admin' %}
         <a href="{{ url_for('add_lead') }}" class="btn btn-primary btn-sm">
           <i class="bi bi-plus-lg me-1"></i>Add Lead
         </a>
-        <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex align-items-center gap-1">
-          <i class="bi bi-box-arrow-right"></i>
+        {% else %}
+        <a href="{{ url_for('lead_pool') }}" class="btn btn-warning btn-sm text-dark fw-semibold">
+          <i class="bi bi-lightning-charge-fill me-1"></i>Lead Pool
         </a>
+        {% endif %}
       </div>
     </nav>
 
@@ -164,7 +167,11 @@
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
           {% for cat, msg in messages %}
-            <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
+            <div class="alert alert-{{ cat }} alert-dismissible fade show shadow-sm mb-3 js-autodismiss" role="alert">
+              {% if cat == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>
+              {% elif cat == 'danger' %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+              {% elif cat == 'warning' %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+              {% else %}<i class="bi bi-info-circle-fill me-2"></i>{% endif %}
               {{ msg }}
               <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
@@ -202,18 +209,43 @@
     }
   });
 
-  /* Tap backdrop → close sidebar */
   backdrop.addEventListener('click', closeMobileSidebar);
 
-  /* Tap a nav link on mobile → auto-close sidebar */
   document.querySelectorAll('#sidebar .nav-link').forEach(link => {
     link.addEventListener('click', () => { if (isMobile()) closeMobileSidebar(); });
   });
 
-  /* On window resize reset state if switching breakpoints */
   window.addEventListener('resize', () => {
     if (!isMobile()) { backdrop.classList.remove('show'); document.body.style.overflow = ''; }
   });
+
+  /* ── Auto-dismiss flash alerts after 5s ─────────────── */
+  document.querySelectorAll('.js-autodismiss').forEach(el => {
+    setTimeout(() => {
+      const bsAlert = bootstrap.Alert.getOrCreateInstance(el);
+      if (bsAlert) bsAlert.close();
+    }, 5000);
+  });
+
+  /* ── Button loading state on form submit ────────────── */
+  document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', function() {
+      const btn = this.querySelector('button[type="submit"]');
+      if (btn && !btn.dataset.noloading) {
+        btn.classList.add('btn-loading');
+        btn.disabled = true;
+        /* Re-enable after 8s as safety fallback */
+        setTimeout(() => {
+          btn.classList.remove('btn-loading');
+          btn.disabled = false;
+        }, 8000);
+      }
+    });
+  });
+
+  /* ── Tooltip init for collapsed sidebar icons ────────── */
+  const tooltipEls = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+  tooltipEls.forEach(el => new bootstrap.Tooltip(el, { placement: 'right' }));
 </script>
 {% block scripts %}{% endblock %}
 </body>

@@ -116,7 +116,7 @@
   <div class="card-body p-0">
     <div class="table-responsive">
       <table class="table table-hover align-middle mb-0">
-        <thead class="table-dark">
+        <thead class="table-light">
           <tr>
             <th>#</th>
             <th>Name</th>
@@ -174,7 +174,7 @@
               </a>
               <form method="post" action="{{ url_for('delete_lead', lead_id=lead.id) }}" class="d-inline"
                     onsubmit="return confirm('Delete {{ lead.name }}?')">
-                <button type="submit" class="btn btn-xs btn-outline-danger">
+                <button type="submit" class="btn btn-xs btn-outline-danger" data-noloading>
                   <i class="bi bi-trash-fill"></i>
                 </button>
               </form>
@@ -182,9 +182,14 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="11" class="text-center text-muted py-5">
-              No leads found.
-              <a href="{{ url_for('add_lead') }}">Add your first lead.</a>
+            <td colspan="11">
+              <div class="empty-state">
+                <i class="bi bi-people"></i>
+                <p>No leads found.</p>
+                <a href="{{ url_for('add_lead') }}" class="btn btn-primary btn-sm">
+                  <i class="bi bi-plus-lg me-1"></i>Add First Lead
+                </a>
+              </div>
             </td>
           </tr>
           {% endfor %}
