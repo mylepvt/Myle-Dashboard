@@ -25,7 +25,7 @@ except ImportError:
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'myle_community_secret_2024_local')
-app.permanent_session_lifetime = datetime.timedelta(days=30)
+app.permanent_session_lifetime = datetime.timedelta(days=3650)  # ~10 years = effectively forever
 
 STATUSES = ['New', 'Contacted', 'Day 1', 'Day 2', 'Interview', 'Converted', 'Lost']
 SOURCES  = ['WhatsApp', 'Facebook', 'Instagram', 'LinkedIn',
