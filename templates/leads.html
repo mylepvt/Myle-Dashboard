@@ -55,11 +55,21 @@
         <span class="badge status-{{ lead.status|replace(' ','') }} ms-2">{{ lead.status }}</span>
       </div>
 
-      <!-- Row 2: Phone (tappable) + date -->
+      <!-- Row 2: Phone + Call + WhatsApp + date -->
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <a href="tel:{{ lead.phone }}" class="text-decoration-none fw-semibold text-primary">
-          <i class="bi bi-telephone-fill me-1"></i>{{ lead.phone }}
-        </a>
+        <div class="d-flex align-items-center gap-2">
+          <span class="fw-semibold" style="font-size:0.9rem;">{{ lead.phone }}</span>
+          <a href="tel:{{ lead.phone }}"
+             class="btn btn-success btn-xs px-2 py-1"
+             title="Call" style="font-size:0.78rem; line-height:1.2;">
+            <i class="bi bi-telephone-fill"></i>
+          </a>
+          <a href="https://wa.me/{{ lead.phone|wa_phone }}"
+             class="btn btn-xs px-2 py-1" target="_blank" rel="noopener"
+             title="WhatsApp" style="background:#25D366;color:#fff;font-size:0.78rem;line-height:1.2;border-radius:4px;">
+            <i class="bi bi-whatsapp"></i>
+          </a>
+        </div>
         <span class="text-muted" style="font-size:0.75rem;">{{ lead.created_at[:10] }}</span>
       </div>
 
@@ -82,8 +92,9 @@
       <!-- Row 4: Status dropdown + action buttons -->
       <div class="d-flex gap-2 align-items-center">
         <form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="flex-grow-1">
-          <select name="status" class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}"
-                  onchange="this.form.submit()">
+          <select name="status"
+                  class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}"
+                  data-lead-id="{{ lead.id }}">
             {% for s in statuses %}
               <option value="{{ s }}" {% if s == lead.status %}selected{% endif %}>{{ s }}</option>
             {% endfor %}
@@ -139,12 +150,28 @@
               <div class="fw-semibold">{{ lead.name }}</div>
               {% if lead.email %}<div class="text-muted small">{{ lead.email }}</div>{% endif %}
             </td>
-            <td>{{ lead.phone }}</td>
+            <td>
+              <div class="d-flex align-items-center gap-1">
+                <span class="small">{{ lead.phone }}</span>
+                <a href="tel:{{ lead.phone }}"
+                   class="btn btn-xs btn-success px-1 py-0"
+                   title="Call {{ lead.phone }}" style="font-size:0.72rem;line-height:1.5;">
+                  <i class="bi bi-telephone-fill"></i>
+                </a>
+                <a href="https://wa.me/{{ lead.phone|wa_phone }}"
+                   class="btn btn-xs px-1 py-0" target="_blank" rel="noopener"
+                   title="WhatsApp {{ lead.phone }}"
+                   style="background:#25D366;color:#fff;font-size:0.72rem;line-height:1.5;border-radius:4px;">
+                  <i class="bi bi-whatsapp"></i>
+                </a>
+              </div>
+            </td>
             <td>{{ lead.referred_by or '—' }}</td>
             <td>
               <form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="d-inline">
-                <select name="status" class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}"
-                        onchange="this.form.submit()" style="min-width:110px;">
+                <select name="status"
+                        class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}"
+                        data-lead-id="{{ lead.id }}" style="min-width:110px;">
                   {% for s in statuses %}
                     <option value="{{ s }}" {% if s == lead.status %}selected{% endif %}>{{ s }}</option>
                   {% endfor %}

@@ -9,6 +9,8 @@ def get_db():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
+    conn.execute("PRAGMA cache_size=-4000")   # 4 MB page cache
     return conn
 
 
@@ -79,16 +81,17 @@ def init_db():
     # Users table (authentication)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            username     TEXT    NOT NULL UNIQUE,
-            password     TEXT    NOT NULL,
-            role         TEXT    NOT NULL DEFAULT 'team',
-            fbo_id       TEXT    NOT NULL DEFAULT '',
-            upline_name  TEXT    NOT NULL DEFAULT '',
-            phone        TEXT    NOT NULL DEFAULT '',
-            email        TEXT    NOT NULL DEFAULT '',
-            status       TEXT    NOT NULL DEFAULT 'pending',
-            created_at   TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            username         TEXT    NOT NULL UNIQUE,
+            password         TEXT    NOT NULL,
+            role             TEXT    NOT NULL DEFAULT 'team',
+            fbo_id           TEXT    NOT NULL DEFAULT '',
+            upline_name      TEXT    NOT NULL DEFAULT '',
+            phone            TEXT    NOT NULL DEFAULT '',
+            email            TEXT    NOT NULL DEFAULT '',
+            status           TEXT    NOT NULL DEFAULT 'pending',
+            display_picture  TEXT    NOT NULL DEFAULT '',
+            created_at       TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
         )
     """)
 
@@ -157,11 +160,12 @@ def migrate_db():
         pass
 
     for col, definition in [
-        ("fbo_id",      "TEXT NOT NULL DEFAULT ''"),
-        ("upline_name", "TEXT NOT NULL DEFAULT ''"),
-        ("phone",       "TEXT NOT NULL DEFAULT ''"),
-        ("email",       "TEXT NOT NULL DEFAULT ''"),
-        ("status",      "TEXT NOT NULL DEFAULT 'pending'"),
+        ("fbo_id",           "TEXT NOT NULL DEFAULT ''"),
+        ("upline_name",      "TEXT NOT NULL DEFAULT ''"),
+        ("phone",            "TEXT NOT NULL DEFAULT ''"),
+        ("email",            "TEXT NOT NULL DEFAULT ''"),
+        ("status",           "TEXT NOT NULL DEFAULT 'pending'"),
+        ("display_picture",  "TEXT NOT NULL DEFAULT ''"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
@@ -221,6 +225,22 @@ def migrate_db():
         """)
     except Exception:
         pass
+
+    # --- Performance indexes ---
+    indexes = [
+        "CREATE INDEX IF NOT EXISTS idx_leads_pool_assigned  ON leads(in_pool, assigned_to)",
+        "CREATE INDEX IF NOT EXISTS idx_leads_pool_status    ON leads(in_pool, status)",
+        "CREATE INDEX IF NOT EXISTS idx_leads_payment        ON leads(payment_done, in_pool)",
+        "CREATE INDEX IF NOT EXISTS idx_leads_updated        ON leads(updated_at)",
+        "CREATE INDEX IF NOT EXISTS idx_leads_phone          ON leads(phone)",
+        "CREATE INDEX IF NOT EXISTS idx_wallet_user_status   ON wallet_recharges(username, status)",
+        "CREATE INDEX IF NOT EXISTS idx_reports_user_date    ON daily_reports(username, report_date)",
+    ]
+    for idx in indexes:
+        try:
+            cursor.execute(idx)
+        except Exception:
+            pass
 
     conn.commit()
     conn.close()

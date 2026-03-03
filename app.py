@@ -14,6 +14,7 @@ from functools import wraps
 from flask import (Flask, render_template, request, redirect, url_for,
                    flash, session, Response)
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from database import get_db, init_db, migrate_db, seed_users
 
 # Optional QR code support
@@ -235,6 +236,22 @@ def _send_welcome_email(user_email, username, login_url):
 
 
 # ─────────────────────────────────────────────
+#  Template Filters
+# ─────────────────────────────────────────────
+
+@app.template_filter('wa_phone')
+def wa_phone_filter(phone):
+    """Clean phone number for WhatsApp wa.me link."""
+    import re
+    digits = re.sub(r'[^\d]', '', str(phone))
+    if len(digits) == 10 and digits[0] in '6789':
+        digits = '91' + digits          # Indian mobile – prepend country code
+    elif digits.startswith('0') and len(digits) == 11:
+        digits = '91' + digits[1:]      # 0XXXXXXXXXX → 91XXXXXXXXXX
+    return digits
+
+
+# ─────────────────────────────────────────────
 #  Context processor – inject counts for nav badges
 # ─────────────────────────────────────────────
 
@@ -348,6 +365,7 @@ def login():
 
             session['username'] = user['username']
             session['role']     = user['role']
+            session['dp']       = user['display_picture'] if user['display_picture'] else ''
             flash(f'Welcome back, {user["username"]}!', 'success')
             if user['role'] == 'admin':
                 return redirect(url_for('admin_dashboard'))
@@ -442,12 +460,14 @@ def admin_dashboard():
         "SELECT * FROM leads WHERE in_pool=0 ORDER BY created_at DESC LIMIT 5"
     ).fetchall()
 
-    status_data = {}
-    for s in STATUSES:
-        count = db.execute(
-            "SELECT COUNT(*) as c FROM leads WHERE status=? AND in_pool=0", (s,)
-        ).fetchone()['c']
-        status_data[s] = count
+    # Single query instead of 7 (one per status)
+    _sc = db.execute(
+        "SELECT status, COUNT(*) as c FROM leads WHERE in_pool=0 GROUP BY status"
+    ).fetchall()
+    status_data = {s: 0 for s in STATUSES}
+    for row in _sc:
+        if row['status'] in status_data:
+            status_data[row['status']] = row['c']
 
     monthly = db.execute("""
         SELECT strftime('%Y-%m', created_at) as month,
@@ -538,13 +558,15 @@ def team_dashboard():
         (username,)
     ).fetchall()
 
-    status_data = {}
-    for s in STATUSES:
-        count = db.execute(
-            "SELECT COUNT(*) as c FROM leads WHERE status=? AND assigned_to=? AND in_pool=0",
-            (s, username)
-        ).fetchone()['c']
-        status_data[s] = count
+    # Single query instead of 7
+    _sc = db.execute(
+        "SELECT status, COUNT(*) as c FROM leads WHERE assigned_to=? AND in_pool=0 GROUP BY status",
+        (username,)
+    ).fetchall()
+    status_data = {s: 0 for s in STATUSES}
+    for row in _sc:
+        if row['status'] in status_data:
+            status_data[row['status']] = row['c']
 
     monthly = db.execute("""
         SELECT strftime('%Y-%m', created_at) as month,
@@ -564,6 +586,14 @@ def team_dashboard():
 
     pool_count = db.execute("SELECT COUNT(*) FROM leads WHERE in_pool=1").fetchone()[0]
 
+    # Daily earnings (₹196 payments done today)
+    today_paid = db.execute("""
+        SELECT COUNT(*) FROM leads
+        WHERE assigned_to=? AND payment_done=1 AND in_pool=0
+          AND date(updated_at)=?
+    """, (username, today)).fetchone()[0] or 0
+    today_earnings = today_paid * PAYMENT_AMOUNT
+
     db.close()
     return render_template('dashboard.html',
                            metrics=metrics,
@@ -574,7 +604,9 @@ def team_dashboard():
                            payment_amount=PAYMENT_AMOUNT,
                            today_report=today_report,
                            today=today,
-                           pool_count=pool_count)
+                           pool_count=pool_count,
+                           today_paid=today_paid,
+                           today_earnings=today_earnings)
 
 
 # ─────────────────────────────────────────────
@@ -756,7 +788,11 @@ def edit_lead(lead_id):
 @login_required
 def update_status(lead_id):
     status = request.form.get('status')
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
     if status not in STATUSES:
+        if is_ajax:
+            return {'ok': False, 'error': 'Invalid status'}, 400
         flash('Invalid status.', 'danger')
         return redirect(url_for('leads'))
 
@@ -768,8 +804,10 @@ def update_status(lead_id):
             (lead_id, session['username'])
         ).fetchone()
         if not lead:
-            flash('Access denied.', 'danger')
             db.close()
+            if is_ajax:
+                return {'ok': False, 'error': 'Access denied'}, 403
+            flash('Access denied.', 'danger')
             return redirect(url_for('leads'))
 
     db.execute(
@@ -778,6 +816,10 @@ def update_status(lead_id):
     )
     db.commit()
     db.close()
+
+    if is_ajax:
+        return {'ok': True, 'status': status}
+
     flash('Status updated.', 'success')
     return redirect(request.referrer or url_for('leads'))
 
@@ -1141,12 +1183,34 @@ def import_lead_pool_csv():
 
     for row in reader:
         # Support common Meta Lead Ads export column names
-        name  = (row.get('full_name') or row.get('name') or
-                 row.get('Name') or row.get('Full Name') or '').strip()
-        phone = (row.get('phone_number') or row.get('phone') or
+        # Also handles user's custom Meta form: Submit Time, Full Name, Age, Gender,
+        # Phone Number (Calling Number), Your City Name, Ad Name
+        name  = (row.get('Full Name') or row.get('full_name') or
+                 row.get('name') or row.get('Name') or '').strip()
+        phone = (row.get('Phone Number (Calling Number)') or
+                 row.get('phone_number') or row.get('phone') or
                  row.get('Phone') or row.get('Phone Number') or '').strip()
         email = (row.get('email') or row.get('Email') or
                  row.get('email_address') or '').strip()
+
+        # Extra Meta fields stored in notes
+        age         = (row.get('Age') or row.get('age') or '').strip()
+        gender      = (row.get('Gender') or row.get('gender') or '').strip()
+        city        = (row.get('Your City Name') or row.get('city') or
+                       row.get('City') or '').strip()
+        ad_name     = (row.get('Ad Name') or row.get('ad_name') or '').strip()
+        submit_time = (row.get('Submit Time') or row.get('submit_time') or '').strip()
+
+        # Build source from Ad Name if available
+        lead_source = ad_name if ad_name else source_tag
+
+        # Build notes string from extra fields
+        extra_parts = []
+        if age:         extra_parts.append(f'Age: {age}')
+        if gender:      extra_parts.append(f'Gender: {gender}')
+        if city:        extra_parts.append(f'City: {city}')
+        if submit_time: extra_parts.append(f'Submit Time: {submit_time}')
+        notes_str = ' | '.join(extra_parts) if extra_parts else ''
 
         if not name and not phone:
             skipped += 1
@@ -1168,9 +1232,9 @@ def import_lead_pool_csv():
         db.execute("""
             INSERT INTO leads
                 (name, phone, email, assigned_to, source, status,
-                 in_pool, pool_price, claimed_at)
-            VALUES (?, ?, ?, '', ?, 'New', 1, ?, '')
-        """, (name, phone, email, source_tag, price_per_lead))
+                 in_pool, pool_price, claimed_at, notes)
+            VALUES (?, ?, ?, '', ?, 'New', 1, ?, '', ?)
+        """, (name, phone, email, lead_source, price_per_lead, notes_str))
         imported += 1
 
     db.commit()
@@ -1405,13 +1469,16 @@ def lead_pool():
         (username,)
     ).fetchone()[0]
 
+    upi_id = _get_setting(db, 'upi_id', '')
+
     db.close()
     return render_template('lead_pool.html',
                            wallet=wallet_stats,
                            pool_count=pool_count,
                            price_info=price_info,
                            can_claim=can_claim,
-                           my_claims=my_claims)
+                           my_claims=my_claims,
+                           upi_id=upi_id)
 
 
 @app.route('/lead-pool/claim', methods=['POST'])
@@ -1533,6 +1600,126 @@ def meta_webhook_receive():
     db.commit()
     db.close()
     return 'OK', 200
+
+
+# ─────────────────────────────────────────────
+#  Change Password
+# ─────────────────────────────────────────────
+
+@app.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if request.method == 'POST':
+        current_pw  = request.form.get('current_password', '').strip()
+        new_pw      = request.form.get('new_password', '').strip()
+        confirm_pw  = request.form.get('confirm_password', '').strip()
+
+        if not current_pw or not new_pw or not confirm_pw:
+            flash('All fields are required.', 'danger')
+            return render_template('change_password.html')
+
+        if new_pw != confirm_pw:
+            flash('New password and confirmation do not match.', 'danger')
+            return render_template('change_password.html')
+
+        if len(new_pw) < 6:
+            flash('New password must be at least 6 characters.', 'danger')
+            return render_template('change_password.html')
+
+        db   = get_db()
+        user = db.execute(
+            "SELECT id, password FROM users WHERE username=?",
+            (session['username'],)
+        ).fetchone()
+
+        if not user or not check_password_hash(user['password'], current_pw):
+            db.close()
+            flash('Current password is incorrect.', 'danger')
+            return render_template('change_password.html')
+
+        db.execute(
+            "UPDATE users SET password=? WHERE id=?",
+            (generate_password_hash(new_pw, method='pbkdf2:sha256'), user['id'])
+        )
+        db.commit()
+        db.close()
+        flash('Password changed successfully!', 'success')
+        if session.get('role') == 'admin':
+            return redirect(url_for('admin_dashboard'))
+        return redirect(url_for('team_dashboard'))
+
+    return render_template('change_password.html')
+
+
+# ─────────────────────────────────────────────
+#  Profile (with display picture)
+# ─────────────────────────────────────────────
+
+@app.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    username = session['username']
+    db       = get_db()
+
+    if request.method == 'POST':
+        action = request.form.get('action', 'update_info')
+
+        if action == 'upload_dp':
+            f = request.files.get('dp_file')
+            if f and f.filename:
+                allowed = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+                ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
+                if ext not in allowed:
+                    flash('Only PNG, JPG, GIF, WEBP images allowed.', 'danger')
+                else:
+                    img_data = f.read()
+                    if len(img_data) > 2 * 1024 * 1024:
+                        flash('Image too large. Max 2 MB.', 'danger')
+                    else:
+                        # Resize to 200×200 using Pillow if available
+                        try:
+                            from PIL import Image
+                            import io as _io
+                            img = Image.open(_io.BytesIO(img_data))
+                            img = img.convert('RGB')
+                            img.thumbnail((100, 100))
+                            buf = _io.BytesIO()
+                            img.save(buf, format='JPEG', quality=80)
+                            img_data = buf.getvalue()
+                        except Exception:
+                            pass
+                        dp_b64 = 'data:image/jpeg;base64,' + base64.b64encode(img_data).decode()
+                        db.execute("UPDATE users SET display_picture=? WHERE username=?",
+                                   (dp_b64, username))
+                        db.commit()
+                        session['dp'] = dp_b64
+                        flash('Profile picture updated!', 'success')
+            else:
+                flash('No file selected.', 'danger')
+
+        elif action == 'remove_dp':
+            db.execute("UPDATE users SET display_picture='' WHERE username=?", (username,))
+            db.commit()
+            session['dp'] = ''
+            flash('Profile picture removed.', 'info')
+
+        else:  # update_info
+            full_name = request.form.get('full_name', '').strip()
+            phone     = request.form.get('phone', '').strip()
+            email     = request.form.get('email', '').strip()
+            db.execute(
+                "UPDATE users SET phone=?, email=? WHERE username=?",
+                (phone, email, username)
+            )
+            db.commit()
+            flash('Profile updated!', 'success')
+
+        db.close()
+        return redirect(url_for('profile'))
+
+    user = db.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+    db.close()
+    return render_template('profile.html', user=user)
 
 
 # ─────────────────────────────────────────────

@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}My Profile – Myle Community{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- ── Profile Card ──────────────────────────────── -->
+  <div class="col-12 col-md-4">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body py-4">
+
+        <!-- DP Display -->
+        <div class="mb-3 position-relative d-inline-block">
+          {% if user.display_picture %}
+            <img id="dpPreview" src="{{ user.display_picture }}" alt="Profile Picture"
+                 class="rounded-circle border"
+                 style="width:100px;height:100px;object-fit:cover;border-width:3px!important;border-color:#6366f1!important;">
+          {% else %}
+            <div id="dpPreview" class="rounded-circle d-flex align-items-center justify-content-center mx-auto"
+                 style="width:100px;height:100px;background:linear-gradient(135deg,#6366f1,#8b5cf6);">
+              <i class="bi bi-person-fill text-white" style="font-size:2.5rem;"></i>
+            </div>
+          {% endif %}
+        </div>
+
+        <h5 class="fw-bold mb-0">{{ user.username }}</h5>
+        <span class="badge {% if user.role == 'admin' %}bg-warning text-dark{% else %}bg-primary{% endif %} mt-1">
+          {{ user.role | upper }}
+        </span>
+        {% if user.fbo_id %}
+        <div class="text-muted small mt-2">FBO ID: <strong>{{ user.fbo_id }}</strong></div>
+        {% endif %}
+        {% if user.upline_name %}
+        <div class="text-muted small">Upline: <strong>{{ user.upline_name }}</strong></div>
+        {% endif %}
+        <div class="text-muted small mt-1">Joined: {{ user.created_at[:10] }}</div>
+
+        <!-- Upload DP -->
+        <hr class="my-3">
+        <form method="POST" action="{{ url_for('profile') }}" enctype="multipart/form-data" id="dpForm">
+          <input type="hidden" name="action" value="upload_dp">
+          <label class="btn btn-outline-primary btn-sm w-100 mb-2" for="dpInput">
+            <i class="bi bi-camera-fill me-1"></i>Change Photo
+          </label>
+          <input type="file" name="dp_file" id="dpInput" accept="image/*" class="d-none" onchange="previewDP(this)">
+          <button type="submit" id="dpSaveBtn" class="btn btn-primary btn-sm w-100 d-none" data-noloading>
+            <i class="bi bi-cloud-upload-fill me-1"></i>Save Photo
+          </button>
+        </form>
+
+        {% if user.display_picture %}
+        <form method="POST" action="{{ url_for('profile') }}" class="mt-1">
+          <input type="hidden" name="action" value="remove_dp">
+          <button type="submit" class="btn btn-link btn-sm text-danger p-0">
+            <i class="bi bi-trash me-1"></i>Remove Photo
+          </button>
+        </form>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Edit Info ──────────────────────────────────── -->
+  <div class="col-12 col-md-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white border-0 pt-4 pb-0 px-4">
+        <h6 class="mb-0"><i class="bi bi-pencil-fill me-2 text-primary"></i>Edit Profile Info</h6>
+      </div>
+      <div class="card-body p-4">
+        <form method="POST" action="{{ url_for('profile') }}">
+          <input type="hidden" name="action" value="update_info">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold">Username</label>
+              <input type="text" class="form-control bg-light" value="{{ user.username }}" disabled>
+              <div class="form-text">Username cannot be changed.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Phone</label>
+              <input type="tel" name="phone" class="form-control" value="{{ user.phone or '' }}"
+                     placeholder="Your phone number">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Email</label>
+              <input type="email" name="email" class="form-control" value="{{ user.email or '' }}"
+                     placeholder="Your email address">
+            </div>
+            {% if user.fbo_id %}
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">FBO ID</label>
+              <input type="text" class="form-control bg-light" value="{{ user.fbo_id }}" disabled>
+            </div>
+            {% endif %}
+            {% if user.upline_name %}
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Upline Name</label>
+              <input type="text" class="form-control bg-light" value="{{ user.upline_name }}" disabled>
+            </div>
+            {% endif %}
+            <div class="col-12 d-flex gap-2 mt-2">
+              <button type="submit" class="btn btn-primary fw-semibold">
+                <i class="bi bi-check-lg me-1"></i>Save Changes
+              </button>
+              <a href="{{ url_for('change_password') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-key-fill me-1"></i>Change Password
+              </a>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── Account Status Card ───────────────────────── -->
+    <div class="card border-0 shadow-sm mt-4">
+      <div class="card-body p-4">
+        <h6 class="fw-semibold mb-3"><i class="bi bi-shield-check me-2 text-success"></i>Account Info</h6>
+        <div class="row g-2 small">
+          <div class="col-6">
+            <div class="text-muted">Status</div>
+            <span class="badge {% if user.status == 'approved' %}bg-success{% elif user.status == 'pending' %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+              {{ user.status | capitalize }}
+            </span>
+          </div>
+          <div class="col-6">
+            <div class="text-muted">Role</div>
+            <strong>{{ user.role | capitalize }}</strong>
+          </div>
+          <div class="col-6">
+            <div class="text-muted">Member Since</div>
+            <strong>{{ user.created_at[:10] }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function previewDP(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const preview = document.getElementById('dpPreview');
+      if (preview.tagName === 'IMG') {
+        preview.src = e.target.result;
+      } else {
+        // Replace the div with an img
+        const img = document.createElement('img');
+        img.id = 'dpPreview';
+        img.src = e.target.result;
+        img.className = 'rounded-circle border';
+        img.style = 'width:100px;height:100px;object-fit:cover;border-width:3px!important;border-color:#6366f1!important;';
+        preview.replaceWith(img);
+      }
+    };
+    reader.readAsDataURL(input.files[0]);
+    document.getElementById('dpSaveBtn').classList.remove('d-none');
+  }
+}
+</script>
+{% endblock %}

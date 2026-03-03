@@ -2,12 +2,45 @@
 body {
   background: #f4f6fb;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  animation: pageFadeIn 0.25s ease;
+  animation: pageFadeIn 0.18s ease;
 }
 
 @keyframes pageFadeIn {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Top Progress Bar ───────────────────────────────────── */
+#topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  z-index: 9999;
+  pointer-events: none;
+}
+#topbar.topbar-running {
+  background: linear-gradient(90deg, #6366f1, #8b5cf6, #06b6d4);
+  animation: topbarGrow 2s ease forwards;
+}
+#topbar.topbar-done {
+  background: #6366f1;
+  width: 100% !important;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+@keyframes topbarGrow {
+  from { width: 0%; }
+  to   { width: 85%; }
+}
+
+/* ── Toast Container ────────────────────────────────────── */
+#toastContainer {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 11000;
+  min-width: 220px;
+  max-width: 320px;
 }
 
 #wrapper {

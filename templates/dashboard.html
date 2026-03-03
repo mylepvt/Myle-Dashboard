@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}My Dashboard – Myle Community{% endblock %}
 {% block page_title %}My Dashboard{% endblock %}
+{% block extra_head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>{% endblock %}
 
 {% block content %}
 
@@ -127,6 +128,21 @@
           <span class="text-muted small">Payments (₹{{ payment_amount|int }})</span>
         </div>
         <h3 class="fw-bold mb-0">{{ metrics.paid }}</h3>
+        <div class="mt-2 d-flex flex-column gap-1">
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="text-muted" style="font-size:0.72rem;">Today's Earning</span>
+            <span class="badge bg-success-subtle text-success fw-bold" style="font-size:0.78rem;">
+              ₹{{ today_earnings|int }}
+              <span class="fw-normal opacity-75">({{ today_paid }} paid)</span>
+            </span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="text-muted" style="font-size:0.72rem;">Total Earning</span>
+            <span class="badge bg-primary-subtle text-primary fw-bold" style="font-size:0.78rem;">
+              ₹{{ metrics.revenue|int }}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -322,7 +338,21 @@ FROM leads;</pre>
           {% for lead in recent %}
           <tr>
             <td class="fw-semibold">{{ lead.name }}</td>
-            <td>{{ lead.phone }}</td>
+            <td>
+              <div class="d-flex align-items-center gap-1">
+                <span class="small">{{ lead.phone }}</span>
+                <a href="tel:{{ lead.phone }}"
+                   class="btn btn-xs btn-success px-1 py-0"
+                   title="Call" style="font-size:0.72rem;line-height:1.5;">
+                  <i class="bi bi-telephone-fill"></i>
+                </a>
+                <a href="https://wa.me/{{ lead.phone|wa_phone }}"
+                   class="btn btn-xs px-1 py-0" target="_blank" rel="noopener"
+                   title="WhatsApp" style="background:#25D366;color:#fff;font-size:0.72rem;line-height:1.5;border-radius:4px;">
+                  <i class="bi bi-whatsapp"></i>
+                </a>
+              </div>
+            </td>
             <td>{{ lead.referred_by or '—' }}</td>
             <td><span class="badge status-{{ lead.status|replace(' ','') }}">{{ lead.status }}</span></td>
             <td>

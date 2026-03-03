@@ -138,12 +138,53 @@
         </div>
       </div>
 
-      <div class="alert alert-info border-0 mt-3 small">
+        <div class="alert alert-info border-0 mt-3 small">
         <i class="bi bi-info-circle me-1"></i>
         Leads are assigned to you instantly. Cost is deducted from your wallet.
         You can view claimed leads in <a href="{{ url_for('leads') }}">My Leads</a>.
       </div>
     </form>
+
+    {% if upi_id %}
+    <!-- ── Pay via UPI App ─────────────────────────────────── -->
+    <div class="mt-4 pt-3 border-top">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <i class="bi bi-phone-fill text-primary fs-5"></i>
+        <span class="fw-semibold">Need to top-up wallet first? Pay via UPI App</span>
+      </div>
+      <p class="text-muted small mb-3">
+        Choose your UPI app — the payment amount will auto-fill based on lead count.
+        After payment, submit the UTR on your <a href="{{ url_for('wallet') }}">Wallet page</a> to get credited.
+      </p>
+      <div class="d-flex flex-wrap gap-2" id="upiButtons">
+        <a id="upiPhonePe"
+           href="phonepe://pay?pa={{ upi_id }}&pn=Myle+Community&am=50&cu=INR"
+           class="btn btn-outline-primary d-flex align-items-center gap-2" target="_blank">
+          <span style="font-size:1.2rem;">📲</span> PhonePe
+        </a>
+        <a id="upiPaytm"
+           href="paytmmp://pay?pa={{ upi_id }}&pn=Myle+Community&am=50&cu=INR"
+           class="btn btn-outline-primary d-flex align-items-center gap-2" target="_blank">
+          <span style="font-size:1.2rem;">💳</span> Paytm
+        </a>
+        <a id="upiGpay"
+           href="gpay://upi/pay?pa={{ upi_id }}&pn=Myle+Community&am=50&cu=INR"
+           class="btn btn-outline-success d-flex align-items-center gap-2" target="_blank">
+          <span style="font-size:1.2rem;">🔵</span> Google Pay
+        </a>
+        <a id="upiGeneric"
+           href="upi://pay?pa={{ upi_id }}&pn=Myle+Community&am=50&cu=INR"
+           class="btn btn-outline-secondary d-flex align-items-center gap-2" target="_blank">
+          <span style="font-size:1.2rem;">📱</span> Any UPI App
+        </a>
+      </div>
+      <div class="text-muted small mt-2">
+        <i class="bi bi-arrow-up-circle me-1"></i>
+        UPI ID: <strong>{{ upi_id }}</strong>
+        &nbsp;|&nbsp; Amount updates as you change lead count above.
+      </div>
+    </div>
+    {% endif %}
     {% endif %}
 
   </div>
@@ -168,13 +209,32 @@
 const avgPrice   = {{ price_info.avg_p }};
 const costAmount = document.getElementById('costAmount');
 const countInput = document.getElementById('countInput');
+const upiId      = "{{ upi_id | default('') }}";
+
+function updateUPILinks(amount) {
+  if (!upiId) return;
+  const am = Math.round(amount);
+  const base = `pa=${encodeURIComponent(upiId)}&pn=Myle+Community&am=${am}&cu=INR`;
+  const pp = document.getElementById('upiPhonePe');
+  const pt = document.getElementById('upiPaytm');
+  const gp = document.getElementById('upiGpay');
+  const gn = document.getElementById('upiGeneric');
+  if (pp) pp.href = `phonepe://pay?${base}`;
+  if (pt) pt.href = `paytmmp://pay?${base}`;
+  if (gp) gp.href = `gpay://upi/pay?${base}`;
+  if (gn) gn.href = `upi://pay?${base}`;
+}
 
 if (countInput && costAmount) {
   countInput.addEventListener('input', function () {
     const n = parseInt(this.value) || 1;
-    costAmount.textContent = '₹' + Math.round(n * avgPrice);
+    const total = Math.round(n * avgPrice);
+    costAmount.textContent = '₹' + total;
+    updateUPILinks(total);
   });
 }
+// Set initial amount
+updateUPILinks(avgPrice);
 </script>
 {% endif %}
 {% endblock %}
