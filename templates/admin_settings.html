@@ -79,6 +79,58 @@
             </div>
           </div>
 
+          <hr class="my-4">
+
+          <!-- Email / SMTP Settings -->
+          <h6 class="fw-semibold text-muted mb-3">
+            <i class="bi bi-envelope-fill me-2 text-success"></i>Welcome Email (SMTP)
+          </h6>
+          <p class="small text-muted mb-3">
+            Jab kisi member ko approve karo, unhe automatically welcome email jaayegi.
+          </p>
+
+          <div class="row g-2 mb-3">
+            <div class="col-8">
+              <label class="form-label fw-semibold small">SMTP Host</label>
+              <input type="text" name="smtp_host" class="form-control"
+                     value="{{ settings.smtp_host }}" placeholder="smtp.gmail.com">
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold small">Port</label>
+              <input type="number" name="smtp_port" class="form-control"
+                     value="{{ settings.smtp_port }}" placeholder="587">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">Email Address (From)</label>
+            <input type="email" name="smtp_user" class="form-control"
+                   value="{{ settings.smtp_user }}" placeholder="yourname@gmail.com">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">App Password / SMTP Password</label>
+            <input type="password" name="smtp_password" class="form-control"
+                   placeholder="{% if settings.smtp_password_set %}Leave blank to keep saved password{% else %}Enter app password{% endif %}">
+            {% if settings.smtp_password_set %}
+            <div class="form-text text-success">
+              <i class="bi bi-check-circle me-1"></i>Password saved. Leave blank to keep it unchanged.
+            </div>
+            {% else %}
+            <div class="form-text">
+              Gmail users: use an
+              <a href="https://myaccount.google.com/apppasswords" target="_blank">App Password</a>
+              (not your regular Gmail password). Enable 2FA first.
+            </div>
+            {% endif %}
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold small">Sender Name</label>
+            <input type="text" name="smtp_from_name" class="form-control"
+                   value="{{ settings.smtp_from_name }}" placeholder="Myle Community">
+          </div>
+
           <button type="submit" class="btn btn-primary w-100 fw-semibold">
             <i class="bi bi-save me-2"></i>Save Settings
           </button>

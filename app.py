@@ -6,6 +6,10 @@ import hashlib
 import hmac
 import json
 import datetime
+import smtplib
+import ssl
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from functools import wraps
 from flask import (Flask, render_template, request, redirect, url_for,
                    flash, session, Response)
@@ -21,6 +25,7 @@ except ImportError:
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'myle_community_secret_2024_local')
+app.permanent_session_lifetime = datetime.timedelta(days=30)
 
 STATUSES = ['New', 'Contacted', 'Day 1', 'Day 2', 'Interview', 'Converted', 'Lost']
 SOURCES  = ['WhatsApp', 'Facebook', 'Instagram', 'LinkedIn',
@@ -163,6 +168,72 @@ def _generate_upi_qr_base64(upi_id):
     return base64.b64encode(data).decode('utf-8') if data else None
 
 
+def _send_welcome_email(user_email, username, login_url):
+    """Send welcome email when a team member is approved. Silently skips if SMTP not configured."""
+    db = get_db()
+    smtp_host     = _get_setting(db, 'smtp_host', '')
+    smtp_port     = int(_get_setting(db, 'smtp_port', '587') or 587)
+    smtp_user     = _get_setting(db, 'smtp_user', '')
+    smtp_password = _get_setting(db, 'smtp_password', '')
+    from_name     = _get_setting(db, 'smtp_from_name', 'Myle Community')
+    db.close()
+
+    if not smtp_host or not smtp_user or not smtp_password or not user_email:
+        return  # SMTP not configured, skip silently
+
+    subject = 'Welcome to Myle Community – Account Approved!'
+
+    html_body = f"""
+    <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e0e0e0;">
+      <div style="background:linear-gradient(135deg,#1a1a2e,#0f3460);padding:32px;text-align:center;">
+        <h2 style="color:#fff;margin:0;font-size:22px;">Myle Community</h2>
+        <p style="color:rgba(255,255,255,0.7);margin:8px 0 0;font-size:14px;">Team Dashboard</p>
+      </div>
+      <div style="padding:32px;">
+        <h3 style="color:#1a1a2e;margin-top:0;">Hi {username}, your account is approved! 🎉</h3>
+        <p style="color:#555;line-height:1.6;">
+          Great news! Your registration request for <strong>Myle Community</strong> has been approved by the admin.
+          You can now log in and access your dashboard.
+        </p>
+        <div style="background:#f0f4ff;border-radius:8px;padding:16px;margin:20px 0;border-left:4px solid #6366f1;">
+          <p style="margin:0;color:#333;font-size:14px;"><strong>Username:</strong> {username}</p>
+        </div>
+        <div style="text-align:center;margin:28px 0;">
+          <a href="{login_url}"
+             style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;display:inline-block;">
+            Login to Dashboard &rarr;
+          </a>
+        </div>
+        <p style="color:#888;font-size:13px;line-height:1.6;">
+          From your dashboard you can:<br>
+          &bull; View and manage your leads<br>
+          &bull; Submit daily reports<br>
+          &bull; Recharge wallet &amp; claim leads from pool
+        </p>
+      </div>
+      <div style="background:#f8f9fa;padding:16px;text-align:center;border-top:1px solid #e0e0e0;">
+        <p style="color:#aaa;font-size:12px;margin:0;">Myle Community &mdash; Internal Team Portal</p>
+      </div>
+    </div>
+    """
+
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = subject
+    msg['From']    = f'{from_name} <{smtp_user}>'
+    msg['To']      = user_email
+    msg.attach(MIMEText(html_body, 'html'))
+
+    try:
+        context = ssl.create_default_context()
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.ehlo()
+            server.starttls(context=context)
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_user, user_email, msg.as_string())
+    except Exception:
+        pass  # Don't break approval flow if email fails
+
+
 # ─────────────────────────────────────────────
 #  Context processor – inject counts for nav badges
 # ─────────────────────────────────────────────
@@ -270,6 +341,11 @@ def login():
             if user['status'] == 'rejected':
                 flash('Your registration request was rejected. Contact the admin for help.', 'danger')
                 return render_template('login.html')
+
+            # Remember Me – keep session alive for 30 days
+            if request.form.get('remember_me'):
+                session.permanent = True
+
             session['username'] = user['username']
             session['role']     = user['role']
             flash(f'Welcome back, {user["username"]}!', 'success')
@@ -315,11 +391,14 @@ def admin_approvals():
 @admin_required
 def approve_user(user_id):
     db   = get_db()
-    user = db.execute("SELECT username FROM users WHERE id=?", (user_id,)).fetchone()
+    user = db.execute("SELECT username, email FROM users WHERE id=?", (user_id,)).fetchone()
     if user:
         db.execute("UPDATE users SET status='approved' WHERE id=?", (user_id,))
         db.commit()
         flash(f'"{user["username"]}" has been approved and can now log in.', 'success')
+        # Send welcome email (non-blocking, fails silently if SMTP not configured)
+        login_url = request.host_url.rstrip('/') + url_for('login')
+        _send_welcome_email(user['email'], user['username'], login_url)
     db.close()
     return redirect(url_for('admin_approvals', filter=request.form.get('current_filter', 'all')))
 
@@ -950,11 +1029,23 @@ def admin_settings():
         lead_price      = request.form.get('lead_price', '50').strip()
         webhook_token   = request.form.get('webhook_token', '').strip()
         meta_page_token = request.form.get('meta_page_token', '').strip()
+        smtp_host       = request.form.get('smtp_host', '').strip()
+        smtp_port       = request.form.get('smtp_port', '587').strip()
+        smtp_user       = request.form.get('smtp_user', '').strip()
+        smtp_from_name  = request.form.get('smtp_from_name', 'Myle Community').strip()
+        # Only update password if provided (don't overwrite with blank)
+        smtp_password   = request.form.get('smtp_password', '').strip()
 
         _set_setting(db, 'upi_id', upi_id)
         _set_setting(db, 'default_lead_price', lead_price)
         _set_setting(db, 'meta_webhook_token', webhook_token)
         _set_setting(db, 'meta_page_token', meta_page_token)
+        _set_setting(db, 'smtp_host', smtp_host)
+        _set_setting(db, 'smtp_port', smtp_port)
+        _set_setting(db, 'smtp_user', smtp_user)
+        _set_setting(db, 'smtp_from_name', smtp_from_name)
+        if smtp_password:
+            _set_setting(db, 'smtp_password', smtp_password)
         db.commit()
         db.close()
         flash('Settings saved successfully.', 'success')
@@ -965,6 +1056,11 @@ def admin_settings():
         'default_lead_price': _get_setting(db, 'default_lead_price', '50'),
         'meta_webhook_token': _get_setting(db, 'meta_webhook_token'),
         'meta_page_token':    _get_setting(db, 'meta_page_token'),
+        'smtp_host':          _get_setting(db, 'smtp_host', 'smtp.gmail.com'),
+        'smtp_port':          _get_setting(db, 'smtp_port', '587'),
+        'smtp_user':          _get_setting(db, 'smtp_user'),
+        'smtp_from_name':     _get_setting(db, 'smtp_from_name', 'Myle Community'),
+        'smtp_password_set':  bool(_get_setting(db, 'smtp_password')),
     }
     db.close()
     return render_template('admin_settings.html', settings=settings)
