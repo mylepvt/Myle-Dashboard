@@ -2,7 +2,12 @@ import sqlite3
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
 
-DATABASE = os.path.join(os.path.dirname(__file__), 'leads.db')
+# On Render: set DATABASE_PATH=/var/data/leads.db (persistent disk)
+# Locally: falls back to leads.db in project folder
+DATABASE = os.environ.get(
+    'DATABASE_PATH',
+    os.path.join(os.path.dirname(__file__), 'leads.db')
+)
 
 
 def get_db():
