@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% block title %}Lead Pool – Admin{% endblock %}
+{% block page_title %}Lead Pool Management{% endblock %}
+
+{% block content %}
+
+<!-- ── Stats Row ──────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card kpi-card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <div class="kpi-icon bg-primary-subtle text-primary me-3">
+            <i class="bi bi-inbox-fill"></i>
+          </div>
+          <span class="text-muted small">In Pool</span>
+        </div>
+        <h3 class="fw-bold mb-0 text-primary">{{ total_in_pool }}</h3>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card kpi-card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <div class="kpi-icon bg-success-subtle text-success me-3">
+            <i class="bi bi-check2-circle"></i>
+          </div>
+          <span class="text-muted small">Claimed</span>
+        </div>
+        <h3 class="fw-bold mb-0 text-success">{{ total_claimed }}</h3>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card kpi-card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <div class="kpi-icon bg-warning-subtle text-warning me-3">
+            <i class="bi bi-tag-fill"></i>
+          </div>
+          <span class="text-muted small">Default Price</span>
+        </div>
+        <h3 class="fw-bold mb-0 text-warning">₹{{ default_price }}</h3>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card kpi-card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <div class="kpi-icon bg-info-subtle text-info me-3">
+            <i class="bi bi-people-fill"></i>
+          </div>
+          <span class="text-muted small">Total Leads</span>
+        </div>
+        <h3 class="fw-bold mb-0">{{ total_in_pool + total_claimed }}</h3>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+
+  <!-- CSV Import -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold border-0 pt-3">
+        <i class="bi bi-file-earmark-arrow-up me-2 text-primary"></i>Import from Meta CSV
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('import_lead_pool_csv') }}" enctype="multipart/form-data">
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">CSV File</label>
+            <input type="file" name="csv_file" class="form-control" accept=".csv" required>
+            <div class="form-text">
+              <i class="bi bi-meta me-1"></i>
+              Meta Ads Manager → Leads Center → Export CSV
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col">
+              <label class="form-label fw-semibold small">Price per Lead (₹)</label>
+              <div class="input-group">
+                <span class="input-group-text bg-white">₹</span>
+                <input type="number" name="price_per_lead" class="form-control"
+                       value="{{ default_price }}" min="0" step="0.01" required>
+              </div>
+            </div>
+            <div class="col">
+              <label class="form-label fw-semibold small">Source Tag</label>
+              <input type="text" name="source_tag" class="form-control"
+                     value="Meta" placeholder="e.g. Meta, FB Ad">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary w-100 fw-semibold">
+            <i class="bi bi-upload me-2"></i>Import Leads to Pool
+          </button>
+        </form>
+
+        <!-- CSV format guide -->
+        <details class="mt-3">
+          <summary class="text-muted small" style="cursor:pointer;">
+            <i class="bi bi-question-circle me-1"></i>Expected CSV columns
+          </summary>
+          <div class="mt-2 p-2 bg-light rounded small text-muted font-monospace">
+            full_name, phone_number, email<br>
+            <em>(Meta also uses: name, phone, email_address)</em>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Single Lead -->
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold border-0 pt-3">
+        <i class="bi bi-person-plus-fill me-2 text-success"></i>Add Single Lead to Pool
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('add_to_pool') }}">
+          <div class="mb-2">
+            <input type="text" name="name" class="form-control"
+                   placeholder="Full Name *" required>
+          </div>
+          <div class="mb-2">
+            <input type="text" name="phone" class="form-control"
+                   placeholder="Phone Number *" required>
+          </div>
+          <div class="mb-2">
+            <input type="email" name="email" class="form-control"
+                   placeholder="Email (optional)">
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col">
+              <div class="input-group">
+                <span class="input-group-text bg-white">₹</span>
+                <input type="number" name="price" class="form-control"
+                       placeholder="Price" value="{{ default_price }}" min="0" step="0.01">
+              </div>
+            </div>
+            <div class="col">
+              <select name="source" class="form-select">
+                {% for s in ['Meta', 'Facebook', 'Instagram', 'WhatsApp', 'Referral', 'Other'] %}
+                <option>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-success w-100 fw-semibold">
+            <i class="bi bi-plus-lg me-1"></i>Add to Pool
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Pool Table ─────────────────────────────────────── -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center border-0 pt-3">
+    <span class="fw-semibold">
+      <i class="bi bi-table me-2 text-secondary"></i>
+      Current Pool
+      <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-2">{{ total_in_pool }}</span>
+    </span>
+    <a href="{{ url_for('admin_settings') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-gear me-1"></i>Settings
+    </a>
+  </div>
+  <div class="card-body p-0">
+    {% if pool_leads %}
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">#</th>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th>Source</th>
+            <th>Price</th>
+            <th>Added</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lead in pool_leads %}
+          <tr>
+            <td class="ps-3 text-muted small">{{ lead.id }}</td>
+            <td class="fw-semibold">{{ lead.name }}</td>
+            <td>{{ lead.phone }}</td>
+            <td class="text-muted small">{{ lead.email or '—' }}</td>
+            <td><span class="badge bg-secondary">{{ lead.source }}</span></td>
+            <td class="fw-semibold text-primary">₹{{ lead.pool_price|int }}</td>
+            <td class="text-muted small">{{ lead.created_at[:10] }}</td>
+            <td>
+              <form method="POST" action="{{ url_for('remove_from_pool', lead_id=lead.id) }}"
+                    onsubmit="return confirm('Remove this lead from pool?');">
+                <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-2">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if total_in_pool > per_page %}
+    <div class="d-flex justify-content-center py-3">
+      <nav>
+        <ul class="pagination pagination-sm mb-0">
+          {% if page > 1 %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page - 1 }}">Prev</a>
+          </li>
+          {% endif %}
+          <li class="page-item disabled">
+            <span class="page-link">Page {{ page }}</span>
+          </li>
+          {% if total_in_pool > page * per_page %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page + 1 }}">Next</a>
+          </li>
+          {% endif %}
+        </ul>
+      </nav>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-5">
+      <i class="bi bi-inbox text-muted" style="font-size:3rem;"></i>
+      <h5 class="text-muted mt-3">Pool is Empty</h5>
+      <p class="text-muted">Import leads from Meta CSV or add them manually above.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

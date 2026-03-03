@@ -30,6 +30,46 @@
 </div>
 {% endif %}
 
+<!-- ── Wallet Summary Bar ─────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #0f2b5b 0%, #1a73e8 100%);">
+      <div class="card-body py-3">
+        <div class="row align-items-center g-3">
+          <div class="col-auto">
+            <i class="bi bi-wallet2 text-white fs-3 opacity-75"></i>
+          </div>
+          <div class="col-4 col-md-3 border-end border-white border-opacity-25">
+            <div class="text-white opacity-75 small">Total Recharged</div>
+            <div class="text-white fw-bold fs-5">₹{{ "%.0f"|format(wallet.recharged) }}</div>
+          </div>
+          <div class="col-4 col-md-3 border-end border-white border-opacity-25">
+            <div class="text-white opacity-75 small">Spent on Leads</div>
+            <div class="text-white fw-bold fs-5">₹{{ "%.0f"|format(wallet.spent) }}</div>
+          </div>
+          <div class="col-4 col-md-3">
+            <div class="text-white opacity-75 small">Balance</div>
+            <div class="fw-bold fs-5 {% if wallet.balance > 0 %}text-white{% else %}text-warning{% endif %}">
+              ₹{{ "%.0f"|format(wallet.balance) }}
+            </div>
+          </div>
+          <div class="col-12 col-md-auto ms-md-auto d-flex gap-2">
+            <a href="{{ url_for('wallet') }}" class="btn btn-sm btn-light">
+              <i class="bi bi-plus-circle me-1"></i>Recharge
+            </a>
+            <a href="{{ url_for('lead_pool') }}" class="btn btn-sm btn-warning text-dark fw-semibold">
+              <i class="bi bi-lightning-charge-fill me-1"></i>Claim Leads
+              {% if pool_count > 0 %}
+                <span class="badge bg-dark ms-1">{{ pool_count }}</span>
+              {% endif %}
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ── KPI Cards ─────────────────────────────────────────── -->
 <div class="row g-3 mb-4">
 

@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Recharge Requests – Admin{% endblock %}
+{% block page_title %}Wallet Recharge Requests{% endblock %}
+
+{% block content %}
+
+<!-- ── Filter Tabs ────────────────────────────────────── -->
+<ul class="nav nav-tabs mb-4">
+  <li class="nav-item">
+    <a class="nav-link {% if filter_status == 'pending' %}active{% endif %}" href="?status=pending">
+      <i class="bi bi-hourglass-split me-1"></i>Pending
+      {% if pending_count > 0 %}
+        <span class="badge bg-warning text-dark ms-1">{{ pending_count }}</span>
+      {% endif %}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if filter_status == 'approved' %}active{% endif %}" href="?status=approved">
+      <i class="bi bi-check-circle me-1"></i>Approved
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if filter_status == 'rejected' %}active{% endif %}" href="?status=rejected">
+      <i class="bi bi-x-circle me-1"></i>Rejected
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if filter_status == 'all' %}active{% endif %}" href="?status=all">
+      All
+    </a>
+  </li>
+</ul>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Member</th>
+            <th>Amount</th>
+            <th>UTR / Transaction</th>
+            <th>Requested At</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in requests %}
+          <tr>
+            <td class="ps-3">
+              <div class="fw-semibold">@{{ r.username }}</div>
+              {% if r.user_phone %}
+              <div class="small text-muted">{{ r.user_phone }}</div>
+              {% endif %}
+            </td>
+            <td>
+              <span class="fw-bold fs-5 text-success">₹{{ r.amount|int }}</span>
+            </td>
+            <td>
+              <code class="text-secondary small">{{ r.utr_number }}</code>
+            </td>
+            <td class="small text-muted">{{ r.requested_at[:16] }}</td>
+            <td>
+              {% if r.status == 'approved' %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                  <i class="bi bi-check-circle me-1"></i>Approved
+                </span>
+                {% if r.processed_at %}
+                <div class="small text-muted mt-1">{{ r.processed_at[:10] }}</div>
+                {% endif %}
+              {% elif r.status == 'rejected' %}
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                  <i class="bi bi-x-circle me-1"></i>Rejected
+                </span>
+                {% if r.admin_note %}
+                <div class="small text-muted mt-1">{{ r.admin_note }}</div>
+                {% endif %}
+              {% else %}
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                  <i class="bi bi-hourglass-split me-1"></i>Pending
+                </span>
+              {% endif %}
+            </td>
+            <td>
+              {% if r.status == 'pending' %}
+              <div class="d-flex gap-2 flex-wrap">
+                <!-- Approve -->
+                <form method="POST" action="{{ url_for('approve_recharge', req_id=r.id) }}">
+                  <button type="submit" class="btn btn-success btn-sm fw-semibold">
+                    <i class="bi bi-check-lg me-1"></i>Approve
+                  </button>
+                </form>
+                <!-- Reject trigger -->
+                <button type="button" class="btn btn-outline-danger btn-sm"
+                        data-bs-toggle="modal" data-bs-target="#rejectModal{{ r.id }}">
+                  <i class="bi bi-x-lg me-1"></i>Reject
+                </button>
+              </div>
+
+              <!-- Reject Modal -->
+              <div class="modal fade" id="rejectModal{{ r.id }}" tabindex="-1">
+                <div class="modal-dialog modal-sm">
+                  <div class="modal-content">
+                    <form method="POST" action="{{ url_for('reject_recharge', req_id=r.id) }}">
+                      <div class="modal-header">
+                        <h6 class="modal-title">Reject Recharge?</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                      </div>
+                      <div class="modal-body">
+                        <div class="mb-3 p-2 bg-light rounded small">
+                          <strong>@{{ r.username }}</strong> | ₹{{ r.amount|int }}<br>
+                          UTR: <code>{{ r.utr_number }}</code>
+                        </div>
+                        <label class="form-label small">Reason for rejection (optional)</label>
+                        <textarea name="admin_note" class="form-control form-control-sm"
+                                  rows="2" placeholder="e.g. UTR not found, duplicate request..."></textarea>
+                      </div>
+                      <div class="modal-footer py-2">
+                        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-sm btn-danger fw-semibold">Confirm Reject</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+
+              {% else %}
+              <span class="text-muted small">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="6" class="text-center text-muted py-5">
+              <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+              No {{ filter_status }} recharge requests.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Lead Pool – Myle Community{% endblock %}
+{% block page_title %}Lead Pool{% endblock %}
+
+{% block content %}
+
+<!-- ── Wallet Balance Bar ─────────────────────────────── -->
+<div class="card border-0 shadow-sm mb-4" style="background: linear-gradient(135deg, #0f2b5b, #1a73e8);">
+  <div class="card-body py-3">
+    <div class="row align-items-center g-2">
+      <div class="col-auto">
+        <i class="bi bi-wallet2 text-white fs-3 opacity-75"></i>
+      </div>
+      <div class="col">
+        <div class="text-white opacity-75 small">Your Available Balance</div>
+        <div class="text-white fw-bold fs-4">₹{{ "%.0f"|format(wallet.balance) }}</div>
+      </div>
+      <div class="col-auto">
+        <a href="{{ url_for('wallet') }}" class="btn btn-sm btn-light">
+          <i class="bi bi-plus-circle me-1"></i>Recharge Wallet
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Pool Stats ─────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100 text-center">
+      <div class="card-body py-4">
+        <div class="mb-2">
+          <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary-subtle"
+                style="width:56px; height:56px;">
+            <i class="bi bi-person-lines-fill fs-3 text-primary"></i>
+          </span>
+        </div>
+        <h1 class="fw-bold text-primary display-5 mb-0">{{ pool_count }}</h1>
+        <div class="text-muted mt-1">Leads Available</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100 text-center">
+      <div class="card-body py-4">
+        <div class="mb-2">
+          <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-warning-subtle"
+                style="width:56px; height:56px;">
+            <i class="bi bi-tag-fill fs-3 text-warning"></i>
+          </span>
+        </div>
+        {% if price_info and price_info.avg_p %}
+          {% if price_info.min_p == price_info.max_p %}
+            <h1 class="fw-bold text-warning display-5 mb-0">₹{{ price_info.min_p|int }}</h1>
+          {% else %}
+            <h2 class="fw-bold text-warning mb-0">₹{{ price_info.min_p|int }}–{{ price_info.max_p|int }}</h2>
+          {% endif %}
+        {% else %}
+          <h1 class="fw-bold text-warning display-5 mb-0">—</h1>
+        {% endif %}
+        <div class="text-muted mt-1">Per Lead</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100 text-center">
+      <div class="card-body py-4">
+        <div class="mb-2">
+          <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-success-subtle"
+                style="width:56px; height:56px;">
+            <i class="bi bi-check-circle-fill fs-3 text-success"></i>
+          </span>
+        </div>
+        <h1 class="fw-bold text-success display-5 mb-0">{{ my_claims }}</h1>
+        <div class="text-muted mt-1">My Total Claimed</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Claim Leads ────────────────────────────────────── -->
+{% if pool_count > 0 %}
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white fw-semibold border-0 pt-3">
+    <i class="bi bi-lightning-charge-fill me-2 text-warning"></i>Claim Leads from Pool
+  </div>
+  <div class="card-body">
+
+    {% if wallet.balance <= 0 %}
+    <div class="alert alert-danger border-0">
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>
+      <strong>Wallet is empty!</strong>
+      Your balance is ₹0. You need to recharge your wallet before claiming leads.
+      <a href="{{ url_for('wallet') }}" class="btn btn-danger btn-sm ms-2">
+        <i class="bi bi-wallet2 me-1"></i>Recharge Now
+      </a>
+    </div>
+    {% elif can_claim == 0 %}
+    <div class="alert alert-warning border-0">
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>
+      Your balance (₹{{ "%.0f"|format(wallet.balance) }}) is not enough for even 1 lead.
+      <a href="{{ url_for('wallet') }}" class="btn btn-warning btn-sm ms-2 text-dark">
+        <i class="bi bi-wallet2 me-1"></i>Recharge Wallet
+      </a>
+    </div>
+    {% else %}
+    <form method="POST" action="{{ url_for('claim_leads') }}" id="claimForm">
+      <div class="row g-3 align-items-start">
+        <div class="col-md-5">
+          <label class="form-label fw-semibold">How many leads to claim?</label>
+          <input type="number" name="count" id="countInput" class="form-control form-control-lg"
+                 value="1" min="1" max="{{ can_claim }}" required>
+          <div class="form-text">
+            You can claim up to <strong>{{ can_claim }}</strong> leads with your current balance.
+          </div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Estimated Cost</label>
+          {% if price_info and price_info.avg_p %}
+          <div class="card bg-light border-0 p-3" id="costPreview">
+            <div class="small text-muted">Approx. cost</div>
+            <div class="fw-bold fs-5 text-danger" id="costAmount">
+              ₹{{ "%.0f"|format(price_info.avg_p) }}
+            </div>
+            <div class="small text-muted">Avg ₹{{ "%.0f"|format(price_info.avg_p) }}/lead</div>
+          </div>
+          {% endif %}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold d-none d-md-block">&nbsp;</label>
+          <button type="submit" class="btn btn-primary btn-lg w-100 fw-semibold">
+            <i class="bi bi-download me-2"></i>Claim Leads
+          </button>
+        </div>
+      </div>
+
+      <div class="alert alert-info border-0 mt-3 small">
+        <i class="bi bi-info-circle me-1"></i>
+        Leads are assigned to you instantly. Cost is deducted from your wallet.
+        You can view claimed leads in <a href="{{ url_for('leads') }}">My Leads</a>.
+      </div>
+    </form>
+    {% endif %}
+
+  </div>
+</div>
+
+{% else %}
+<!-- Empty Pool -->
+<div class="card border-0 shadow-sm">
+  <div class="card-body text-center py-5">
+    <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+    <h5 class="text-muted mt-3">No Leads Available Right Now</h5>
+    <p class="text-muted">The admin hasn't uploaded any leads yet. Check back later or contact your upline.</p>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if price_info and price_info.avg_p %}
+<script>
+const avgPrice   = {{ price_info.avg_p }};
+const costAmount = document.getElementById('costAmount');
+const countInput = document.getElementById('countInput');
+
+if (countInput && costAmount) {
+  countInput.addEventListener('input', function () {
+    const n = parseInt(this.value) || 1;
+    costAmount.textContent = '₹' + Math.round(n * avgPrice);
+  });
+}
+</script>
+{% endif %}
+{% endblock %}

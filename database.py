@@ -35,6 +35,9 @@ def init_db():
             interview_done INTEGER NOT NULL DEFAULT 0,
             follow_up_date TEXT    NOT NULL DEFAULT '',
             notes          TEXT,
+            in_pool        INTEGER NOT NULL DEFAULT 0,
+            pool_price     REAL    NOT NULL DEFAULT 0.0,
+            claimed_at     TEXT    NOT NULL DEFAULT '',
             created_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
             updated_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
         )
@@ -89,27 +92,53 @@ def init_db():
         )
     """)
 
+    # App settings (key-value store)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL DEFAULT ''
+        )
+    """)
+
+    # Wallet recharge requests
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS wallet_recharges (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            username     TEXT    NOT NULL,
+            amount       REAL    NOT NULL,
+            utr_number   TEXT    NOT NULL DEFAULT '',
+            status       TEXT    NOT NULL DEFAULT 'pending',
+            requested_at TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+            processed_at TEXT    NOT NULL DEFAULT '',
+            admin_note   TEXT    NOT NULL DEFAULT ''
+        )
+    """)
+
     conn.commit()
     conn.close()
 
 
 def migrate_db():
     """Safely add new columns to an existing database without data loss."""
-    new_columns = [
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # --- leads table columns ---
+    for col, definition in [
         ("assigned_to",    "TEXT NOT NULL DEFAULT ''"),
         ("source",         "TEXT NOT NULL DEFAULT ''"),
         ("revenue",        "REAL NOT NULL DEFAULT 0.0"),
         ("follow_up_date", "TEXT NOT NULL DEFAULT ''"),
-    ]
-    conn = get_db()
-    cursor = conn.cursor()
-    for col, definition in new_columns:
+        ("in_pool",        "INTEGER NOT NULL DEFAULT 0"),
+        ("pool_price",     "REAL NOT NULL DEFAULT 0.0"),
+        ("claimed_at",     "TEXT NOT NULL DEFAULT ''"),
+    ]:
         try:
             cursor.execute(f"ALTER TABLE leads ADD COLUMN {col} {definition}")
         except Exception:
-            pass  # column already exists — safe to skip
+            pass  # column already exists
 
-    # Ensure users table exists (for databases created before this migration)
+    # --- users table ---
     try:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -127,7 +156,19 @@ def migrate_db():
     except Exception:
         pass
 
-    # Ensure daily_reports table exists (migration for old databases)
+    for col, definition in [
+        ("fbo_id",      "TEXT NOT NULL DEFAULT ''"),
+        ("upline_name", "TEXT NOT NULL DEFAULT ''"),
+        ("phone",       "TEXT NOT NULL DEFAULT ''"),
+        ("email",       "TEXT NOT NULL DEFAULT ''"),
+        ("status",      "TEXT NOT NULL DEFAULT 'pending'"),
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
+        except Exception:
+            pass
+
+    # --- daily_reports table ---
     try:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS daily_reports (
@@ -153,18 +194,33 @@ def migrate_db():
     except Exception:
         pass
 
-    # Add new user columns to existing databases
-    for col, definition in [
-        ("fbo_id",      "TEXT NOT NULL DEFAULT ''"),
-        ("upline_name", "TEXT NOT NULL DEFAULT ''"),
-        ("phone",       "TEXT NOT NULL DEFAULT ''"),
-        ("email",       "TEXT NOT NULL DEFAULT ''"),
-        ("status",      "TEXT NOT NULL DEFAULT 'pending'"),
-    ]:
-        try:
-            cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
-        except Exception:
-            pass  # column already exists
+    # --- app_settings table ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL DEFAULT ''
+            )
+        """)
+    except Exception:
+        pass
+
+    # --- wallet_recharges table ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS wallet_recharges (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                username     TEXT    NOT NULL,
+                amount       REAL    NOT NULL,
+                utr_number   TEXT    NOT NULL DEFAULT '',
+                status       TEXT    NOT NULL DEFAULT 'pending',
+                requested_at TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+                processed_at TEXT    NOT NULL DEFAULT '',
+                admin_note   TEXT    NOT NULL DEFAULT ''
+            )
+        """)
+    except Exception:
+        pass
 
     conn.commit()
     conn.close()
@@ -177,20 +233,17 @@ def seed_users():
     cursor = conn.cursor()
     count = cursor.execute("SELECT COUNT(*) FROM users").fetchone()[0]
     if count == 0:
-        # Fresh database: create admin with a securely hashed password
         cursor.execute(
             "INSERT INTO users (username, password, role, status) VALUES (?, ?, ?, ?)",
             ('admin', generate_password_hash('admin123', method='pbkdf2:sha256'), 'admin', 'approved')
         )
         conn.commit()
     else:
-        # Ensure all admin accounts are always approved (migration safety)
         cursor.execute("UPDATE users SET status='approved' WHERE role='admin'")
 
-        # Auto-upgrade any remaining plain-text passwords to hashed
         users = cursor.execute("SELECT id, password FROM users").fetchall()
         for u in users:
-            pwd = u[1]  # sqlite3.Row supports index access
+            pwd = u[1]
             if not pwd.startswith(('pbkdf2:', 'scrypt:', 'argon2:')):
                 cursor.execute("UPDATE users SET password=? WHERE id=?",
                                (generate_password_hash(pwd, method='pbkdf2:sha256'), u[0]))

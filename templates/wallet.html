@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block title %}My Wallet – Myle Community{% endblock %}
+{% block page_title %}My Wallet{% endblock %}
+
+{% block content %}
+
+<!-- ── Wallet Summary Cards ─────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #1565c0, #1a73e8);">
+      <div class="card-body text-white py-4">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <span class="small opacity-75 fw-semibold text-uppercase" style="letter-spacing:.05em;">Total Recharged</span>
+          <i class="bi bi-arrow-down-circle-fill fs-4 opacity-50"></i>
+        </div>
+        <h2 class="fw-bold mb-1">₹{{ "%.0f"|format(wallet.recharged) }}</h2>
+        <div class="small opacity-75">All approved recharges</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #b71c1c, #e53935);">
+      <div class="card-body text-white py-4">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <span class="small opacity-75 fw-semibold text-uppercase" style="letter-spacing:.05em;">Spent on Leads</span>
+          <i class="bi bi-arrow-up-circle-fill fs-4 opacity-50"></i>
+        </div>
+        <h2 class="fw-bold mb-1">₹{{ "%.0f"|format(wallet.spent) }}</h2>
+        <div class="small opacity-75">Lead pool purchases</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #1b5e20, #2e7d32);">
+      <div class="card-body text-white py-4">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <span class="small opacity-75 fw-semibold text-uppercase" style="letter-spacing:.05em;">Available Balance</span>
+          <i class="bi bi-wallet2 fs-4 opacity-50"></i>
+        </div>
+        <h2 class="fw-bold mb-1">₹{{ "%.0f"|format(wallet.balance) }}</h2>
+        <div class="small opacity-75">
+          {% if wallet.balance > 0 %}Ready to claim leads{% else %}Recharge to claim leads{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+
+  <!-- Left column: QR + Recharge Form -->
+  <div class="col-lg-5">
+
+    {% if upi_qr_b64 %}
+    <!-- UPI QR Code -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold border-0 pt-3">
+        <i class="bi bi-qr-code me-2 text-primary"></i>Scan & Pay to Recharge
+      </div>
+      <div class="card-body text-center pb-4">
+        <div class="d-inline-block p-3 rounded-3 border mb-3" style="background:#fff;">
+          <img src="data:image/png;base64,{{ upi_qr_b64 }}" alt="UPI QR Code"
+               class="img-fluid" style="max-width:200px; display:block;">
+        </div>
+        <div class="fw-semibold text-dark mb-1">{{ upi_id }}</div>
+        <div class="small text-muted">Scan with GPay, PhonePe, Paytm or any UPI app</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Recharge Request Form -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold border-0 pt-3">
+        <i class="bi bi-plus-circle-fill me-2 text-success"></i>Submit Recharge Request
+      </div>
+      <div class="card-body">
+        {% if pending_mine > 0 %}
+        <div class="alert alert-warning border-0 small py-2 mb-3">
+          <i class="bi bi-clock me-1"></i>
+          You have <strong>{{ pending_mine }}</strong> pending request(s). Waiting for admin approval.
+        </div>
+        {% endif %}
+
+        {% if not upi_id %}
+        <div class="alert alert-info border-0 small py-2 mb-3">
+          <i class="bi bi-info-circle me-1"></i>
+          Admin hasn't set up UPI ID yet. Contact admin for payment details.
+        </div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('request_recharge') }}">
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">Amount You Paid (₹)</label>
+            <div class="input-group">
+              <span class="input-group-text bg-white">₹</span>
+              <input type="number" name="amount" class="form-control"
+                     placeholder="500" min="1" step="1" required>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">UTR / Transaction Number</label>
+            <input type="text" name="utr_number" class="form-control"
+                   placeholder="e.g. 4123456789012" required>
+            <div class="form-text">
+              <i class="bi bi-info-circle me-1"></i>
+              Find UTR in your UPI app → Payment History → Transaction details
+            </div>
+          </div>
+          <button type="submit" class="btn btn-success w-100 fw-semibold">
+            <i class="bi bi-send-fill me-2"></i>Submit Request
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right column: History tables -->
+  <div class="col-lg-7">
+
+    <!-- Recharge History -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold border-0 pt-3 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history me-2 text-secondary"></i>Recharge History</span>
+        <span class="badge bg-secondary rounded-pill">{{ recharges|length }}</span>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Date</th>
+                <th>Amount</th>
+                <th>UTR</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in recharges %}
+              <tr>
+                <td class="ps-3 small text-muted">{{ r.requested_at[:16] }}</td>
+                <td class="fw-semibold">₹{{ r.amount|int }}</td>
+                <td><code class="small text-secondary">{{ r.utr_number }}</code></td>
+                <td>
+                  {% if r.status == 'approved' %}
+                    <span class="badge bg-success-subtle text-success border border-success-subtle">
+                      <i class="bi bi-check-circle me-1"></i>Approved
+                    </span>
+                  {% elif r.status == 'rejected' %}
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle"
+                          {% if r.admin_note %}title="{{ r.admin_note }}"{% endif %}>
+                      <i class="bi bi-x-circle me-1"></i>Rejected
+                    </span>
+                    {% if r.admin_note %}
+                    <div class="small text-muted mt-1">{{ r.admin_note }}</div>
+                    {% endif %}
+                  {% else %}
+                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                      <i class="bi bi-hourglass-split me-1"></i>Pending
+                    </span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="4" class="text-center text-muted py-4">
+                  <i class="bi bi-inbox me-2"></i>No recharges yet.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lead Purchase History -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold border-0 pt-3 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-people-fill me-2 text-primary"></i>Lead Purchase History</span>
+        <a href="{{ url_for('lead_pool') }}" class="btn btn-sm btn-primary">
+          <i class="bi bi-lightning-charge-fill me-1"></i>Claim More
+        </a>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Name</th>
+                <th>Source</th>
+                <th>Cost</th>
+                <th>Claimed On</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for l in claimed_leads %}
+              <tr>
+                <td class="ps-3 fw-semibold">{{ l.name }}</td>
+                <td><span class="badge bg-secondary">{{ l.source }}</span></td>
+                <td class="text-danger fw-semibold">-₹{{ l.pool_price|int }}</td>
+                <td class="small text-muted">{{ l.claimed_at[:10] }}</td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="4" class="text-center text-muted py-4">
+                  <i class="bi bi-lightning me-2"></i>
+                  No leads claimed yet.
+                  <a href="{{ url_for('lead_pool') }}" class="ms-1">Browse pool</a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

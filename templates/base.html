@@ -57,7 +57,7 @@
         </a>
       </li>
 
-      <!-- Daily Report – team members -->
+      <!-- Daily Report + Wallet + Lead Pool – team members -->
       {% if session.get('role') != 'admin' %}
       <li class="nav-item">
         <a href="{{ url_for('report_submit') }}"
@@ -65,9 +65,21 @@
           <i class="bi bi-clipboard2-check-fill me-2"></i><span>Daily Report</span>
         </a>
       </li>
+      <li class="nav-item">
+        <a href="{{ url_for('wallet') }}"
+           class="nav-link text-white {% if request.endpoint == 'wallet' %}active{% endif %}">
+          <i class="bi bi-wallet2 me-2"></i><span>My Wallet</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('lead_pool') }}"
+           class="nav-link text-white {% if request.endpoint == 'lead_pool' %}active{% endif %}">
+          <i class="bi bi-lightning-charge-fill me-2"></i><span>Lead Pool</span>
+        </a>
+      </li>
       {% endif %}
 
-      <!-- Reports + Team + Approvals – admin only -->
+      <!-- Reports + Team + Approvals + Pool + Wallet – admin only -->
       {% if session.get('role') == 'admin' %}
       <li class="nav-item">
         <a href="{{ url_for('team') }}"
@@ -82,12 +94,33 @@
         </a>
       </li>
       <li class="nav-item">
+        <a href="{{ url_for('admin_lead_pool') }}"
+           class="nav-link text-white {% if request.endpoint in ['admin_lead_pool','import_lead_pool_csv','add_to_pool'] %}active{% endif %}">
+          <i class="bi bi-people-fill me-2"></i><span>Lead Pool</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('admin_wallet_requests') }}"
+           class="nav-link text-white d-flex align-items-center justify-content-between {% if request.endpoint in ['admin_wallet_requests','approve_recharge','reject_recharge'] %}active{% endif %}">
+          <span><i class="bi bi-wallet2 me-2"></i><span>Recharges</span></span>
+          {% if wallet_pending > 0 %}
+            <span class="badge bg-success ms-1">{{ wallet_pending }}</span>
+          {% endif %}
+        </a>
+      </li>
+      <li class="nav-item">
         <a href="{{ url_for('admin_approvals') }}"
            class="nav-link text-white d-flex align-items-center justify-content-between {% if request.endpoint in ['admin_approvals','approve_user','reject_user'] %}active{% endif %}">
           <span><i class="bi bi-person-check-fill me-2"></i><span>Approvals</span></span>
           {% if pending_count > 0 %}
             <span class="badge bg-warning text-dark ms-1">{{ pending_count }}</span>
           {% endif %}
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('admin_settings') }}"
+           class="nav-link text-white {% if request.endpoint == 'admin_settings' %}active{% endif %}">
+          <i class="bi bi-gear-fill me-2"></i><span>Settings</span>
         </a>
       </li>
       {% endif %}
