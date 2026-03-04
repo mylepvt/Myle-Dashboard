@@ -781,13 +781,19 @@ def edit_lead(lead_id):
         day2_done      = 1 if request.form.get('day2_done') else 0
         interview_done = 1 if request.form.get('interview_done') else 0
         notes          = request.form.get('notes', '').strip()
+        follow_up_date = request.form.get('follow_up_date', '').strip()
 
         if not name or not phone:
             flash('Name and Phone are required.', 'danger')
+            lead_notes_rows = db.execute(
+                "SELECT * FROM lead_notes WHERE lead_id=? ORDER BY created_at ASC",
+                (lead_id,)
+            ).fetchall()
             db.close()
             return render_template('edit_lead.html',
                                    lead=lead, statuses=STATUSES,
-                                   team=team, payment_amount=PAYMENT_AMOUNT)
+                                   team=team, payment_amount=PAYMENT_AMOUNT,
+                                   lead_notes=lead_notes_rows)
 
         if status not in STATUSES:
             status = lead['status']
@@ -802,12 +808,12 @@ def edit_lead(lead_id):
             SET name=?, phone=?, email=?, referred_by=?, assigned_to=?, status=?,
                 payment_done=?, payment_amount=?,
                 day1_done=?, day2_done=?, interview_done=?,
-                notes=?, updated_at=datetime('now','localtime')
+                follow_up_date=?, notes=?, updated_at=datetime('now','localtime')
             WHERE id=?
         """, (name, phone, email, referred_by, assigned_to, status,
               payment_done, payment_amount,
               day1_done, day2_done, interview_done,
-              notes, lead_id))
+              follow_up_date, notes, lead_id))
         db.commit()
         db.close()
         flash(f'Lead "{name}" updated.', 'success')
@@ -890,6 +896,7 @@ def delete_lead(lead_id):
         ).fetchone()
 
     if lead:
+        db.execute("DELETE FROM lead_notes WHERE lead_id=?", (lead_id,))
         db.execute("DELETE FROM leads WHERE id=?", (lead_id,))
         db.commit()
         flash(f'Lead "{lead["name"]}" deleted.', 'warning')
@@ -1975,7 +1982,8 @@ def bulk_action():
         flash('No leads selected.', 'warning')
         return redirect(url_for('leads'))
 
-    lead_ids = [int(i) for i in lead_ids if i.isdigit()]
+    # Deduplicate — mobile + desktop both render checkboxes in DOM
+    lead_ids = list(set(int(i) for i in lead_ids if i.isdigit()))
     db       = get_db()
 
     # Build safe WHERE clause limiting to user's own leads (unless admin)
@@ -1989,6 +1997,9 @@ def bulk_action():
         params = lead_ids + [session['username']]
 
     if action == 'delete':
+        # Cascade: remove notes for all affected leads first
+        db.execute(f"DELETE FROM lead_notes WHERE lead_id IN ({placeholders})",
+                   lead_ids)
         db.execute(f"DELETE FROM leads WHERE {where}", params)
         db.commit()
         flash(f'Deleted {len(lead_ids)} leads.', 'warning')

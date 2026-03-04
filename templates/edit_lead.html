@@ -107,6 +107,15 @@
               {% endif %}
             </div>
 
+            <!-- Follow-up Date -->
+            <div class="col-12 mt-2"><h6 class="text-muted fw-semibold text-uppercase small">Follow-up</h6><hr class="mt-1 mb-2"/></div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Follow-up Date</label>
+              <input type="date" name="follow_up_date" class="form-control"
+                     value="{{ lead.follow_up_date or '' }}">
+              <div class="form-text">Leave blank to clear reminder.</div>
+            </div>
+
             <!-- Notes -->
             <div class="col-12 mt-2"><h6 class="text-muted fw-semibold text-uppercase small">Notes</h6><hr class="mt-1 mb-2"/></div>
             <div class="col-12">

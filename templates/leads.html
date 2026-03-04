@@ -52,6 +52,7 @@
       <input class="form-check-input" type="checkbox" id="selectAllMobile">
       <label class="form-check-label small text-muted" for="selectAllMobile">Select all</label>
     </div>
+    <span class="text-muted small ms-2" id="mobileSelectedCount" style="display:none;"></span>
   </div>
   {% endif %}
 
@@ -63,7 +64,7 @@
       <div class="d-flex justify-content-between align-items-start mb-1">
         <div class="d-flex align-items-start gap-2">
           <div class="form-check mt-1 mb-0">
-            <input class="form-check-input lead-check" type="checkbox" value="{{ lead.id }}" aria-label="Select {{ lead.name }}">
+            <input class="form-check-input lead-check lead-check-mobile" type="checkbox" value="{{ lead.id }}" aria-label="Select {{ lead.name }}">
           </div>
           <div>
             <div class="fw-bold fs-6">{{ lead.name }}</div>
@@ -174,7 +175,7 @@
           <tr>
             <td>
               <div class="form-check mb-0">
-                <input class="form-check-input lead-check" type="checkbox" value="{{ lead.id }}" aria-label="Select {{ lead.name }}">
+                <input class="form-check-input lead-check lead-check-desktop" type="checkbox" value="{{ lead.id }}" aria-label="Select {{ lead.name }}">
               </div>
             </td>
             <td class="text-muted small">{{ lead.id }}</td>
@@ -355,22 +356,33 @@
 {% block scripts %}
 <script>
 // ── Bulk select logic ──────────────────────────────────────
-const bulkBar        = document.getElementById('bulkBar');
-const bulkCountEl    = document.getElementById('bulkCount');
-const bulkForm       = document.getElementById('bulkForm');
-const bulkActionInput= document.getElementById('bulkActionInput');
-const bulkStatusSel  = document.getElementById('bulkStatusSelect');
+// Mobile + desktop views both exist in DOM (hidden via CSS).
+// We scope selection by viewport: mobile uses .lead-check-mobile,
+// desktop uses .lead-check-desktop. On submit we deduplicate by value.
 
-function getChecked() {
-  return [...document.querySelectorAll('.lead-check:checked')];
+const bulkBar         = document.getElementById('bulkBar');
+const bulkCountEl     = document.getElementById('bulkCount');
+const bulkForm        = document.getElementById('bulkForm');
+const bulkActionInput = document.getElementById('bulkActionInput');
+const bulkStatusSel   = document.getElementById('bulkStatusSelect');
+const isMobileView    = () => window.innerWidth < 768;
+
+function getActiveSelector() {
+  return isMobileView() ? '.lead-check-mobile' : '.lead-check-desktop';
+}
+
+function getCheckedIds() {
+  // Collect unique IDs from whichever view is active
+  const checked = document.querySelectorAll(getActiveSelector() + ':checked');
+  return [...new Set([...checked].map(cb => cb.value))];
 }
 
 function updateBulkBar() {
-  const checked = getChecked();
-  if (checked.length > 0) {
+  const ids = getCheckedIds();
+  if (ids.length > 0) {
     bulkBar.classList.remove('d-none');
     bulkBar.classList.add('d-flex');
-    bulkCountEl.textContent = checked.length + ' selected';
+    bulkCountEl.textContent = ids.length + ' selected';
   } else {
     bulkBar.classList.add('d-none');
     bulkBar.classList.remove('d-flex');
@@ -379,18 +391,20 @@ function updateBulkBar() {
 
 function clearBulk() {
   document.querySelectorAll('.lead-check').forEach(cb => cb.checked = false);
-  document.getElementById('selectAllDesktop') && (document.getElementById('selectAllDesktop').checked = false);
-  document.getElementById('selectAllMobile')  && (document.getElementById('selectAllMobile').checked = false);
+  ['selectAllDesktop','selectAllMobile'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = false;
+  });
   updateBulkBar();
 }
 
 function submitBulk(type) {
-  const checked = getChecked();
-  if (!checked.length) { showToast('No leads selected.', 'warning'); return; }
+  const ids = getCheckedIds();
+  if (!ids.length) { showToast('No leads selected.', 'warning'); return; }
 
   let action = '';
   if (type === 'delete') {
-    if (!confirm('Delete ' + checked.length + ' lead(s)? This cannot be undone.')) return;
+    if (!confirm('Delete ' + ids.length + ' lead(s)? This cannot be undone.')) return;
     action = 'delete';
   } else {
     action = bulkStatusSel.value;
@@ -400,12 +414,12 @@ function submitBulk(type) {
   // Remove any previously injected hidden inputs
   bulkForm.querySelectorAll('input[name="lead_ids"]').forEach(el => el.remove());
 
-  // Inject checked IDs
-  checked.forEach(cb => {
+  // Inject unique IDs
+  ids.forEach(id => {
     const inp = document.createElement('input');
     inp.type  = 'hidden';
     inp.name  = 'lead_ids';
-    inp.value = cb.value;
+    inp.value = id;
     bulkForm.appendChild(inp);
   });
 
@@ -417,7 +431,7 @@ function submitBulk(type) {
 const selAllDesktop = document.getElementById('selectAllDesktop');
 if (selAllDesktop) {
   selAllDesktop.addEventListener('change', function() {
-    document.querySelectorAll('.lead-check').forEach(cb => cb.checked = this.checked);
+    document.querySelectorAll('.lead-check-desktop').forEach(cb => cb.checked = this.checked);
     updateBulkBar();
   });
 }
@@ -426,7 +440,7 @@ if (selAllDesktop) {
 const selAllMobile = document.getElementById('selectAllMobile');
 if (selAllMobile) {
   selAllMobile.addEventListener('change', function() {
-    document.querySelectorAll('.lead-check').forEach(cb => cb.checked = this.checked);
+    document.querySelectorAll('.lead-check-mobile').forEach(cb => cb.checked = this.checked);
     updateBulkBar();
   });
 }
