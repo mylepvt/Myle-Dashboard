@@ -435,6 +435,27 @@ def reject_user(user_id):
 
 
 # ─────────────────────────────────────────────
+#  PWA support routes
+# ─────────────────────────────────────────────
+
+@app.route('/sw.js')
+def service_worker():
+    """Serve service worker from root scope (required for full PWA control)."""
+    return app.send_static_file('sw.js'), 200, {
+        'Content-Type': 'application/javascript',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Service-Worker-Allowed': '/'
+    }
+
+@app.route('/manifest.json')
+def pwa_manifest():
+    """Serve PWA manifest from root."""
+    return app.send_static_file('manifest.json'), 200, {
+        'Content-Type': 'application/manifest+json'
+    }
+
+
+# ─────────────────────────────────────────────
 #  Root redirect
 # ─────────────────────────────────────────────
 
