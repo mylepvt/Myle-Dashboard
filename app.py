@@ -169,6 +169,36 @@ def _generate_upi_qr_base64(upi_id):
     return base64.b64encode(data).decode('utf-8') if data else None
 
 
+def _get_network_usernames(db, username):
+    """
+    Return the list of usernames visible to `username`.
+
+    Includes the user themselves + ALL recursive downlines (BFS tree walk).
+    A user is a downline of X if their `upline_name` field matches X's username
+    (direct or via chain).
+
+    Returns None for admins → caller should show everything.
+
+    Example chain:  A → B → C → D
+      B's network = {B, C, D}  (not A — uplines are excluded)
+      A's network = {A, B, C, D}
+    """
+    visible = {username}
+    queue   = [username]
+    while queue:
+        current  = queue.pop(0)
+        downlines = db.execute(
+            "SELECT username FROM users WHERE upline_name=? AND status='approved'",
+            (current,)
+        ).fetchall()
+        for row in downlines:
+            u = row['username']
+            if u not in visible:
+                visible.add(u)
+                queue.append(u)
+    return list(visible)
+
+
 def _send_welcome_email(user_email, username, login_url):
     """Send welcome email when a team member is approved. Silently skips if SMTP not configured."""
     db = get_db()
@@ -1878,8 +1908,10 @@ def toggle_pin(ann_id):
 @app.route('/leaderboard')
 @login_required
 def leaderboard():
-    db = get_db()
-    rows = db.execute("""
+    db       = get_db()
+    username = session['username']
+
+    LEADER_SQL = """
         SELECT
             u.username,
             u.display_picture,
@@ -1892,13 +1924,29 @@ def leaderboard():
               / NULLIF(COUNT(l.id),0)*100, 1)                             AS paid_pct
         FROM users u
         LEFT JOIN leads l ON l.assigned_to=u.username AND l.in_pool=0
-        WHERE u.role='team' AND u.status='approved'
+        WHERE u.role='team' AND u.status='approved' {extra}
         GROUP BY u.username
         ORDER BY paid DESC, converted DESC, total DESC
-    """).fetchall()
+    """
+
+    if session.get('role') == 'admin':
+        # Admin sees the full leaderboard
+        rows = db.execute(LEADER_SQL.format(extra='')).fetchall()
+    else:
+        # Non-admin: only show own network (self + all recursive downlines)
+        network = _get_network_usernames(db, username)
+        if network:
+            placeholders = ','.join('?' for _ in network)
+            rows = db.execute(
+                LEADER_SQL.format(extra=f"AND u.username IN ({placeholders})"),
+                network
+            ).fetchall()
+        else:
+            rows = []
+
     db.close()
     return render_template('leaderboard.html', rows=rows,
-                           current_user=session['username'])
+                           current_user=username)
 
 
 # ─────────────────────────────────────────────
