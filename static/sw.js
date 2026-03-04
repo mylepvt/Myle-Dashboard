@@ -1,5 +1,5 @@
 /* ── Myle Community Service Worker ──────────────────────── */
-const CACHE   = 'myle-v1';
+const CACHE   = 'myle-v2';
 const STATIC  = [
   '/static/css/style.css',
   '/static/icon-192.png',
