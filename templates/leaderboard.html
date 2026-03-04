@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Leaderboard – Myle Community{% endblock %}
+{% block page_title %}Leaderboard{% endblock %}
+
+{% block content %}
+
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white d-flex align-items-center justify-content-between">
+    <h6 class="mb-0"><i class="bi bi-trophy-fill me-2 text-warning"></i>Team Leaderboard</h6>
+    <span class="text-muted small">Ranked by ₹196 payments</span>
+  </div>
+  <div class="card-body p-0">
+    {% for row in rows %}
+    {% set rank = loop.index %}
+    <div class="d-flex align-items-center gap-3 px-4 py-3 border-bottom
+                {% if row.username == current_user %}bg-primary bg-opacity-10{% endif %}">
+
+      <!-- Rank badge -->
+      <div class="fw-bold fs-5 text-center" style="width:36px;">
+        {% if rank == 1 %}🥇
+        {% elif rank == 2 %}🥈
+        {% elif rank == 3 %}🥉
+        {% else %}<span class="text-muted">#{{ rank }}</span>
+        {% endif %}
+      </div>
+
+      <!-- Avatar -->
+      {% if row.display_picture %}
+        <img src="{{ row.display_picture }}" alt="DP"
+             style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid #e9ecef;">
+      {% else %}
+        <div class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10"
+             style="width:44px;height:44px;flex-shrink:0;">
+          <i class="bi bi-person-fill text-primary fs-5"></i>
+        </div>
+      {% endif %}
+
+      <!-- Name + stats -->
+      <div class="flex-grow-1">
+        <div class="fw-semibold">
+          {{ row.username }}
+          {% if row.username == current_user %}
+            <span class="badge bg-primary ms-1" style="font-size:0.65rem;">You</span>
+          {% endif %}
+        </div>
+        <div class="text-muted small">
+          {{ row.total }} leads · {{ row.converted }} converted · {{ row.paid_pct or 0 }}% paid rate
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="text-end d-none d-md-block">
+        <div class="fw-bold text-success">₹{{ "%.0f"|format(row.revenue or 0) }}</div>
+        <div class="text-muted small">{{ row.paid }} paid</div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="d-none d-md-block" style="width:100px;">
+        <div class="progress" style="height:6px;">
+          <div class="progress-bar bg-success"
+               style="width:{{ [row.paid_pct or 0, 100]|min }}%"></div>
+        </div>
+        <div class="text-muted" style="font-size:0.68rem;text-align:right;">{{ row.paid_pct or 0 }}%</div>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state py-5">
+      <i class="bi bi-trophy"></i>
+      <p>No team data yet. Start adding leads!</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}

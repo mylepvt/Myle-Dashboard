@@ -129,4 +129,69 @@
     </div>
   </div>
 </div>
+
+<!-- ── Lead Notes / Timeline ──────────────────────────── -->
+<div class="row justify-content-center mt-4">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white d-flex align-items-center justify-content-between">
+        <h6 class="mb-0"><i class="bi bi-chat-left-text-fill me-2 text-primary"></i>Activity Notes</h6>
+        <span class="badge bg-secondary">{{ lead_notes|length }}</span>
+      </div>
+      <div class="card-body">
+
+        <!-- Add Note Form -->
+        <form method="post" action="{{ url_for('add_lead_note', lead_id=lead.id) }}" class="mb-4">
+          <div class="d-flex gap-2">
+            <textarea name="note" class="form-control form-control-sm" rows="2"
+                      placeholder="Add a note, call outcome, follow-up detail…" required></textarea>
+            <button type="submit" class="btn btn-primary btn-sm align-self-end px-3">
+              <i class="bi bi-send-fill"></i>
+            </button>
+          </div>
+        </form>
+
+        <!-- Notes Timeline -->
+        {% if lead_notes %}
+          <div class="d-flex flex-column gap-3">
+            {% for note in lead_notes %}
+            <div class="note-item d-flex gap-3">
+              <div class="flex-shrink-0">
+                <div class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10"
+                     style="width:34px;height:34px;">
+                  <i class="bi bi-person-fill text-primary"></i>
+                </div>
+              </div>
+              <div class="flex-grow-1">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                  <span class="fw-semibold small">{{ note.username }}</span>
+                  <span class="text-muted" style="font-size:0.72rem;">{{ note.created_at[:16] }}</span>
+                </div>
+                <p class="mb-0 small" style="white-space:pre-wrap;">{{ note.note }}</p>
+              </div>
+              {% if session.get('username') == note.username or session.get('role') == 'admin' %}
+              <div class="flex-shrink-0">
+                <form method="post" action="{{ url_for('delete_lead_note', lead_id=lead.id, note_id=note.id) }}"
+                      onsubmit="return confirm('Delete this note?')">
+                  <button type="submit" class="btn btn-xs btn-outline-danger px-1 py-0" title="Delete note">
+                    <i class="bi bi-trash-fill" style="font-size:0.72rem;"></i>
+                  </button>
+                </form>
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="bi bi-chat-square-dots fs-2 d-block mb-2 opacity-25"></i>
+            No notes yet. Add the first one above!
+          </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}

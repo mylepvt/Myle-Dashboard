@@ -69,6 +69,20 @@
         </a>
       </li>
 
+      <!-- Leaderboard + Announcements – all users -->
+      <li class="nav-item">
+        <a href="{{ url_for('leaderboard') }}"
+           class="nav-link text-white {% if request.endpoint == 'leaderboard' %}active{% endif %}">
+          <i class="bi bi-trophy-fill me-2"></i><span>Leaderboard</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('announcements') }}"
+           class="nav-link text-white {% if request.endpoint in ['announcements','post_announcement','delete_announcement'] %}active{% endif %}">
+          <i class="bi bi-megaphone-fill me-2"></i><span>Notice Board</span>
+        </a>
+      </li>
+
       <!-- Daily Report + Wallet + Lead Pool – team members -->
       {% if session.get('role') != 'admin' %}
       <li class="nav-item">
@@ -177,6 +191,10 @@
       </button>
       <span class="fw-semibold text-secondary">{% block page_title %}{% endblock %}</span>
       <div class="ms-auto d-flex align-items-center gap-2">
+        <!-- Dark mode toggle -->
+        <button id="darkToggle" class="btn btn-sm btn-outline-secondary" title="Toggle dark mode">
+          <i class="bi bi-moon-fill" id="darkIcon"></i>
+        </button>
         {% if session.get('role') == 'admin' %}
         <a href="{{ url_for('add_lead') }}" class="btn btn-primary btn-sm">
           <i class="bi bi-plus-lg me-1"></i>Add Lead
@@ -352,6 +370,24 @@
   /* ── Tooltip init ───────────────────────────────────── */
   const tooltipEls = document.querySelectorAll('[data-bs-toggle="tooltip"]');
   tooltipEls.forEach(el => new bootstrap.Tooltip(el, { placement: 'right' }));
+
+  /* ── Dark Mode ──────────────────────────────────────── */
+  const darkToggle = document.getElementById('darkToggle');
+  const darkIcon   = document.getElementById('darkIcon');
+
+  function applyDark(on) {
+    document.documentElement.setAttribute('data-theme', on ? 'dark' : 'light');
+    darkIcon.className = on ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+  }
+
+  // Load saved preference
+  applyDark(localStorage.getItem('myle-dark') === '1');
+
+  darkToggle.addEventListener('click', () => {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    localStorage.setItem('myle-dark', isDark ? '0' : '1');
+    applyDark(!isDark);
+  });
 </script>
 {% block scripts %}{% endblock %}
 

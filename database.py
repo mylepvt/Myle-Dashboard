@@ -122,6 +122,28 @@ def init_db():
         )
     """)
 
+    # Admin announcements (notice board)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS announcements (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            message    TEXT    NOT NULL,
+            created_by TEXT    NOT NULL DEFAULT 'admin',
+            pin        INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+        )
+    """)
+
+    # Lead notes / timeline
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS lead_notes (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            lead_id    INTEGER NOT NULL,
+            username   TEXT    NOT NULL,
+            note       TEXT    NOT NULL,
+            created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -226,6 +248,33 @@ def migrate_db():
                 requested_at TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
                 processed_at TEXT    NOT NULL DEFAULT '',
                 admin_note   TEXT    NOT NULL DEFAULT ''
+            )
+        """)
+    except Exception:
+        pass
+
+    # --- new tables (safe if already exist) ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS announcements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                message TEXT NOT NULL,
+                created_by TEXT NOT NULL DEFAULT 'admin',
+                pin INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+        """)
+    except Exception:
+        pass
+
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS lead_notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                lead_id INTEGER NOT NULL,
+                username TEXT NOT NULL,
+                note TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
             )
         """)
     except Exception:

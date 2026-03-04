@@ -615,6 +615,21 @@ def team_dashboard():
     """, (username, today)).fetchone()[0] or 0
     today_earnings = today_paid * PAYMENT_AMOUNT
 
+    # Follow-up reminders (due today or overdue)
+    followups = db.execute("""
+        SELECT id, name, phone, follow_up_date FROM leads
+        WHERE assigned_to=? AND in_pool=0
+          AND follow_up_date != ''
+          AND follow_up_date <= ?
+          AND status NOT IN ('Converted','Lost')
+        ORDER BY follow_up_date ASC LIMIT 10
+    """, (username, today)).fetchall()
+
+    # Announcements (pinned first, latest 5)
+    notices = db.execute(
+        "SELECT * FROM announcements ORDER BY pin DESC, created_at DESC LIMIT 5"
+    ).fetchall()
+
     db.close()
     return render_template('dashboard.html',
                            metrics=metrics,
@@ -627,7 +642,9 @@ def team_dashboard():
                            today=today,
                            pool_count=pool_count,
                            today_paid=today_paid,
-                           today_earnings=today_earnings)
+                           today_earnings=today_earnings,
+                           followups=followups,
+                           notices=notices)
 
 
 # ─────────────────────────────────────────────
@@ -657,12 +674,15 @@ def leads():
 
     query += " ORDER BY created_at DESC"
     all_leads = db.execute(query, params).fetchall()
+    team      = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
     db.close()
     return render_template('leads.html',
                            leads=all_leads,
                            statuses=STATUSES,
+                           sources=SOURCES,
                            selected_status=status,
-                           search=search)
+                           search=search,
+                           team=team)
 
 
 # ─────────────────────────────────────────────
@@ -793,12 +813,17 @@ def edit_lead(lead_id):
         flash(f'Lead "{name}" updated.', 'success')
         return redirect(url_for('leads'))
 
+    lead_notes_rows = db.execute(
+        "SELECT * FROM lead_notes WHERE lead_id=? ORDER BY created_at ASC",
+        (lead_id,)
+    ).fetchall()
     db.close()
     return render_template('edit_lead.html',
                            lead=lead,
                            statuses=STATUSES,
                            team=team,
-                           payment_amount=PAYMENT_AMOUNT)
+                           payment_amount=PAYMENT_AMOUNT,
+                           lead_notes=lead_notes_rows)
 
 
 # ─────────────────────────────────────────────
@@ -1741,6 +1766,254 @@ def profile():
     user = db.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
     db.close()
     return render_template('profile.html', user=user)
+
+
+# ─────────────────────────────────────────────
+#  CSV Export
+# ─────────────────────────────────────────────
+
+@app.route('/leads/export')
+@login_required
+def export_leads():
+    """Download leads as CSV."""
+    import io as _io
+    db     = get_db()
+    username = session['username']
+
+    if session.get('role') == 'admin':
+        rows = db.execute(
+            "SELECT * FROM leads WHERE in_pool=0 ORDER BY created_at DESC"
+        ).fetchall()
+    else:
+        rows = db.execute(
+            "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 ORDER BY created_at DESC",
+            (username,)
+        ).fetchall()
+    db.close()
+
+    buf = _io.StringIO()
+    cols = ['id','name','phone','email','referred_by','assigned_to','source','status',
+            'payment_done','payment_amount','revenue','day1_done','day2_done',
+            'interview_done','follow_up_date','notes','created_at','updated_at']
+    writer = csv.writer(buf)
+    writer.writerow(cols)
+    for r in rows:
+        writer.writerow([r[c] for c in cols])
+
+    buf.seek(0)
+    fname = f"leads_{datetime.date.today().isoformat()}.csv"
+    return Response(buf.getvalue(), mimetype='text/csv',
+                    headers={'Content-Disposition': f'attachment; filename={fname}'})
+
+
+# ─────────────────────────────────────────────
+#  Announcements (Notice Board)
+# ─────────────────────────────────────────────
+
+@app.route('/announcements', methods=['GET'])
+@login_required
+def announcements():
+    db   = get_db()
+    rows = db.execute(
+        "SELECT * FROM announcements ORDER BY pin DESC, created_at DESC LIMIT 20"
+    ).fetchall()
+    db.close()
+    return render_template('announcements.html', announcements=rows)
+
+
+@app.route('/announcements/post', methods=['POST'])
+@admin_required
+def post_announcement():
+    msg = request.form.get('message', '').strip()
+    pin = 1 if request.form.get('pin') else 0
+    if not msg:
+        flash('Message cannot be empty.', 'danger')
+        return redirect(url_for('announcements'))
+    db = get_db()
+    db.execute(
+        "INSERT INTO announcements (message, created_by, pin) VALUES (?, ?, ?)",
+        (msg, session['username'], pin)
+    )
+    db.commit()
+    db.close()
+    flash('Announcement posted!', 'success')
+    return redirect(url_for('announcements'))
+
+
+@app.route('/announcements/<int:ann_id>/delete', methods=['POST'])
+@admin_required
+def delete_announcement(ann_id):
+    db = get_db()
+    db.execute("DELETE FROM announcements WHERE id=?", (ann_id,))
+    db.commit()
+    db.close()
+    flash('Announcement deleted.', 'warning')
+    return redirect(url_for('announcements'))
+
+
+@app.route('/announcements/<int:ann_id>/toggle-pin', methods=['POST'])
+@admin_required
+def toggle_pin(ann_id):
+    db  = get_db()
+    ann = db.execute("SELECT pin FROM announcements WHERE id=?", (ann_id,)).fetchone()
+    if ann:
+        db.execute("UPDATE announcements SET pin=? WHERE id=?",
+                   (0 if ann['pin'] else 1, ann_id))
+        db.commit()
+    db.close()
+    return redirect(url_for('announcements'))
+
+
+# ─────────────────────────────────────────────
+#  Leaderboard
+# ─────────────────────────────────────────────
+
+@app.route('/leaderboard')
+@login_required
+def leaderboard():
+    db = get_db()
+    rows = db.execute("""
+        SELECT
+            u.username,
+            u.display_picture,
+            COUNT(l.id)                                                   AS total,
+            SUM(CASE WHEN l.status='Converted' THEN 1 ELSE 0 END)        AS converted,
+            SUM(CASE WHEN l.payment_done=1     THEN 1 ELSE 0 END)        AS paid,
+            COALESCE(SUM(l.payment_amount),0)                             AS revenue,
+            ROUND(
+              CAST(SUM(CASE WHEN l.payment_done=1 THEN 1 ELSE 0 END) AS REAL)
+              / NULLIF(COUNT(l.id),0)*100, 1)                             AS paid_pct
+        FROM users u
+        LEFT JOIN leads l ON l.assigned_to=u.username AND l.in_pool=0
+        WHERE u.role='team' AND u.status='approved'
+        GROUP BY u.username
+        ORDER BY paid DESC, converted DESC, total DESC
+    """).fetchall()
+    db.close()
+    return render_template('leaderboard.html', rows=rows,
+                           current_user=session['username'])
+
+
+# ─────────────────────────────────────────────
+#  Admin – Reset any user's password
+# ─────────────────────────────────────────────
+
+@app.route('/admin/users/<int:user_id>/reset-password', methods=['POST'])
+@admin_required
+def admin_reset_password(user_id):
+    new_pw = request.form.get('new_password', '').strip()
+    if len(new_pw) < 6:
+        flash('Password must be at least 6 characters.', 'danger')
+        return redirect(url_for('admin_approvals'))
+    db   = get_db()
+    user = db.execute("SELECT username FROM users WHERE id=?", (user_id,)).fetchone()
+    if user:
+        db.execute("UPDATE users SET password=? WHERE id=?",
+                   (generate_password_hash(new_pw, method='pbkdf2:sha256'), user_id))
+        db.commit()
+        flash(f'Password for @{user["username"]} reset successfully.', 'success')
+    db.close()
+    return redirect(url_for('admin_approvals'))
+
+
+# ─────────────────────────────────────────────
+#  Lead Notes / Timeline
+# ─────────────────────────────────────────────
+
+@app.route('/leads/<int:lead_id>/notes', methods=['POST'])
+@login_required
+def add_lead_note(lead_id):
+    note = request.form.get('note', '').strip()
+    if not note:
+        flash('Note cannot be empty.', 'danger')
+        return redirect(url_for('edit_lead', lead_id=lead_id))
+
+    db = get_db()
+    # Verify access
+    if session.get('role') != 'admin':
+        lead = db.execute(
+            "SELECT id FROM leads WHERE id=? AND assigned_to=? AND in_pool=0",
+            (lead_id, session['username'])
+        ).fetchone()
+        if not lead:
+            db.close()
+            flash('Access denied.', 'danger')
+            return redirect(url_for('leads'))
+
+    db.execute(
+        "INSERT INTO lead_notes (lead_id, username, note) VALUES (?, ?, ?)",
+        (lead_id, session['username'], note)
+    )
+    db.commit()
+    db.close()
+    flash('Note added.', 'success')
+    return redirect(url_for('edit_lead', lead_id=lead_id))
+
+
+@app.route('/leads/<int:lead_id>/notes/<int:note_id>/delete', methods=['POST'])
+@login_required
+def delete_lead_note(lead_id, note_id):
+    db   = get_db()
+    note = db.execute("SELECT username FROM lead_notes WHERE id=?", (note_id,)).fetchone()
+    if note and (note['username'] == session['username'] or session.get('role') == 'admin'):
+        db.execute("DELETE FROM lead_notes WHERE id=?", (note_id,))
+        db.commit()
+    db.close()
+    return redirect(url_for('edit_lead', lead_id=lead_id))
+
+
+# ─────────────────────────────────────────────
+#  Bulk Actions on Leads
+# ─────────────────────────────────────────────
+
+@app.route('/leads/bulk-action', methods=['POST'])
+@login_required
+def bulk_action():
+    action   = request.form.get('bulk_action', '')
+    lead_ids = request.form.getlist('lead_ids')
+    if not lead_ids:
+        flash('No leads selected.', 'warning')
+        return redirect(url_for('leads'))
+
+    lead_ids = [int(i) for i in lead_ids if i.isdigit()]
+    db       = get_db()
+
+    # Build safe WHERE clause limiting to user's own leads (unless admin)
+    if session.get('role') == 'admin':
+        placeholders = ','.join('?' for _ in lead_ids)
+        where  = f"id IN ({placeholders}) AND in_pool=0"
+        params = lead_ids
+    else:
+        placeholders = ','.join('?' for _ in lead_ids)
+        where  = f"id IN ({placeholders}) AND assigned_to=? AND in_pool=0"
+        params = lead_ids + [session['username']]
+
+    if action == 'delete':
+        db.execute(f"DELETE FROM leads WHERE {where}", params)
+        db.commit()
+        flash(f'Deleted {len(lead_ids)} leads.', 'warning')
+
+    elif action.startswith('status:'):
+        new_status = action.split(':', 1)[1]
+        if new_status in STATUSES:
+            db.execute(
+                f"UPDATE leads SET status=?, updated_at=datetime('now','localtime') WHERE {where}",
+                [new_status] + params
+            )
+            db.commit()
+            flash(f'Status updated to "{new_status}" for {len(lead_ids)} leads.', 'success')
+
+    elif action == 'mark_paid':
+        db.execute(
+            f"UPDATE leads SET payment_done=1, payment_amount=?, "
+            f"updated_at=datetime('now','localtime') WHERE {where}",
+            [PAYMENT_AMOUNT] + params
+        )
+        db.commit()
+        flash(f'Marked {len(lead_ids)} leads as paid (₹{PAYMENT_AMOUNT:.0f} each).', 'success')
+
+    db.close()
+    return redirect(url_for('leads'))
 
 
 # ─────────────────────────────────────────────
