@@ -391,12 +391,56 @@
 </script>
 {% block scripts %}{% endblock %}
 
-<!-- PWA Service Worker Registration -->
+<!-- PWA Service Worker + Push Subscription -->
 <script>
+  function _urlB64ToUint8Array(b64) {
+    const pad = '='.repeat((4 - b64.length % 4) % 4);
+    const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+  }
+
+  async function initPushSubscription(reg) {
+    if (!('PushManager' in window)) return;
+    try {
+      // If already subscribed, just sync endpoint to server
+      let sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await fetch('/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sub.toJSON())
+        });
+        return;
+      }
+      // Ask permission (only prompts if not already granted/denied)
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return;
+
+      const res = await fetch('/push/vapid-key');
+      const { public_key } = await res.json();
+      if (!public_key) return;
+
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _urlB64ToUint8Array(public_key)
+      });
+      await fetch('/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub.toJSON())
+      });
+    } catch (err) { /* fail silently */ }
+  }
+
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js', { scope: '/' })
-        .catch(() => {}); // fail silently
+    window.addEventListener('load', async () => {
+      try {
+        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        {% if session.get('username') %}
+        // Only subscribe when a user is logged in
+        await initPushSubscription(reg);
+        {% endif %}
+      } catch (_) {}
     });
   }
 </script>

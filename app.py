@@ -24,6 +24,24 @@ try:
 except ImportError:
     QR_AVAILABLE = False
 
+# Optional Web Push support (pywebpush + cryptography)
+try:
+    from pywebpush import webpush, WebPushException
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives import serialization as _crypto_serial
+    PUSH_AVAILABLE = True
+except ImportError:
+    PUSH_AVAILABLE = False
+
+# Optional APScheduler for daily reminder push notifications
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+    import atexit
+    import pytz
+    SCHEDULER_AVAILABLE = True
+except ImportError:
+    SCHEDULER_AVAILABLE = False
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'myle_community_secret_2024_local')
 app.permanent_session_lifetime = datetime.timedelta(days=3650)  # ~10 years = effectively forever
@@ -167,6 +185,93 @@ def _generate_upi_qr_base64(upi_id):
     """Generate UPI QR as base64 string."""
     data = _generate_upi_qr_bytes(upi_id)
     return base64.b64encode(data).decode('utf-8') if data else None
+
+
+def _get_or_create_vapid_keys(db):
+    """Return (private_pem_str, public_b64url). Generates & stores on first call."""
+    if not PUSH_AVAILABLE:
+        return None, None
+
+    private_pem = _get_setting(db, 'vapid_private_pem', '')
+    public_b64  = _get_setting(db, 'vapid_public_key',  '')
+
+    if private_pem and public_b64:
+        return private_pem, public_b64
+
+    # Generate new P-256 key pair
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    private_pem = private_key.private_bytes(
+        _crypto_serial.Encoding.PEM,
+        _crypto_serial.PrivateFormat.PKCS8,
+        _crypto_serial.NoEncryption()
+    ).decode()
+
+    pub_raw = private_key.public_key().public_bytes(
+        _crypto_serial.Encoding.X962,
+        _crypto_serial.PublicFormat.UncompressedPoint
+    )
+    public_b64 = base64.urlsafe_b64encode(pub_raw).rstrip(b'=').decode()
+
+    _set_setting(db, 'vapid_private_pem', private_pem)
+    _set_setting(db, 'vapid_public_key',  public_b64)
+    db.commit()
+    return private_pem, public_b64
+
+
+def _push_to_users(db, usernames, title, body, url='/'):
+    """
+    Send a Web Push notification to all subscriptions of the given usernames.
+    Automatically removes dead (410/404) subscriptions.
+    Fails silently — never breaks the calling route.
+    """
+    if not PUSH_AVAILABLE:
+        return
+
+    private_pem, _ = _get_or_create_vapid_keys(db)
+    if not private_pem:
+        return
+
+    if isinstance(usernames, str):
+        usernames = [usernames]
+
+    payload   = json.dumps({'title': title, 'body': body, 'url': url})
+    dead_ids  = []
+
+    for username in usernames:
+        subs = db.execute(
+            "SELECT id, endpoint, auth, p256dh FROM push_subscriptions WHERE username=?",
+            (username,)
+        ).fetchall()
+        for sub in subs:
+            sub_info = {
+                'endpoint': sub['endpoint'],
+                'keys': {'auth': sub['auth'], 'p256dh': sub['p256dh']}
+            }
+            try:
+                webpush(
+                    subscription_info=sub_info,
+                    data=payload,
+                    vapid_private_key=private_pem,
+                    vapid_claims={'sub': 'mailto:admin@mylecommunity.com'}
+                )
+            except Exception as exc:
+                # 410 Gone / 404 Not Found → subscription expired, clean up
+                resp = getattr(exc, 'response', None)
+                if resp is not None and getattr(resp, 'status_code', 0) in (404, 410):
+                    dead_ids.append(sub['id'])
+
+    if dead_ids:
+        ph = ','.join('?' for _ in dead_ids)
+        db.execute(f"DELETE FROM push_subscriptions WHERE id IN ({ph})", dead_ids)
+        db.commit()
+
+
+def _push_all_team(db, title, body, url='/'):
+    """Push to every approved team member."""
+    rows = db.execute(
+        "SELECT username FROM users WHERE role='team' AND status='approved'"
+    ).fetchall()
+    _push_to_users(db, [r['username'] for r in rows], title, body, url)
 
 
 def _get_network_usernames(db, username):
@@ -531,17 +636,20 @@ def admin_dashboard():
     """).fetchall()
 
     members = db.execute("SELECT * FROM team_members ORDER BY name").fetchall()
-    team_stats = []
-    for m in members:
-        row = db.execute("""
-            SELECT
-                COUNT(*) as total,
-                SUM(CASE WHEN status='Converted' THEN 1 ELSE 0 END) as converted,
-                SUM(CASE WHEN payment_done=1     THEN 1 ELSE 0 END) as paid,
-                SUM(COALESCE(payment_amount,0) + COALESCE(revenue,0)) as revenue
-            FROM leads WHERE assigned_to=? AND in_pool=0
-        """, (m['name'],)).fetchone()
-        team_stats.append({'member': m, 'stats': row})
+    # Single GROUP BY query instead of N per-member queries
+    _stats_rows = db.execute("""
+        SELECT assigned_to,
+            COUNT(*) as total,
+            SUM(CASE WHEN status='Converted' THEN 1 ELSE 0 END) as converted,
+            SUM(CASE WHEN payment_done=1     THEN 1 ELSE 0 END) as paid,
+            SUM(COALESCE(payment_amount,0) + COALESCE(revenue,0)) as revenue
+        FROM leads WHERE in_pool=0
+        GROUP BY assigned_to
+    """).fetchall()
+    _stats_map = {r['assigned_to']: r for r in _stats_rows}
+    _empty = {'total': 0, 'converted': 0, 'paid': 0, 'revenue': 0}
+    team_stats = [{'member': m, 'stats': _stats_map.get(m['name'], _empty)}
+                  for m in members]
 
     pending_users = db.execute(
         "SELECT * FROM users WHERE status='pending' ORDER BY created_at DESC"
@@ -558,14 +666,13 @@ def admin_dashboard():
     missing_reports = [u['username'] for u in approved_team
                        if u['username'] not in [r['username'] for r in today_reports]]
 
-    report_verification = {}
-    for r in today_reports:
-        actual_payments = db.execute("""
-            SELECT COUNT(*) as cnt FROM leads
-            WHERE assigned_to=? AND payment_done=1
-              AND date(updated_at) = ? AND in_pool=0
-        """, (r['username'], today)).fetchone()['cnt']
-        report_verification[r['username']] = actual_payments
+    # Single query instead of one per reporter
+    _verif_rows = db.execute("""
+        SELECT assigned_to, COUNT(*) as cnt FROM leads
+        WHERE payment_done=1 AND date(updated_at)=? AND in_pool=0
+        GROUP BY assigned_to
+    """, (today,)).fetchall()
+    report_verification = {r['assigned_to']: r['cnt'] for r in _verif_rows}
 
     # Wallet pending count (also in context processor but useful for template)
     wallet_pending_count = db.execute(
@@ -660,6 +767,10 @@ def team_dashboard():
         "SELECT * FROM announcements ORDER BY pin DESC, created_at DESC LIMIT 5"
     ).fetchall()
 
+    calling_reminder_time = db.execute(
+        "SELECT calling_reminder_time FROM users WHERE username=?", (username,)
+    ).fetchone()['calling_reminder_time']
+
     db.close()
     return render_template('dashboard.html',
                            metrics=metrics,
@@ -674,7 +785,8 @@ def team_dashboard():
                            today_paid=today_paid,
                            today_earnings=today_earnings,
                            followups=followups,
-                           notices=notices)
+                           notices=notices,
+                           calling_reminder_time=calling_reminder_time)
 
 
 # ─────────────────────────────────────────────
@@ -1258,13 +1370,26 @@ def import_lead_pool_csv():
         db.close()
         return redirect(url_for('admin_lead_pool'))
 
-    content = f.read().decode('utf-8-sig', errors='replace')  # utf-8-sig handles BOM
-    reader  = csv.DictReader(io.StringIO(content))
+    try:
+        content = f.read().decode('utf-8-sig', errors='replace')
+        reader  = csv.DictReader(io.StringIO(content))
+        rows_list = list(reader)  # read all at once; raises if malformed
+    except Exception as e:
+        flash(f'Could not parse CSV: {e}', 'danger')
+        db.close()
+        return redirect(url_for('admin_lead_pool'))
+
+    # Pre-fetch all existing pool phones → O(1) duplicate lookup per row
+    existing_phones = {
+        r[0] for r in db.execute(
+            "SELECT phone FROM leads WHERE in_pool=1"
+        ).fetchall()
+    }
 
     imported = 0
     skipped  = 0
 
-    for row in reader:
+    for row in rows_list:
         # Support common Meta Lead Ads export column names
         # Also handles user's custom Meta form: Submit Time, Full Name, Age, Gender,
         # Phone Number (Calling Number), Your City Name, Ad Name
@@ -1304,13 +1429,11 @@ def import_lead_pool_csv():
         if not phone:
             phone = 'N/A'
 
-        # Skip duplicates already in pool
-        existing = db.execute(
-            "SELECT id FROM leads WHERE phone=? AND in_pool=1", (phone,)
-        ).fetchone()
-        if existing:
+        # Skip duplicates already in pool (set lookup, no extra query)
+        if phone in existing_phones:
             skipped += 1
             continue
+        existing_phones.add(phone)  # prevent intra-file duplicates too
 
         db.execute("""
             INSERT INTO leads
@@ -1413,6 +1536,11 @@ def approve_recharge(req_id):
         )
         db.commit()
         flash(f'Recharge of ₹{recharge["amount"]:.0f} for @{recharge["username"]} approved!', 'success')
+        # Push to the user
+        _push_to_users(db, recharge['username'],
+                       '✅ Wallet Recharged!',
+                       f'₹{recharge["amount"]:.0f} has been added to your wallet.',
+                       url_for('wallet'))
     db.close()
     return redirect(url_for('admin_wallet_requests', status='pending'))
 
@@ -1564,6 +1692,30 @@ def lead_pool():
                            upi_id=upi_id)
 
 
+@app.route('/calling-reminder/set', methods=['POST'])
+@login_required
+def set_calling_reminder():
+    """Team member sets their personal calling reminder time (HH:MM or blank to clear)."""
+    time_val = request.form.get('reminder_time', '').strip()
+    # Validate HH:MM or empty
+    import re
+    if time_val and not re.match(r'^\d{2}:\d{2}$', time_val):
+        flash('Invalid time format.', 'danger')
+        return redirect(url_for('team_dashboard'))
+    db = get_db()
+    db.execute(
+        "UPDATE users SET calling_reminder_time=? WHERE username=?",
+        (time_val, session['username'])
+    )
+    db.commit()
+    db.close()
+    if time_val:
+        flash(f'Calling reminder set for {time_val} every day.', 'success')
+    else:
+        flash('Calling reminder cleared.', 'success')
+    return redirect(url_for('team_dashboard'))
+
+
 @app.route('/lead-pool/claim', methods=['POST'])
 @login_required
 def claim_leads():
@@ -1646,39 +1798,42 @@ def meta_webhook_receive():
     imported = 0
     for entry in data.get('entry', []):
         for change in entry.get('changes', []):
-            if change.get('field') != 'leadgen':
-                continue
-            value      = change.get('value', {})
-            field_data = value.get('field_data', [])
-            lead_fields = {
-                f['name']: (f['values'][0] if f.get('values') else '')
-                for f in field_data
-            }
-
-            name  = lead_fields.get('full_name', lead_fields.get('name', 'Meta Lead')).strip()
-            phone = lead_fields.get('phone_number', lead_fields.get('phone', '')).strip()
-            email = lead_fields.get('email', '').strip()
-
-            if not phone:
-                phone = str(value.get('leadgen_id', 'N/A'))
-
-            leadgen_id = str(value.get('leadgen_id', ''))
-            if leadgen_id:
-                existing = db.execute(
-                    "SELECT id FROM leads WHERE notes LIKE ?",
-                    (f'%meta_id:{leadgen_id}%',)
-                ).fetchone()
-                if existing:
+            try:
+                if change.get('field') != 'leadgen':
                     continue
+                value      = change.get('value', {})
+                field_data = value.get('field_data', [])
+                lead_fields = {
+                    f['name']: (f['values'][0] if f.get('values') else '')
+                    for f in field_data
+                }
 
-            db.execute("""
-                INSERT INTO leads
-                    (name, phone, email, assigned_to, source, status,
-                     in_pool, pool_price, claimed_at, notes)
-                VALUES (?, ?, ?, '', 'Meta', 'New', 1, ?, '', ?)
-            """, (name, phone, email, default_price,
-                  f'meta_id:{leadgen_id}' if leadgen_id else ''))
-            imported += 1
+                name  = lead_fields.get('full_name', lead_fields.get('name', 'Meta Lead')).strip()
+                phone = lead_fields.get('phone_number', lead_fields.get('phone', '')).strip()
+                email = lead_fields.get('email', '').strip()
+
+                if not phone:
+                    phone = str(value.get('leadgen_id', 'N/A'))
+
+                leadgen_id = str(value.get('leadgen_id', ''))
+                if leadgen_id:
+                    existing = db.execute(
+                        "SELECT id FROM leads WHERE notes LIKE ?",
+                        (f'%meta_id:{leadgen_id}%',)
+                    ).fetchone()
+                    if existing:
+                        continue
+
+                db.execute("""
+                    INSERT INTO leads
+                        (name, phone, email, assigned_to, source, status,
+                         in_pool, pool_price, claimed_at, notes)
+                    VALUES (?, ?, ?, '', 'Meta', 'New', 1, ?, '', ?)
+                """, (name, phone, email, default_price,
+                      f'meta_id:{leadgen_id}' if leadgen_id else ''))
+                imported += 1
+            except Exception:
+                continue  # skip malformed entries; never crash the webhook
 
     db.commit()
     db.close()
@@ -1872,6 +2027,9 @@ def post_announcement():
         (msg, session['username'], pin)
     )
     db.commit()
+    # Push to all team members
+    preview = msg[:80] + ('…' if len(msg) > 80 else '')
+    _push_all_team(db, '📢 New Announcement', preview, url_for('announcements'))
     db.close()
     flash('Announcement posted!', 'success')
     return redirect(url_for('announcements'))
@@ -2076,12 +2234,141 @@ def bulk_action():
 
 
 # ─────────────────────────────────────────────
+#  Push Notification API
+# ─────────────────────────────────────────────
+
+@app.route('/push/vapid-key')
+@login_required
+def push_vapid_key():
+    """Return VAPID public key for browser subscription."""
+    db = get_db()
+    _, public_key = _get_or_create_vapid_keys(db)
+    db.close()
+    return {'public_key': public_key or ''}
+
+
+@app.route('/push/subscribe', methods=['POST'])
+@login_required
+def push_subscribe():
+    """Save a browser push subscription for the logged-in user."""
+    data = request.get_json(silent=True)
+    if not data or not data.get('endpoint'):
+        return {'ok': False, 'error': 'Missing endpoint'}, 400
+
+    endpoint = data.get('endpoint', '')
+    auth     = data.get('keys', {}).get('auth', '')
+    p256dh   = data.get('keys', {}).get('p256dh', '')
+    username = session['username']
+
+    db = get_db()
+    db.execute("""
+        INSERT INTO push_subscriptions (username, endpoint, auth, p256dh)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(endpoint) DO UPDATE SET
+            username=excluded.username,
+            auth=excluded.auth,
+            p256dh=excluded.p256dh
+    """, (username, endpoint, auth, p256dh))
+    db.commit()
+    db.close()
+    return {'ok': True}
+
+
+# ─────────────────────────────────────────────
+#  Scheduled Reminder Jobs
+# ─────────────────────────────────────────────
+
+def _reminder_lock(db, key):
+    """
+    Atomic lock using INSERT OR IGNORE. Returns True if this process
+    is the first to claim the lock for today (safe across gunicorn workers).
+    """
+    today = datetime.date.today().isoformat()
+    lock_key = f'{key}_{today}'
+    cur = db.execute(
+        "INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, 'sent')",
+        (lock_key,)
+    )
+    db.commit()
+    return cur.rowcount == 1  # True = we won the lock
+
+
+def job_followup_reminders():
+    """Push individual follow-up reminders to each team member at 9 AM IST."""
+    db = get_db()
+    try:
+        if not _reminder_lock(db, 'followup_reminder'):
+            return
+        today = datetime.date.today().isoformat()
+        rows = db.execute("""
+            SELECT assigned_to, COUNT(*) as cnt
+            FROM leads
+            WHERE in_pool=0
+              AND follow_up_date=?
+              AND follow_up_date != ''
+              AND status NOT IN ('Converted','Lost')
+              AND assigned_to != ''
+            GROUP BY assigned_to
+        """, (today,)).fetchall()
+        for row in rows:
+            cnt = row['cnt']
+            _push_to_users(db, row['assigned_to'],
+                           '📅 Follow-up Reminder',
+                           f'{cnt} lead{"s" if cnt > 1 else ""} due for follow-up today!',
+                           '/dashboard')
+        db.commit()
+    finally:
+        db.close()
+
+
+def job_calling_reminder():
+    """
+    Minutely job: push calling reminder to each user whose calling_reminder_time
+    matches the current HH:MM (IST). Per-user per-day lock prevents duplicates.
+    """
+    now_hhmm = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%H:%M')
+    today    = datetime.date.today().isoformat()
+    db = get_db()
+    try:
+        users = db.execute(
+            "SELECT username FROM users WHERE role='team' AND status='approved'"
+            " AND calling_reminder_time=?", (now_hhmm,)
+        ).fetchall()
+        for u in users:
+            lock_key = f'call_reminder_{u["username"]}_{today}'
+            cur = db.execute(
+                "INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, 'sent')",
+                (lock_key,)
+            )
+            db.commit()
+            if cur.rowcount == 1:
+                _push_to_users(db, u['username'],
+                               '📞 Calling Reminder',
+                               'Time to start your calls! Don\'t forget your daily report.',
+                               '/report')
+                db.commit()
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────
 #  Boot – runs on every startup
 # ─────────────────────────────────────────────
 
 init_db()
 migrate_db()
 seed_users()
+
+# Start scheduler — guard against Flask reloader double-start
+if SCHEDULER_AVAILABLE and not os.environ.get('SCHEDULER_STARTED'):
+    os.environ['SCHEDULER_STARTED'] = '1'
+    _scheduler = BackgroundScheduler(timezone='Asia/Kolkata')
+    _scheduler.add_job(job_followup_reminders, 'cron', hour=9, minute=0,
+                       id='followup_reminders', replace_existing=True)
+    _scheduler.add_job(job_calling_reminder, 'interval', minutes=1,
+                       id='calling_reminder', replace_existing=True)
+    _scheduler.start()
+    atexit.register(lambda: _scheduler.shutdown(wait=False))
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5001)

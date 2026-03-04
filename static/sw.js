@@ -1,5 +1,5 @@
 /* ── Myle Community Service Worker ──────────────────────── */
-const CACHE   = 'myle-v2';
+const CACHE   = 'myle-v4';
 const STATIC  = [
   '/static/css/style.css',
   '/static/icon-192.png',
@@ -49,5 +49,32 @@ self.addEventListener('fetch', e => {
   /* Pages/API → network first, fallback to cache */
   e.respondWith(
     fetch(e.request).catch(() => caches.match(e.request))
+  );
+});
+
+/* ── Push Notifications ──────────────────────────────────── */
+self.addEventListener('push', e => {
+  let data = { title: 'Myle', body: '', url: '/' };
+  try { data = { ...data, ...e.data.json() }; } catch (_) {}
+  e.waitUntil(
+    self.registration.showNotification(data.title, {
+      body:  data.body,
+      icon:  '/static/icon-192.png',
+      badge: '/static/icon-192.png',
+      data:  { url: data.url }
+    })
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const target = (e.notification.data && e.notification.data.url) || '/';
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const c of list) {
+        if (c.url.endsWith(target) && 'focus' in c) return c.focus();
+      }
+      return clients.openWindow(target);
+    })
   );
 });

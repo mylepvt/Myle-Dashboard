@@ -3,3 +3,5 @@ Werkzeug==3.0.3
 gunicorn==21.2.0
 qrcode[pil]==7.4.2
 Pillow==10.4.0
+pywebpush==2.0.0
+APScheduler==3.10.4

@@ -144,6 +144,18 @@ def init_db():
         )
     """)
 
+    # Web Push subscriptions (VAPID)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            username   TEXT    NOT NULL,
+            endpoint   TEXT    NOT NULL UNIQUE,
+            auth       TEXT    NOT NULL DEFAULT '',
+            p256dh     TEXT    NOT NULL DEFAULT '',
+            created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -192,7 +204,8 @@ def migrate_db():
         ("phone",            "TEXT NOT NULL DEFAULT ''"),
         ("email",            "TEXT NOT NULL DEFAULT ''"),
         ("status",           "TEXT NOT NULL DEFAULT 'pending'"),
-        ("display_picture",  "TEXT NOT NULL DEFAULT ''"),
+        ("display_picture",      "TEXT NOT NULL DEFAULT ''"),
+        ("calling_reminder_time", "TEXT NOT NULL DEFAULT ''"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
@@ -275,6 +288,20 @@ def migrate_db():
                 username TEXT NOT NULL,
                 note TEXT NOT NULL,
                 created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+        """)
+    except Exception:
+        pass
+
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                username   TEXT    NOT NULL,
+                endpoint   TEXT    NOT NULL UNIQUE,
+                auth       TEXT    NOT NULL DEFAULT '',
+                p256dh     TEXT    NOT NULL DEFAULT '',
+                created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
             )
         """)
     except Exception:
