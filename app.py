@@ -852,6 +852,7 @@ def add_lead():
             revenue = 0.0
         follow_up_date = request.form.get('follow_up_date', '').strip()
         notes          = request.form.get('notes', '').strip()
+        city           = request.form.get('city', '').strip()
 
         if session.get('role') == 'admin':
             assigned_to = request.form.get('assigned_to', '').strip()
@@ -871,11 +872,11 @@ def add_lead():
             INSERT INTO leads
                 (name, phone, email, referred_by, assigned_to, source,
                  status, payment_done, payment_amount, revenue,
-                 follow_up_date, notes, in_pool, pool_price, claimed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, '')
+                 follow_up_date, notes, city, in_pool, pool_price, claimed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, '')
         """, (name, phone, email, referred_by, assigned_to, source,
               status, payment_done, payment_amount, revenue,
-              follow_up_date, notes))
+              follow_up_date, notes, city))
         db.commit()
         db.close()
         flash(f'Lead "{name}" added successfully.', 'success')
@@ -924,6 +925,7 @@ def edit_lead(lead_id):
         interview_done = 1 if request.form.get('interview_done') else 0
         notes          = request.form.get('notes', '').strip()
         follow_up_date = request.form.get('follow_up_date', '').strip()
+        city           = request.form.get('city', '').strip()
 
         if not name or not phone:
             flash('Name and Phone are required.', 'danger')
@@ -950,12 +952,13 @@ def edit_lead(lead_id):
             SET name=?, phone=?, email=?, referred_by=?, assigned_to=?, status=?,
                 payment_done=?, payment_amount=?,
                 day1_done=?, day2_done=?, interview_done=?,
-                follow_up_date=?, notes=?, updated_at=datetime('now','localtime')
+                follow_up_date=?, notes=?, city=?,
+                updated_at=datetime('now','localtime')
             WHERE id=?
         """, (name, phone, email, referred_by, assigned_to, status,
               payment_done, payment_amount,
               day1_done, day2_done, interview_done,
-              follow_up_date, notes, lead_id))
+              follow_up_date, notes, city, lead_id))
         db.commit()
         db.close()
         flash(f'Lead "{name}" updated.', 'success')
@@ -1412,11 +1415,10 @@ def import_lead_pool_csv():
         # Build source from Ad Name if available
         lead_source = ad_name if ad_name else source_tag
 
-        # Build notes string from extra fields
+        # Build notes string from extra fields (city now in its own column)
         extra_parts = []
         if age:         extra_parts.append(f'Age: {age}')
         if gender:      extra_parts.append(f'Gender: {gender}')
-        if city:        extra_parts.append(f'City: {city}')
         if submit_time: extra_parts.append(f'Submit Time: {submit_time}')
         notes_str = ' | '.join(extra_parts) if extra_parts else ''
 
@@ -1438,9 +1440,9 @@ def import_lead_pool_csv():
         db.execute("""
             INSERT INTO leads
                 (name, phone, email, assigned_to, source, status,
-                 in_pool, pool_price, claimed_at, notes)
-            VALUES (?, ?, ?, '', ?, 'New', 1, ?, '', ?)
-        """, (name, phone, email, lead_source, price_per_lead, notes_str))
+                 in_pool, pool_price, claimed_at, city, notes)
+            VALUES (?, ?, ?, '', ?, 'New', 1, ?, '', ?, ?)
+        """, (name, phone, email, lead_source, price_per_lead, city, notes_str))
         imported += 1
 
     db.commit()
@@ -1984,8 +1986,8 @@ def export_leads():
     db.close()
 
     buf = _io.StringIO()
-    cols = ['id','name','phone','email','referred_by','assigned_to','source','status',
-            'payment_done','payment_amount','revenue','day1_done','day2_done',
+    cols = ['id','name','phone','email','city','referred_by','assigned_to','source',
+            'status','payment_done','payment_amount','revenue','day1_done','day2_done',
             'interview_done','follow_up_date','notes','created_at','updated_at']
     writer = csv.writer(buf)
     writer.writerow(cols)

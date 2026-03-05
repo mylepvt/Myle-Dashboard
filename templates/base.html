@@ -195,6 +195,13 @@
         <button id="darkToggle" class="btn btn-sm btn-outline-secondary" title="Toggle dark mode">
           <i class="bi bi-moon-fill" id="darkIcon"></i>
         </button>
+        {% if session.get('username') %}
+        <!-- Notification bell -->
+        <button id="notifBtn" class="btn btn-sm btn-outline-secondary" title="Enable Notifications"
+                onclick="enablePushNotifications()" style="display:none;">
+          <i class="bi bi-bell-slash-fill" id="notifIcon"></i>
+        </button>
+        {% endif %}
         {% if session.get('role') == 'admin' %}
         <a href="{{ url_for('add_lead') }}" class="btn btn-primary btn-sm">
           <i class="bi bi-plus-lg me-1"></i>Add Lead
@@ -399,48 +406,102 @@
     return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
   }
 
+  let _swReg = null;
+
+  /* Update the bell icon based on current permission state */
+  function _updateNotifUI() {
+    const btn  = document.getElementById('notifBtn');
+    const icon = document.getElementById('notifIcon');
+    if (!btn || !('Notification' in window)) return;
+    btn.style.display = 'inline-flex';
+    const perm = Notification.permission;
+    if (perm === 'granted') {
+      icon.className = 'bi bi-bell-fill text-warning';
+      btn.title = 'Notifications ON';
+    } else if (perm === 'denied') {
+      icon.className = 'bi bi-bell-slash-fill text-danger';
+      btn.title = 'Notifications blocked — allow in browser settings';
+    } else {
+      icon.className = 'bi bi-bell-fill';
+      btn.title = 'Enable Notifications';
+    }
+  }
+
+  /* Subscribe this browser to push and save on server */
+  async function _doSubscribe(reg) {
+    const res = await fetch('/push/vapid-key');
+    const { public_key } = await res.json();
+    if (!public_key) { console.warn('[Push] No VAPID key from server'); return; }
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: _urlB64ToUint8Array(public_key)
+    });
+    const r = await fetch('/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sub.toJSON())
+    });
+    const json = await r.json();
+    console.log('[Push] Subscribed:', json);
+    _updateNotifUI();
+  }
+
+  /* Called automatically on load + by bell button click */
   async function initPushSubscription(reg) {
-    if (!('PushManager' in window)) return;
+    if (!('PushManager' in window)) { console.warn('[Push] PushManager not supported'); return; }
     try {
-      // If already subscribed, just sync endpoint to server
-      let sub = await reg.pushManager.getSubscription();
-      if (sub) {
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) {
+        // Already subscribed — re-sync with server
         await fetch('/push/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(sub.toJSON())
+          body: JSON.stringify(existing.toJSON())
         });
+        console.log('[Push] Re-synced existing subscription');
+        _updateNotifUI();
         return;
       }
-      // Ask permission (only prompts if not already granted/denied)
-      const perm = await Notification.requestPermission();
-      if (perm !== 'granted') return;
+      if (Notification.permission === 'granted') {
+        await _doSubscribe(reg);
+      } else if (Notification.permission !== 'denied') {
+        const perm = await Notification.requestPermission();
+        console.log('[Push] Permission:', perm);
+        if (perm === 'granted') await _doSubscribe(reg);
+        _updateNotifUI();
+      } else {
+        console.warn('[Push] Permission denied by user');
+        _updateNotifUI();
+      }
+    } catch (err) {
+      console.error('[Push] Subscription error:', err);
+    }
+  }
 
-      const res = await fetch('/push/vapid-key');
-      const { public_key } = await res.json();
-      if (!public_key) return;
-
-      sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: _urlB64ToUint8Array(public_key)
-      });
-      await fetch('/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sub.toJSON())
-      });
-    } catch (err) { /* fail silently */ }
+  /* Bell button manual trigger */
+  async function enablePushNotifications() {
+    if (!_swReg) { showToast('Service Worker not ready', 'warning'); return; }
+    if (Notification.permission === 'denied') {
+      showToast('Notifications blocked — please allow in your browser/phone settings then refresh', 'warning');
+      return;
+    }
+    await initPushSubscription(_swReg);
+    if (Notification.permission === 'granted') showToast('Notifications enabled!', 'success');
   }
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
       try {
-        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        _swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        console.log('[SW] Registered:', _swReg.scope);
         {% if session.get('username') %}
-        // Only subscribe when a user is logged in
-        await initPushSubscription(reg);
+        await initPushSubscription(_swReg);
         {% endif %}
-      } catch (_) {}
+        _updateNotifUI();
+      } catch (err) {
+        console.error('[SW] Registration failed:', err);
+      }
     });
   }
 </script>

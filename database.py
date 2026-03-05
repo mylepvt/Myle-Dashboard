@@ -174,6 +174,7 @@ def migrate_db():
         ("in_pool",        "INTEGER NOT NULL DEFAULT 0"),
         ("pool_price",     "REAL NOT NULL DEFAULT 0.0"),
         ("claimed_at",     "TEXT NOT NULL DEFAULT ''"),
+        ("city",           "TEXT NOT NULL DEFAULT ''"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE leads ADD COLUMN {col} {definition}")
