@@ -63,7 +63,46 @@
                class="img-fluid" style="max-width:200px; display:block;">
         </div>
         <div class="fw-semibold text-dark mb-1">{{ upi_id }}</div>
-        <div class="small text-muted">Scan with GPay, PhonePe, Paytm or any UPI app</div>
+        <div class="small text-muted mb-3">Scan with GPay, PhonePe, Paytm or any UPI app</div>
+
+        <!-- UPI App Deep Links -->
+        <div class="border-top pt-3">
+          <div class="small text-muted mb-2">
+            <i class="bi bi-phone-fill me-1"></i>Or open directly on your phone:
+          </div>
+          <div class="mb-2">
+            <input type="number" id="upiAmountQuick" class="form-control form-control-sm text-center"
+                   placeholder="Enter amount ₹ (optional)" min="1" step="1"
+                   style="max-width:200px; margin:0 auto 10px;">
+          </div>
+          <div class="d-flex gap-2 justify-content-center flex-wrap">
+            <a id="gpayBtn"
+               href="tez://upi/pay?pa={{ upi_id }}&pn=Myle+Community&cu=INR&tn=Wallet+Recharge"
+               class="btn btn-sm fw-semibold px-3"
+               style="background:#1a73e8;color:#fff;border-radius:8px;">
+              <span style="font-size:1rem;">G</span> Pay
+            </a>
+            <a id="phonepeBtn"
+               href="phonepe://pay?pa={{ upi_id }}&pn=Myle+Community&cu=INR&tn=Wallet+Recharge"
+               class="btn btn-sm fw-semibold px-3"
+               style="background:#5f259f;color:#fff;border-radius:8px;">
+              📱 PhonePe
+            </a>
+            <a id="paytmBtn"
+               href="paytmmp://pay?pa={{ upi_id }}&pn=Myle+Community&cu=INR&tn=Wallet+Recharge"
+               class="btn btn-sm fw-semibold px-3"
+               style="background:#002970;color:#fff;border-radius:8px;">
+              💙 Paytm
+            </a>
+            <a id="upiBtn"
+               href="upi://pay?pa={{ upi_id }}&pn=Myle+Community&cu=INR&tn=Wallet+Recharge"
+               class="btn btn-sm btn-outline-secondary fw-semibold px-3"
+               style="border-radius:8px;">
+              ₹ Any UPI
+            </a>
+          </div>
+          <div class="small text-muted mt-2 opacity-75">Works on mobile only</div>
+        </div>
       </div>
     </div>
     {% endif %}
@@ -218,4 +257,48 @@
   </div>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const UPI_ID   = "{{ upi_id }}";
+  const NAME     = "Myle+Community";
+  const NOTE     = "Wallet+Recharge";
+
+  const gpayBtn    = document.getElementById('gpayBtn');
+  const phonepeBtn = document.getElementById('phonepeBtn');
+  const paytmBtn   = document.getElementById('paytmBtn');
+  const upiBtn     = document.getElementById('upiBtn');
+  const quickInput = document.getElementById('upiAmountQuick');
+  const formInput  = document.querySelector('input[name="amount"]');
+
+  if (!gpayBtn) return;
+
+  function buildLinks(amount) {
+    const am   = amount ? `&am=${amount}` : '';
+    const base = `pa=${UPI_ID}&pn=${NAME}&cu=INR&tn=${NOTE}${am}`;
+    gpayBtn.href    = `tez://upi/pay?${base}`;
+    phonepeBtn.href = `phonepe://pay?${base}`;
+    paytmBtn.href   = `paytmmp://pay?${base}`;
+    upiBtn.href     = `upi://pay?${base}`;
+  }
+
+  // Sync quick amount input → form amount field + update links
+  if (quickInput) {
+    quickInput.addEventListener('input', function () {
+      if (formInput) formInput.value = this.value;
+      buildLinks(this.value);
+    });
+  }
+
+  // Sync form amount → quick input + update links
+  if (formInput) {
+    formInput.addEventListener('input', function () {
+      if (quickInput) quickInput.value = this.value;
+      buildLinks(this.value);
+    });
+  }
+})();
+</script>
 {% endblock %}
