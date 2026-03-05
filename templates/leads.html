@@ -68,6 +68,11 @@
           </div>
           <div>
             <div class="fw-bold fs-6">{{ lead.name }}</div>
+            {% if lead.city %}
+              <div class="text-muted" style="font-size:0.78rem;">
+                <i class="bi bi-geo-alt-fill me-1"></i>{{ lead.city }}
+              </div>
+            {% endif %}
             {% if lead.referred_by %}
               <div class="text-muted" style="font-size:0.78rem;">
                 <i class="bi bi-person-fill me-1"></i>Ref: {{ lead.referred_by }}
@@ -181,6 +186,7 @@
             <td class="text-muted small">{{ lead.id }}</td>
             <td>
               <div class="fw-semibold">{{ lead.name }}</div>
+              {% if lead.city %}<div class="text-muted small"><i class="bi bi-geo-alt-fill me-1"></i>{{ lead.city }}</div>{% endif %}
               {% if lead.email %}<div class="text-muted small">{{ lead.email }}</div>{% endif %}
             </td>
             <td>
@@ -308,6 +314,13 @@
             <div class="col-md-6">
               <label class="form-label fw-semibold">Phone <span class="text-danger">*</span></label>
               <input type="tel" name="phone" class="form-control" placeholder="10-digit number" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">City</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-geo-alt text-muted"></i></span>
+                <input type="text" name="city" class="form-control" placeholder="Mumbai">
+              </div>
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold">Source</label>
