@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Recycle Bin – Myle Community{% endblock %}
+{% block page_title %}Recycle Bin{% endblock %}
+
+{% block content %}
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2 d-flex align-items-center gap-3">
+    <i class="bi bi-trash2-fill text-danger fs-5"></i>
+    <div class="flex-grow-1">
+      <span class="fw-semibold">Deleted Leads</span>
+      <span class="text-muted small ms-2">— restore or permanently delete</span>
+    </div>
+    <span class="badge bg-danger rounded-pill">{{ leads|length }}</span>
+    <a href="{{ url_for('leads') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Back to Leads
+    </a>
+  </div>
+</div>
+
+{% if leads %}
+
+<!-- Mobile card view -->
+<div class="d-md-none">
+  {% for lead in leads %}
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body pb-2">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <div class="fw-bold">{{ lead.name }}</div>
+          <div class="text-muted small">{{ lead.phone }}</div>
+          {% if lead.city %}<div class="text-muted small"><i class="bi bi-geo-alt-fill me-1"></i>{{ lead.city }}</div>{% endif %}
+        </div>
+        <span class="badge bg-secondary">{{ lead.status }}</span>
+      </div>
+      <div class="text-muted small mb-3">
+        <i class="bi bi-person-fill me-1"></i>{{ lead.assigned_to or '—' }}
+        &nbsp;·&nbsp;
+        <i class="bi bi-calendar-x me-1"></i>Deleted: {{ lead.deleted_at[:10] if lead.deleted_at else '—' }}
+      </div>
+      <div class="d-flex gap-2">
+        <form method="post" action="{{ url_for('restore_lead', lead_id=lead.id) }}" class="flex-grow-1">
+          <button type="submit" class="btn btn-sm btn-success w-100">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Restore
+          </button>
+        </form>
+        {% if session.get('role') == 'admin' %}
+        <form method="post" action="{{ url_for('permanent_delete_lead', lead_id=lead.id) }}"
+              onsubmit="return confirm('Permanently delete {{ lead.name }}? This cannot be undone.')">
+          <button type="submit" class="btn btn-sm btn-outline-danger">
+            <i class="bi bi-trash-fill"></i>
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Desktop table view -->
+<div class="card border-0 shadow-sm d-none d-md-block">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>City</th>
+            <th>Assigned To</th>
+            <th>Status</th>
+            <th>Deleted At</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lead in leads %}
+          <tr>
+            <td class="text-muted small">{{ lead.id }}</td>
+            <td>
+              <div class="fw-semibold">{{ lead.name }}</div>
+              {% if lead.email %}<div class="text-muted small">{{ lead.email }}</div>{% endif %}
+            </td>
+            <td class="small">{{ lead.phone }}</td>
+            <td class="small text-muted">{{ lead.city or '—' }}</td>
+            <td class="small">{{ lead.assigned_to or '—' }}</td>
+            <td><span class="badge bg-secondary">{{ lead.status }}</span></td>
+            <td class="text-muted small">{{ lead.deleted_at[:16] if lead.deleted_at else '—' }}</td>
+            <td>
+              <form method="post" action="{{ url_for('restore_lead', lead_id=lead.id) }}" class="d-inline">
+                <button type="submit" class="btn btn-xs btn-success me-1">
+                  <i class="bi bi-arrow-counterclockwise me-1"></i>Restore
+                </button>
+              </form>
+              {% if session.get('role') == 'admin' %}
+              <form method="post" action="{{ url_for('permanent_delete_lead', lead_id=lead.id) }}" class="d-inline"
+                    onsubmit="return confirm('Permanently delete {{ lead.name }}? This CANNOT be undone.')">
+                <button type="submit" class="btn btn-xs btn-outline-danger">
+                  <i class="bi bi-trash-fill"></i> Delete Forever
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body text-center py-5">
+    <i class="bi bi-trash2 text-muted" style="font-size:3rem;"></i>
+    <p class="text-muted mt-3 mb-0">Recycle Bin is empty</p>
+    <a href="{{ url_for('leads') }}" class="btn btn-sm btn-primary mt-3">
+      <i class="bi bi-people-fill me-1"></i>Go to Leads
+    </a>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

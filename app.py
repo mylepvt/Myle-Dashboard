@@ -5,6 +5,7 @@ import base64
 import hashlib
 import hmac
 import json
+import secrets
 import datetime
 import smtplib
 import ssl
@@ -370,6 +371,58 @@ def _send_welcome_email(user_email, username, login_url):
         pass  # Don't break approval flow if email fails
 
 
+def _send_password_reset_email(user_email, username, reset_url):
+    """Send password reset link email. Silently skips if SMTP not configured."""
+    db = get_db()
+    smtp_host     = _get_setting(db, 'smtp_host', '')
+    smtp_port     = int(_get_setting(db, 'smtp_port', '587') or 587)
+    smtp_user     = _get_setting(db, 'smtp_user', '')
+    smtp_password = _get_setting(db, 'smtp_password', '')
+    from_name     = _get_setting(db, 'smtp_from_name', 'Myle Community')
+    db.close()
+
+    if not smtp_host or not smtp_user or not smtp_password or not user_email:
+        return False  # SMTP not configured
+
+    subject   = 'Myle Community – Password Reset Request'
+    html_body = f"""
+    <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:24px;background:#f8f9fa;border-radius:12px;">
+      <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:8px;padding:20px;text-align:center;margin-bottom:24px;">
+        <h2 style="color:#fff;margin:0;">🔐 Password Reset</h2>
+      </div>
+      <p style="color:#333;">Hello <strong>{username}</strong>,</p>
+      <p style="color:#555;">We received a request to reset your Myle Community dashboard password.
+      Click the button below to set a new password. This link expires in <strong>1 hour</strong>.</p>
+      <div style="text-align:center;margin:28px 0;">
+        <a href="{reset_url}" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;
+           padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">
+          Reset My Password
+        </a>
+      </div>
+      <p style="color:#999;font-size:0.8rem;">If you did not request this, you can safely ignore this email.
+      Your password will not change.</p>
+      <p style="color:#999;font-size:0.8rem;">Or copy this link: {reset_url}</p>
+    </div>
+    """
+
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = subject
+    msg['From']    = f'{from_name} <{smtp_user}>'
+    msg['To']      = user_email
+    msg.attach(MIMEText(html_body, 'html'))
+
+    try:
+        context = ssl.create_default_context()
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.ehlo()
+            server.starttls(context=context)
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_user, user_email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+
 # ─────────────────────────────────────────────
 #  Template Filters
 # ─────────────────────────────────────────────
@@ -415,26 +468,46 @@ def register():
         return redirect(url_for('index'))
 
     if request.method == 'POST':
-        username    = request.form.get('username', '').strip()
-        password    = request.form.get('password', '').strip()
-        email       = request.form.get('email', '').strip()
-        fbo_id      = request.form.get('fbo_id', '').strip()
-        upline_name = request.form.get('upline_name', '').strip()
-        phone       = request.form.get('phone', '').strip()
+        username       = request.form.get('username', '').strip()
+        password       = request.form.get('password', '').strip()
+        email          = request.form.get('email', '').strip()
+        fbo_id         = request.form.get('fbo_id', '').strip()
+        upline_fbo_id  = request.form.get('upline_fbo_id', '').strip()
+        phone          = request.form.get('phone', '').strip()
 
-        if not username or not password or not email or not fbo_id or not upline_name:
-            flash('Username, Password, Email, FBO ID, and Upline Name are required.', 'danger')
+        if not username or not password or not email or not fbo_id or not upline_fbo_id:
+            flash('Username, Password, Email, FBO ID, and Upline FBO ID are required.', 'danger')
             return render_template('register.html')
 
         db = get_db()
-        existing = db.execute(
-            "SELECT id FROM users WHERE username=?", (username,)
-        ).fetchone()
 
-        if existing:
+        # Unique username check
+        if db.execute("SELECT id FROM users WHERE username=?", (username,)).fetchone():
             db.close()
             flash('That username is already taken. Please choose another.', 'danger')
             return render_template('register.html')
+
+        # Unique FBO ID check
+        if db.execute("SELECT id FROM users WHERE fbo_id=? AND fbo_id!=''", (fbo_id,)).fetchone():
+            db.close()
+            flash('That FBO ID is already registered. Each FBO ID must be unique.', 'danger')
+            return render_template('register.html')
+
+        # Unique phone check
+        if phone and db.execute("SELECT id FROM users WHERE phone=? AND phone!=''", (phone,)).fetchone():
+            db.close()
+            flash('That mobile number is already registered. Please use a different number.', 'danger')
+            return render_template('register.html')
+
+        # Upline FBO ID lookup — find the user with that FBO ID
+        upline_user = db.execute(
+            "SELECT username FROM users WHERE fbo_id=?", (upline_fbo_id,)
+        ).fetchone()
+        if not upline_user:
+            db.close()
+            flash(f'Upline FBO ID "{upline_fbo_id}" not found. Please ask your upline for their correct FBO ID.', 'danger')
+            return render_template('register.html')
+        upline_name = upline_user['username']  # store username so network traversal works
 
         db.execute(
             "INSERT INTO users (username, password, role, fbo_id, upline_name, phone, email, status) "
@@ -509,6 +582,93 @@ def login():
             flash('Invalid username or password.', 'danger')
 
     return render_template('login.html')
+
+
+# ─────────────────────────────────────────────
+#  Forgot / Reset Password
+# ─────────────────────────────────────────────
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if 'username' in session:
+        return redirect(url_for('index'))
+
+    email_sent = False
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        if email:
+            db   = get_db()
+            user = db.execute(
+                "SELECT username, email FROM users WHERE LOWER(email)=? AND status='approved'",
+                (email,)
+            ).fetchone()
+            if user:
+                token      = secrets.token_urlsafe(32)
+                expires_at = (datetime.datetime.now() + datetime.timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')
+                db.execute(
+                    "INSERT INTO password_reset_tokens (username, token, expires_at) VALUES (?,?,?)",
+                    (user['username'], token, expires_at)
+                )
+                db.commit()
+                reset_url = url_for('reset_password', token=token, _external=True)
+                sent = _send_password_reset_email(user['email'], user['username'], reset_url)
+                if not sent:
+                    # SMTP not configured — show link directly (admin use)
+                    flash(f'SMTP not configured. Reset link (share manually): {reset_url}', 'warning')
+            db.close()
+        # Always show success to avoid email enumeration
+        email_sent = True
+
+    return render_template('forgot_password.html', email_sent=email_sent)
+
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    if 'username' in session:
+        return redirect(url_for('index'))
+
+    db  = get_db()
+    row = db.execute(
+        "SELECT * FROM password_reset_tokens WHERE token=? AND used=0",
+        (token,)
+    ).fetchone()
+
+    if not row:
+        db.close()
+        flash('This password reset link is invalid or has already been used.', 'danger')
+        return redirect(url_for('login'))
+
+    # Check expiry
+    expires_at = datetime.datetime.strptime(row['expires_at'], '%Y-%m-%d %H:%M:%S')
+    if datetime.datetime.now() > expires_at:
+        db.close()
+        flash('This password reset link has expired. Please request a new one.', 'danger')
+        return redirect(url_for('forgot_password'))
+
+    if request.method == 'POST':
+        new_password = request.form.get('password', '').strip()
+        confirm      = request.form.get('confirm_password', '').strip()
+        if not new_password or len(new_password) < 6:
+            flash('Password must be at least 6 characters.', 'danger')
+            db.close()
+            return render_template('reset_password.html', token=token)
+        if new_password != confirm:
+            flash('Passwords do not match.', 'danger')
+            db.close()
+            return render_template('reset_password.html', token=token)
+
+        db.execute(
+            "UPDATE users SET password=? WHERE username=?",
+            (generate_password_hash(new_password, method='pbkdf2:sha256'), row['username'])
+        )
+        db.execute("UPDATE password_reset_tokens SET used=1 WHERE id=?", (row['id'],))
+        db.commit()
+        db.close()
+        flash('Password updated successfully! Please sign in.', 'success')
+        return redirect(url_for('login'))
+
+    db.close()
+    return render_template('reset_password.html', token=token)
 
 
 @app.route('/logout')
@@ -800,7 +960,7 @@ def leads():
     status = request.args.get('status', '')
     search = request.args.get('q', '').strip()
 
-    query  = "SELECT * FROM leads WHERE in_pool=0"
+    query  = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at=''"
     params = []
 
     if session.get('role') != 'admin':
@@ -865,6 +1025,16 @@ def add_lead():
             return render_template('add_lead.html',
                                    statuses=STATUSES, sources=SOURCES, team=team)
 
+        # Req 8: Phone duplicate check
+        dup = db.execute(
+            "SELECT name FROM leads WHERE phone=? AND in_pool=0 AND deleted_at=''", (phone,)
+        ).fetchone()
+        if dup:
+            flash(f'A lead with phone {phone} already exists ({dup["name"]}). Duplicate entries are not allowed.', 'danger')
+            db.close()
+            return render_template('add_lead.html',
+                                   statuses=STATUSES, sources=SOURCES, team=team)
+
         if status not in STATUSES:
             status = 'New'
 
@@ -899,11 +1069,11 @@ def edit_lead(lead_id):
 
     if session.get('role') == 'admin':
         lead = db.execute(
-            "SELECT * FROM leads WHERE id=? AND in_pool=0", (lead_id,)
+            "SELECT * FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''", (lead_id,)
         ).fetchone()
     else:
         lead = db.execute(
-            "SELECT * FROM leads WHERE id=? AND assigned_to=? AND in_pool=0",
+            "SELECT * FROM leads WHERE id=? AND assigned_to=? AND in_pool=0 AND deleted_at=''",
             (lead_id, session['username'])
         ).fetchone()
 
@@ -929,6 +1099,23 @@ def edit_lead(lead_id):
 
         if not name or not phone:
             flash('Name and Phone are required.', 'danger')
+            lead_notes_rows = db.execute(
+                "SELECT * FROM lead_notes WHERE lead_id=? ORDER BY created_at ASC",
+                (lead_id,)
+            ).fetchall()
+            db.close()
+            return render_template('edit_lead.html',
+                                   lead=lead, statuses=STATUSES,
+                                   team=team, payment_amount=PAYMENT_AMOUNT,
+                                   lead_notes=lead_notes_rows)
+
+        # Req 8: Phone duplicate check (exclude current lead)
+        dup = db.execute(
+            "SELECT name FROM leads WHERE phone=? AND id!=? AND in_pool=0 AND deleted_at=''",
+            (phone, lead_id)
+        ).fetchone()
+        if dup:
+            flash(f'Another lead with phone {phone} already exists ({dup["name"]}). Duplicate entries are not allowed.', 'danger')
             lead_notes_rows = db.execute(
                 "SELECT * FROM lead_notes WHERE lead_id=? ORDER BY created_at ASC",
                 (lead_id,)
@@ -1028,27 +1215,88 @@ def update_status(lead_id):
 @app.route('/leads/<int:lead_id>/delete', methods=['POST'])
 @login_required
 def delete_lead(lead_id):
+    """Soft-delete: move to recycle bin."""
     db = get_db()
 
     if session.get('role') == 'admin':
         lead = db.execute(
-            "SELECT name FROM leads WHERE id=? AND in_pool=0", (lead_id,)
+            "SELECT name FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''", (lead_id,)
         ).fetchone()
     else:
         lead = db.execute(
-            "SELECT name FROM leads WHERE id=? AND assigned_to=? AND in_pool=0",
+            "SELECT name FROM leads WHERE id=? AND assigned_to=? AND in_pool=0 AND deleted_at=''",
             (lead_id, session['username'])
         ).fetchone()
 
     if lead:
-        db.execute("DELETE FROM lead_notes WHERE lead_id=?", (lead_id,))
-        db.execute("DELETE FROM leads WHERE id=?", (lead_id,))
+        db.execute(
+            "UPDATE leads SET deleted_at=datetime('now','localtime') WHERE id=?", (lead_id,)
+        )
         db.commit()
-        flash(f'Lead "{lead["name"]}" deleted.', 'warning')
+        flash(f'Lead "{lead["name"]}" moved to Recycle Bin.', 'warning')
     else:
         flash('Lead not found or access denied.', 'danger')
     db.close()
     return redirect(url_for('leads'))
+
+
+@app.route('/leads/recycle-bin')
+@login_required
+def recycle_bin():
+    db = get_db()
+    if session.get('role') == 'admin':
+        deleted_leads = db.execute(
+            "SELECT * FROM leads WHERE in_pool=0 AND deleted_at!='' ORDER BY deleted_at DESC"
+        ).fetchall()
+    else:
+        deleted_leads = db.execute(
+            "SELECT * FROM leads WHERE in_pool=0 AND deleted_at!='' AND assigned_to=? ORDER BY deleted_at DESC",
+            (session['username'],)
+        ).fetchall()
+    db.close()
+    return render_template('recycle_bin.html', leads=deleted_leads)
+
+
+@app.route('/leads/<int:lead_id>/restore', methods=['POST'])
+@login_required
+def restore_lead(lead_id):
+    db = get_db()
+    if session.get('role') == 'admin':
+        lead = db.execute(
+            "SELECT name FROM leads WHERE id=? AND deleted_at!=''", (lead_id,)
+        ).fetchone()
+    else:
+        lead = db.execute(
+            "SELECT name FROM leads WHERE id=? AND assigned_to=? AND deleted_at!=''",
+            (lead_id, session['username'])
+        ).fetchone()
+
+    if lead:
+        db.execute("UPDATE leads SET deleted_at='' WHERE id=?", (lead_id,))
+        db.commit()
+        flash(f'Lead "{lead["name"]}" restored successfully.', 'success')
+    else:
+        flash('Lead not found or access denied.', 'danger')
+    db.close()
+    return redirect(url_for('recycle_bin'))
+
+
+@app.route('/leads/<int:lead_id>/permanent-delete', methods=['POST'])
+@admin_required
+def permanent_delete_lead(lead_id):
+    db   = get_db()
+    lead = db.execute(
+        "SELECT name FROM leads WHERE id=? AND deleted_at!=''", (lead_id,)
+    ).fetchone()
+    if lead:
+        db.execute("DELETE FROM lead_notes WHERE lead_id=?", (lead_id,))
+        db.execute("DELETE FROM leads WHERE id=?", (lead_id,))
+        db.commit()
+        flash(f'Lead "{lead["name"]}" permanently deleted.', 'danger')
+    else:
+        flash('Lead not found in recycle bin.', 'danger')
+    db.close()
+    return redirect(url_for('recycle_bin'))
 
 
 # ─────────────────────────────────────────────
@@ -1976,11 +2224,11 @@ def export_leads():
 
     if session.get('role') == 'admin':
         rows = db.execute(
-            "SELECT * FROM leads WHERE in_pool=0 ORDER BY created_at DESC"
+            "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' ORDER BY created_at DESC"
         ).fetchall()
     else:
         rows = db.execute(
-            "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 ORDER BY created_at DESC",
+            "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' ORDER BY created_at DESC",
             (username,)
         ).fetchall()
     db.close()

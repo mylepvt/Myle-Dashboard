@@ -63,6 +63,13 @@
       </li>
 
       <li class="nav-item">
+        <a href="{{ url_for('recycle_bin') }}"
+           class="nav-link text-white {% if request.endpoint == 'recycle_bin' %}active{% endif %}">
+          <i class="bi bi-trash2-fill me-2"></i><span>Recycle Bin</span>
+        </a>
+      </li>
+
+      <li class="nav-item">
         <a href="{{ url_for('add_lead') }}"
            class="nav-link text-white {% if request.endpoint == 'add_lead' %}active{% endif %}">
           <i class="bi bi-person-plus-fill me-2"></i><span>Add Lead</span>

@@ -156,6 +156,18 @@ def init_db():
         )
     """)
 
+    # Password reset tokens
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            username   TEXT    NOT NULL,
+            token      TEXT    NOT NULL UNIQUE,
+            expires_at TEXT    NOT NULL,
+            used       INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -175,6 +187,7 @@ def migrate_db():
         ("pool_price",     "REAL NOT NULL DEFAULT 0.0"),
         ("claimed_at",     "TEXT NOT NULL DEFAULT ''"),
         ("city",           "TEXT NOT NULL DEFAULT ''"),
+        ("deleted_at",     "TEXT NOT NULL DEFAULT ''"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE leads ADD COLUMN {col} {definition}")
@@ -302,6 +315,20 @@ def migrate_db():
                 endpoint   TEXT    NOT NULL UNIQUE,
                 auth       TEXT    NOT NULL DEFAULT '',
                 p256dh     TEXT    NOT NULL DEFAULT '',
+                created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+        """)
+    except Exception:
+        pass
+
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                username   TEXT    NOT NULL,
+                token      TEXT    NOT NULL UNIQUE,
+                expires_at TEXT    NOT NULL,
+                used       INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
             )
         """)
