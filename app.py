@@ -2622,3 +2622,12 @@ if SCHEDULER_AVAILABLE and not os.environ.get('SCHEDULER_STARTED'):
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5001)
+
+
+# ─────────────────────────────────────────────
+#  Health Check
+# ─────────────────────────────────────────────
+
+@app.route('/health')
+def health():
+    return {'status': 'ok'}, 200
