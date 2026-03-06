@@ -95,11 +95,25 @@
              title="Call" style="font-size:0.78rem; line-height:1.2;">
             <i class="bi bi-telephone-fill"></i>
           </a>
-          <a href="https://wa.me/{{ lead.phone|wa_phone }}"
-             class="btn btn-xs px-2 py-1" target="_blank" rel="noopener"
-             title="WhatsApp" style="background:#25D366;color:#fff;font-size:0.78rem;line-height:1.2;border-radius:4px;">
-            <i class="bi bi-whatsapp"></i>
-          </a>
+          <div class="btn-group" role="group">
+            <a href="https://wa.me/{{ lead.phone|wa_phone }}"
+               class="btn btn-xs px-2 py-1" target="_blank" rel="noopener"
+               title="WhatsApp" style="background:#25D366;color:#fff;font-size:0.78rem;line-height:1.2;border-radius:4px 0 0 4px;">
+              <i class="bi bi-whatsapp"></i>
+            </a>
+            <button type="button" class="btn btn-xs dropdown-toggle dropdown-toggle-split px-1"
+                    style="background:#1ea34b;color:#fff;font-size:0.78rem;line-height:1.2;border-radius:0 4px 4px 0;border-left:1px solid rgba(255,255,255,0.3);"
+                    data-bs-toggle="dropdown" aria-expanded="false">
+            </button>
+            <ul class="dropdown-menu shadow-sm" style="font-size:0.82rem;min-width:170px;">
+              <li><a class="dropdown-item" href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener">
+                <i class="bi bi-whatsapp me-2" style="color:#25D366;"></i>WhatsApp
+              </a></li>
+              <li><a class="dropdown-item" href="intent://send/{{ lead.phone|wa_phone }}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end" target="_blank" rel="noopener">
+                <i class="bi bi-whatsapp me-2" style="color:#00a884;"></i>WhatsApp Business
+              </a></li>
+            </ul>
+          </div>
         </div>
         <span class="text-muted" style="font-size:0.75rem;">{{ lead.created_at[:10] }}</span>
       </div>
@@ -214,12 +228,25 @@
                    title="Call {{ lead.phone }}" style="font-size:0.72rem;line-height:1.5;">
                   <i class="bi bi-telephone-fill"></i>
                 </a>
-                <a href="https://wa.me/{{ lead.phone|wa_phone }}"
-                   class="btn btn-xs px-1 py-0" target="_blank" rel="noopener"
-                   title="WhatsApp {{ lead.phone }}"
-                   style="background:#25D366;color:#fff;font-size:0.72rem;line-height:1.5;border-radius:4px;">
-                  <i class="bi bi-whatsapp"></i>
-                </a>
+                <div class="btn-group" role="group">
+                  <a href="https://wa.me/{{ lead.phone|wa_phone }}"
+                     class="btn btn-xs px-1 py-0" target="_blank" rel="noopener"
+                     title="WhatsApp" style="background:#25D366;color:#fff;font-size:0.72rem;line-height:1.5;border-radius:4px 0 0 4px;">
+                    <i class="bi bi-whatsapp"></i>
+                  </a>
+                  <button type="button" class="btn btn-xs dropdown-toggle dropdown-toggle-split px-1"
+                          style="background:#1ea34b;color:#fff;font-size:0.72rem;line-height:1.5;border-radius:0 4px 4px 0;border-left:1px solid rgba(255,255,255,0.3);"
+                          data-bs-toggle="dropdown" aria-expanded="false">
+                  </button>
+                  <ul class="dropdown-menu shadow-sm" style="font-size:0.82rem;min-width:170px;">
+                    <li><a class="dropdown-item" href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener">
+                      <i class="bi bi-whatsapp me-2" style="color:#25D366;"></i>WhatsApp
+                    </a></li>
+                    <li><a class="dropdown-item" href="intent://send/{{ lead.phone|wa_phone }}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end" target="_blank" rel="noopener">
+                      <i class="bi bi-whatsapp me-2" style="color:#00a884;"></i>WhatsApp Business
+                    </a></li>
+                  </ul>
+                </div>
               </div>
             </td>
             <td>{{ lead.referred_by or '—' }}</td>
