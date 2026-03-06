@@ -338,6 +338,15 @@
   /* Complete on load */
   window.addEventListener('load', topbarDone);
 
+  /* ── WhatsApp Business helper (iOS/Android aware) ────── */
+  const _isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  function openWABusiness(phone) {
+    const url = _isIOS
+      ? 'https://wa.me/' + phone
+      : 'intent://send?phone=%2B' + phone + '#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end';
+    window.open(url, '_blank', 'noopener');
+  }
+
   /* ── Toast helper ───────────────────────────────────── */
   const toastContainer = document.getElementById('toastContainer');
   function showToast(msg, type = 'success') {

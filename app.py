@@ -1504,20 +1504,20 @@ def team():
     db      = get_db()
     members = db.execute("SELECT * FROM team_members ORDER BY name").fetchall()
 
-    stats = []
-    for m in members:
-        row = db.execute("""
-            SELECT
-                COUNT(*) as total,
-                SUM(CASE WHEN status='Converted' THEN 1 ELSE 0 END) as converted,
-                SUM(CASE WHEN payment_done=1    THEN 1 ELSE 0 END) as paid,
-                SUM(payment_amount)                                  as revenue,
-                SUM(CASE WHEN day1_done=1       THEN 1 ELSE 0 END) as day1,
-                SUM(CASE WHEN day2_done=1       THEN 1 ELSE 0 END) as day2,
-                SUM(CASE WHEN interview_done=1  THEN 1 ELSE 0 END) as interviews
-            FROM leads WHERE referred_by=? AND in_pool=0
-        """, (m['name'],)).fetchone()
-        stats.append({'member': m, 'stats': row})
+    _rows = db.execute("""
+        SELECT
+            referred_by,
+            COUNT(*) as total,
+            SUM(CASE WHEN status='Converted' THEN 1 ELSE 0 END) as converted,
+            SUM(CASE WHEN payment_done=1    THEN 1 ELSE 0 END) as paid,
+            SUM(payment_amount)                                  as revenue,
+            SUM(CASE WHEN day1_done=1       THEN 1 ELSE 0 END) as day1,
+            SUM(CASE WHEN day2_done=1       THEN 1 ELSE 0 END) as day2,
+            SUM(CASE WHEN interview_done=1  THEN 1 ELSE 0 END) as interviews
+        FROM leads WHERE in_pool=0 GROUP BY referred_by
+    """).fetchall()
+    _stats_map = {r['referred_by']: r for r in _rows}
+    stats = [{'member': m, 'stats': _stats_map.get(m['name'])} for m in members]
 
     db.close()
     return render_template('team.html', stats=stats)
@@ -2188,9 +2188,13 @@ def lead_pool():
         "AVG(pool_price) as avg_p FROM leads WHERE in_pool=1"
     ).fetchone()
 
-    avg_price  = price_info['avg_p'] or 50
-    can_claim  = int(wallet_stats['balance'] / avg_price) if avg_price > 0 else 0
-    can_claim  = min(can_claim, pool_count)
+    avg_price  = price_info['avg_p'] or 0
+    if pool_count == 0:
+        can_claim = 0
+    elif avg_price > 0:
+        can_claim = min(int(wallet_stats['balance'] / avg_price), pool_count)
+    else:
+        can_claim = pool_count  # free leads — can claim all available
 
     my_claims = db.execute(
         "SELECT COUNT(*) FROM leads WHERE assigned_to=? AND claimed_at!=''",
@@ -2245,39 +2249,55 @@ def claim_leads():
     except ValueError:
         count = 1
 
-    wallet_stats = _get_wallet(db, username)
+    try:
+        # BEGIN IMMEDIATE locks the DB so no other writer can proceed concurrently,
+        # preventing two users from claiming the same leads or over-spending wallet.
+        db.execute("BEGIN IMMEDIATE")
 
-    available = db.execute(
-        "SELECT id, pool_price FROM leads WHERE in_pool=1 ORDER BY created_at ASC LIMIT ?",
-        (count,)
-    ).fetchall()
+        wallet_stats = _get_wallet(db, username)
 
-    if not available:
-        flash('No leads available in pool right now. Check back later.', 'warning')
+        available = db.execute(
+            "SELECT id, pool_price FROM leads WHERE in_pool=1 ORDER BY created_at ASC LIMIT ?",
+            (count,)
+        ).fetchall()
+
+        if not available:
+            db.execute("ROLLBACK")
+            db.close()
+            flash('No leads available in pool right now. Check back later.', 'warning')
+            return redirect(url_for('lead_pool'))
+
+        total_cost = sum(r['pool_price'] for r in available)
+
+        if total_cost > wallet_stats['balance']:
+            db.execute("ROLLBACK")
+            db.close()
+            flash(f'Insufficient balance! Need ₹{total_cost:.0f} but you have ₹{wallet_stats["balance"]:.0f}. '
+                  f'Please recharge your wallet.', 'danger')
+            return redirect(url_for('lead_pool'))
+
+        now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        for row in available:
+            db.execute(
+                "UPDATE leads SET assigned_to=?, in_pool=0, claimed_at=?, "
+                "updated_at=? WHERE id=?",
+                (username, now, now, row['id'])
+            )
+
+        db.commit()
         db.close()
-        return redirect(url_for('lead_pool'))
+        flash(f'Successfully claimed {len(available)} leads for ₹{total_cost:.0f}! '
+              f'Check "My Leads" to view them.', 'success')
+        return redirect(url_for('leads'))
 
-    total_cost = sum(r['pool_price'] for r in available)
-
-    if total_cost > wallet_stats['balance']:
-        flash(f'Insufficient balance! Need ₹{total_cost:.0f} but you have ₹{wallet_stats["balance"]:.0f}. '
-              f'Please recharge your wallet.', 'danger')
+    except Exception as e:
+        try:
+            db.execute("ROLLBACK")
+        except Exception:
+            pass
         db.close()
+        flash('Something went wrong while claiming leads. Please try again.', 'danger')
         return redirect(url_for('lead_pool'))
-
-    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    for row in available:
-        db.execute(
-            "UPDATE leads SET assigned_to=?, in_pool=0, claimed_at=?, "
-            "updated_at=? WHERE id=?",
-            (username, now, now, row['id'])
-        )
-
-    db.commit()
-    db.close()
-    flash(f'Successfully claimed {len(available)} leads for ₹{total_cost:.0f}! '
-          f'Check "My Leads" to view them.', 'success')
-    return redirect(url_for('leads'))
 
 
 # ─────────────────────────────────────────────

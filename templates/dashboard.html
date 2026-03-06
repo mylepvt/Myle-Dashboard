@@ -376,7 +376,7 @@
                     <li><a class="dropdown-item" href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener">
                       <i class="bi bi-whatsapp me-2" style="color:#25D366;"></i>WhatsApp
                     </a></li>
-                    <li><a class="dropdown-item" href="intent://send/{{ lead.phone|wa_phone }}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end" target="_blank" rel="noopener">
+                    <li><a class="dropdown-item" href="#" onclick="openWABusiness('{{ lead.phone|wa_phone }}');return false;" rel="noopener">
                       <i class="bi bi-whatsapp me-2" style="color:#00a884;"></i>WhatsApp Business
                     </a></li>
                   </ul>
