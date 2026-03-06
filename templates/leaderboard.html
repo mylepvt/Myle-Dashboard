@@ -17,9 +17,9 @@
 
       <!-- Rank badge -->
       <div class="fw-bold fs-5 text-center" style="width:36px;">
-        {% if rank == 1 %}🥇
-        {% elif rank == 2 %}🥈
-        {% elif rank == 3 %}🥉
+        {% if rank == 1 %}<span class="badge bg-warning text-dark">#1</span>
+        {% elif rank == 2 %}<span class="badge bg-secondary">#2</span>
+        {% elif rank == 3 %}<span class="badge bg-danger-subtle text-danger">#3</span>
         {% else %}<span class="text-muted">#{{ rank }}</span>
         {% endif %}
       </div>
