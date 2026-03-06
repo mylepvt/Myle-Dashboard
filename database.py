@@ -42,6 +42,8 @@ def init_db():
             interview_done INTEGER NOT NULL DEFAULT 0,
             follow_up_date TEXT    NOT NULL DEFAULT '',
             notes          TEXT,
+            city           TEXT    NOT NULL DEFAULT '',
+            deleted_at     TEXT    NOT NULL DEFAULT '',
             in_pool        INTEGER NOT NULL DEFAULT 0,
             pool_price     REAL    NOT NULL DEFAULT 0.0,
             claimed_at     TEXT    NOT NULL DEFAULT '',
@@ -86,17 +88,18 @@ def init_db():
     # Users table (authentication)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id               INTEGER PRIMARY KEY AUTOINCREMENT,
-            username         TEXT    NOT NULL UNIQUE,
-            password         TEXT    NOT NULL,
-            role             TEXT    NOT NULL DEFAULT 'team',
-            fbo_id           TEXT    NOT NULL DEFAULT '',
-            upline_name      TEXT    NOT NULL DEFAULT '',
-            phone            TEXT    NOT NULL DEFAULT '',
-            email            TEXT    NOT NULL DEFAULT '',
-            status           TEXT    NOT NULL DEFAULT 'pending',
-            display_picture  TEXT    NOT NULL DEFAULT '',
-            created_at       TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+            username              TEXT    NOT NULL UNIQUE,
+            password              TEXT    NOT NULL,
+            role                  TEXT    NOT NULL DEFAULT 'team',
+            fbo_id                TEXT    NOT NULL DEFAULT '',
+            upline_name           TEXT    NOT NULL DEFAULT '',
+            phone                 TEXT    NOT NULL DEFAULT '',
+            email                 TEXT    NOT NULL DEFAULT '',
+            status                TEXT    NOT NULL DEFAULT 'pending',
+            display_picture       TEXT    NOT NULL DEFAULT '',
+            calling_reminder_time TEXT    NOT NULL DEFAULT '',
+            created_at            TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
         )
     """)
 

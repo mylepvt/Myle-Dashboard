@@ -9,13 +9,13 @@ import secrets
 import datetime
 import smtplib
 import ssl
+import threading
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from functools import wraps
 from flask import (Flask, render_template, request, redirect, url_for,
                    flash, session, Response)
 from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
 from database import get_db, init_db, migrate_db, seed_users
 
 # Optional QR code support
@@ -783,9 +783,11 @@ def approve_user(user_id):
         db.execute("UPDATE users SET status='approved' WHERE id=?", (user_id,))
         db.commit()
         flash(f'"{user["username"]}" has been approved and can now log in.', 'success')
-        # Send welcome email (non-blocking, fails silently if SMTP not configured)
+        # Send welcome email in background thread (SMTP can take 3-10s, don't block worker)
         login_url = request.host_url.rstrip('/') + url_for('login')
-        _send_welcome_email(user['email'], user['username'], login_url)
+        threading.Thread(target=_send_welcome_email,
+                         args=(user['email'], user['username'], login_url),
+                         daemon=True).start()
     db.close()
     return redirect(url_for('admin_approvals', filter=request.form.get('current_filter', 'all')))
 
@@ -1001,9 +1003,10 @@ def team_dashboard():
         "SELECT * FROM announcements ORDER BY pin DESC, created_at DESC LIMIT 5"
     ).fetchall()
 
-    calling_reminder_time = db.execute(
+    _cr_row = db.execute(
         "SELECT calling_reminder_time FROM users WHERE username=?", (username,)
-    ).fetchone()['calling_reminder_time']
+    ).fetchone()
+    calling_reminder_time = _cr_row['calling_reminder_time'] if _cr_row else ''
 
     db.close()
     return render_template('dashboard.html',
@@ -1466,7 +1469,8 @@ def report_submit():
         except ValueError:
             flash('Please enter valid numbers.', 'danger')
             db.close()
-            return render_template('report_form.html', existing=existing, today=today)
+            return render_template('report_form.html', existing=existing, today=today,
+                                   username=username)
 
         leads_educated = request.form.get('leads_educated', '')
         remarks        = request.form.get('remarks', '').strip()
@@ -1923,11 +1927,18 @@ def approve_recharge(req_id):
         )
         db.commit()
         flash(f'Recharge of ₹{recharge["amount"]:.0f} for @{recharge["username"]} approved!', 'success')
-        # Push to the user
-        _push_to_users(db, recharge['username'],
-                       '✅ Wallet Recharged!',
-                       f'₹{recharge["amount"]:.0f} has been added to your wallet.',
-                       url_for('wallet'))
+        # Push in background (external HTTP call, don't block the worker)
+        _username = recharge['username']
+        _amount   = recharge['amount']
+        def _bg_push_recharge(u, amt):
+            _db = get_db()
+            try:
+                _push_to_users(_db, u, '✅ Wallet Recharged!',
+                               f'₹{amt:.0f} has been added to your wallet.',
+                               '/wallet')
+            finally:
+                _db.close()
+        threading.Thread(target=_bg_push_recharge, args=(_username, _amount), daemon=True).start()
     db.close()
     return redirect(url_for('admin_wallet_requests', status='pending'))
 
@@ -2175,6 +2186,20 @@ def meta_webhook_receive():
     """Receive Meta Lead Ads leads via webhook."""
     db = get_db()
 
+    # Verify X-Hub-Signature-256 if app_secret is configured
+    app_secret = _get_setting(db, 'meta_app_secret', '')
+    if app_secret:
+        sig_header = request.headers.get('X-Hub-Signature-256', '')
+        if not sig_header.startswith('sha256='):
+            db.close()
+            return 'Forbidden', 403
+        expected = 'sha256=' + hmac.new(
+            app_secret.encode(), request.data, hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(sig_header, expected):
+            db.close()
+            return 'Forbidden', 403
+
     data = request.get_json(silent=True)
     if not data:
         db.close()
@@ -2329,7 +2354,6 @@ def profile():
             flash('Profile picture removed.', 'info')
 
         else:  # update_info
-            full_name = request.form.get('full_name', '').strip()
             phone     = request.form.get('phone', '').strip()
             email     = request.form.get('email', '').strip()
             db.execute(
@@ -2706,12 +2730,12 @@ def bulk_action():
         params = lead_ids + [session['username']]
 
     if action == 'delete':
-        # Cascade: remove notes for all affected leads first
-        db.execute(f"DELETE FROM lead_notes WHERE lead_id IN ({placeholders})",
-                   lead_ids)
-        db.execute(f"DELETE FROM leads WHERE {where}", params)
+        db.execute(
+            f"UPDATE leads SET deleted_at=datetime('now','localtime') WHERE {where}",
+            params
+        )
         db.commit()
-        flash(f'Deleted {len(lead_ids)} leads.', 'warning')
+        flash(f'Moved {len(lead_ids)} leads to Recycle Bin.', 'warning')
 
     elif action.startswith('status:'):
         new_status = action.split(':', 1)[1]
@@ -2848,7 +2872,7 @@ def job_calling_reminder():
                 _push_to_users(db, u['username'],
                                '📞 Calling Reminder',
                                'Time to start your calls! Don\'t forget your daily report.',
-                               '/report')
+                               '/reports/submit')
                 db.commit()
     finally:
         db.close()
