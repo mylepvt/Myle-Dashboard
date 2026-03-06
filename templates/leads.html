@@ -136,7 +136,7 @@
         </a>
         <form method="post" action="{{ url_for('delete_lead', lead_id=lead.id) }}"
               onsubmit="return confirm('Delete {{ lead.name }}?')">
-          <button type="submit" class="btn btn-sm btn-outline-danger px-3">
+          <button type="submit" class="btn btn-sm btn-outline-danger px-3" data-noloading>
             <i class="bi bi-trash-fill"></i>
           </button>
         </form>
@@ -548,5 +548,6 @@ if (selAllMobile) {
 document.querySelectorAll('.lead-check').forEach(cb => {
   cb.addEventListener('change', updateBulkBar);
 });
+
 </script>
 {% endblock %}

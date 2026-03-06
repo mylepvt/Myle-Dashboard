@@ -872,7 +872,7 @@ def admin_dashboard():
 
     # Single query instead of 7 (one per status)
     _sc = db.execute(
-        "SELECT status, COUNT(*) as c FROM leads WHERE in_pool=0 GROUP BY status"
+        "SELECT status, COUNT(*) as c FROM leads WHERE in_pool=0 AND deleted_at='' GROUP BY status"
     ).fetchall()
     status_data = {s: 0 for s in STATUSES}
     for row in _sc:
@@ -973,7 +973,7 @@ def team_dashboard():
 
     # Single query instead of 7
     _sc = db.execute(
-        "SELECT status, COUNT(*) as c FROM leads WHERE assigned_to=? AND in_pool=0 GROUP BY status",
+        "SELECT status, COUNT(*) as c FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' GROUP BY status",
         (username,)
     ).fetchall()
     status_data = {s: 0 for s in STATUSES}
