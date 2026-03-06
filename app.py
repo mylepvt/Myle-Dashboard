@@ -175,10 +175,14 @@ def _get_wallet(db, username):
     }
 
 
+_qr_cache: dict = {}   # {upi_id: (bytes, b64_str)}
+
 def _generate_upi_qr_bytes(upi_id):
     """Generate UPI QR code PNG bytes. Returns None if qrcode not available."""
     if not QR_AVAILABLE or not upi_id:
         return None
+    if upi_id in _qr_cache:
+        return _qr_cache[upi_id][0]
     upi_string = f"upi://pay?pa={upi_id}&pn=Myle+Community&cu=INR"
     qr = qrcode.QRCode(version=1, box_size=8, border=4)
     qr.add_data(upi_string)
@@ -186,13 +190,20 @@ def _generate_upi_qr_bytes(upi_id):
     img = qr.make_image(fill_color="black", back_color="white")
     buf = io.BytesIO()
     img.save(buf, format='PNG')
-    return buf.getvalue()
+    data = buf.getvalue()
+    b64 = base64.b64encode(data).decode('utf-8')
+    _qr_cache[upi_id] = (data, b64)
+    return data
 
 
 def _generate_upi_qr_base64(upi_id):
-    """Generate UPI QR as base64 string."""
-    data = _generate_upi_qr_bytes(upi_id)
-    return base64.b64encode(data).decode('utf-8') if data else None
+    """Generate UPI QR as base64 string (cached)."""
+    if not QR_AVAILABLE or not upi_id:
+        return None
+    if upi_id in _qr_cache:
+        return _qr_cache[upi_id][1]
+    _generate_upi_qr_bytes(upi_id)   # populates cache
+    return _qr_cache.get(upi_id, (None, None))[1]
 
 
 import re as _re
@@ -520,15 +531,14 @@ def wa_phone_filter(phone):
 @app.context_processor
 def inject_pending_count():
     if session.get('role') == 'admin':
-        db             = get_db()
-        pending_users  = db.execute(
-            "SELECT COUNT(*) FROM users WHERE status='pending'"
-        ).fetchone()[0]
-        wallet_pending = db.execute(
-            "SELECT COUNT(*) FROM wallet_recharges WHERE status='pending'"
-        ).fetchone()[0]
+        db  = get_db()
+        row = db.execute("""
+            SELECT
+              (SELECT COUNT(*) FROM users           WHERE status='pending') as pu,
+              (SELECT COUNT(*) FROM wallet_recharges WHERE status='pending') as wp
+        """).fetchone()
         db.close()
-        return {'pending_count': pending_users, 'wallet_pending': wallet_pending}
+        return {'pending_count': row['pu'], 'wallet_pending': row['wp']}
     return {'pending_count': 0, 'wallet_pending': 0}
 
 
@@ -899,8 +909,9 @@ def admin_dashboard():
     approved_team = db.execute(
         "SELECT username FROM users WHERE role='team' AND status='approved'"
     ).fetchall()
+    submitted_set   = {r['username'] for r in today_reports}
     missing_reports = [u['username'] for u in approved_team
-                       if u['username'] not in [r['username'] for r in today_reports]]
+                       if u['username'] not in submitted_set]
 
     # Single query instead of one per reporter
     _verif_rows = db.execute("""
@@ -1602,6 +1613,7 @@ def admin_settings():
         # Only update password if provided (don't overwrite with blank)
         smtp_password   = request.form.get('smtp_password', '').strip()
 
+        _qr_cache.clear()   # invalidate QR cache when UPI ID may change
         _set_setting(db, 'upi_id', upi_id)
         _set_setting(db, 'default_lead_price', lead_price)
         _set_setting(db, 'meta_webhook_token', webhook_token)
