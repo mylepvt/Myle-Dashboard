@@ -62,52 +62,109 @@
 
 <div class="row g-3 mb-4">
 
-  <!-- CSV Import -->
+  <!-- Import Card (CSV + PDF tabs) -->
   <div class="col-md-6">
     <div class="card border-0 shadow-sm h-100">
-      <div class="card-header bg-white fw-semibold border-0 pt-3">
-        <i class="bi bi-file-earmark-arrow-up me-2 text-primary"></i>Import from Meta CSV
+      <div class="card-header bg-white border-0 pt-3 pb-0">
+        <ul class="nav nav-tabs card-header-tabs" id="importTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-semibold" id="csv-tab" data-bs-toggle="tab"
+                    data-bs-target="#csvImport" type="button" role="tab">
+              <i class="bi bi-file-earmark-spreadsheet me-1 text-primary"></i>CSV
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="pdf-tab" data-bs-toggle="tab"
+                    data-bs-target="#pdfImport" type="button" role="tab">
+              <i class="bi bi-file-earmark-pdf me-1 text-danger"></i>PDF
+            </button>
+          </li>
+        </ul>
       </div>
-      <div class="card-body">
-        <form method="POST" action="{{ url_for('import_lead_pool_csv') }}" enctype="multipart/form-data">
-          <div class="mb-3">
-            <label class="form-label fw-semibold small">CSV File</label>
-            <input type="file" name="csv_file" class="form-control" accept=".csv" required>
-            <div class="form-text">
-              <i class="bi bi-meta me-1"></i>
-              Meta Ads Manager → Leads Center → Export CSV
-            </div>
-          </div>
-          <div class="row g-2 mb-3">
-            <div class="col">
-              <label class="form-label fw-semibold small">Price per Lead (₹)</label>
-              <div class="input-group">
-                <span class="input-group-text bg-white">₹</span>
-                <input type="number" name="price_per_lead" class="form-control"
-                       value="{{ default_price }}" min="0" step="0.01" required>
+      <div class="card-body tab-content" id="importTabContent">
+
+        <!-- CSV Tab -->
+        <div class="tab-pane fade show active" id="csvImport" role="tabpanel">
+          <form method="POST" action="{{ url_for('import_lead_pool_csv') }}" enctype="multipart/form-data">
+            <div class="mb-3">
+              <label class="form-label fw-semibold small">CSV File</label>
+              <input type="file" name="csv_file" class="form-control" accept=".csv" required>
+              <div class="form-text">
+                <i class="bi bi-meta me-1"></i>Meta Ads Manager → Leads Center → Export CSV
               </div>
             </div>
-            <div class="col">
-              <label class="form-label fw-semibold small">Source Tag</label>
-              <input type="text" name="source_tag" class="form-control"
-                     value="Meta" placeholder="e.g. Meta, FB Ad">
+            <div class="row g-2 mb-3">
+              <div class="col">
+                <label class="form-label fw-semibold small">Price per Lead (₹)</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-white">₹</span>
+                  <input type="number" name="price_per_lead" class="form-control"
+                         value="{{ default_price }}" min="0" step="0.01" required>
+                </div>
+              </div>
+              <div class="col">
+                <label class="form-label fw-semibold small">Source Tag</label>
+                <input type="text" name="source_tag" class="form-control"
+                       value="Meta" placeholder="e.g. Meta, FB Ad">
+              </div>
             </div>
-          </div>
-          <button type="submit" class="btn btn-primary w-100 fw-semibold">
-            <i class="bi bi-upload me-2"></i>Import Leads to Pool
-          </button>
-        </form>
+            <button type="submit" class="btn btn-primary w-100 fw-semibold">
+              <i class="bi bi-upload me-2"></i>Import CSV to Pool
+            </button>
+          </form>
+          <details class="mt-3">
+            <summary class="text-muted small" style="cursor:pointer;">
+              <i class="bi bi-question-circle me-1"></i>Expected CSV columns
+            </summary>
+            <div class="mt-2 p-2 bg-light rounded small text-muted font-monospace">
+              full_name, phone_number, email<br>
+              <em>(Meta also uses: name, phone, email_address)</em>
+            </div>
+          </details>
+        </div>
 
-        <!-- CSV format guide -->
-        <details class="mt-3">
-          <summary class="text-muted small" style="cursor:pointer;">
-            <i class="bi bi-question-circle me-1"></i>Expected CSV columns
-          </summary>
-          <div class="mt-2 p-2 bg-light rounded small text-muted font-monospace">
-            full_name, phone_number, email<br>
-            <em>(Meta also uses: name, phone, email_address)</em>
-          </div>
-        </details>
+        <!-- PDF Tab -->
+        <div class="tab-pane fade" id="pdfImport" role="tabpanel">
+          <form method="POST" action="{{ url_for('import_lead_pool_pdf') }}" enctype="multipart/form-data">
+            <div class="mb-3">
+              <label class="form-label fw-semibold small">PDF File</label>
+              <input type="file" name="pdf_file" class="form-control" accept=".pdf" required>
+              <div class="form-text">
+                <i class="bi bi-info-circle me-1"></i>Tables or contact lists with name &amp; phone
+              </div>
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col">
+                <label class="form-label fw-semibold small">Price per Lead (₹)</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-white">₹</span>
+                  <input type="number" name="price_per_lead" class="form-control"
+                         value="{{ default_price }}" min="0" step="0.01" required>
+                </div>
+              </div>
+              <div class="col">
+                <label class="form-label fw-semibold small">Source Tag</label>
+                <input type="text" name="source_tag" class="form-control"
+                       value="PDF" placeholder="e.g. PDF, Event">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-danger w-100 fw-semibold">
+              <i class="bi bi-upload me-2"></i>Import PDF to Pool
+            </button>
+          </form>
+          <details class="mt-3">
+            <summary class="text-muted small" style="cursor:pointer;">
+              <i class="bi bi-question-circle me-1"></i>PDF format tips
+            </summary>
+            <div class="mt-2 p-2 bg-light rounded small text-muted">
+              Works best with:<br>
+              &bull; Tables with Name / Phone / Email columns<br>
+              &bull; Contact lists with 10-digit Indian numbers<br>
+              &bull; Meta lead export PDFs
+            </div>
+          </details>
+        </div>
+
       </div>
     </div>
   </div>

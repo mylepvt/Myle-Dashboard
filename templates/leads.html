@@ -32,6 +32,9 @@
           <a href="{{ url_for('export_leads') }}" class="btn btn-sm btn-outline-success" title="Export CSV">
             <i class="bi bi-download me-1"></i><span class="d-none d-sm-inline">Export</span>
           </a>
+          <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#importModal" title="Import Leads">
+            <i class="bi bi-upload me-1"></i><span class="d-none d-sm-inline">Import</span>
+          </button>
           <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#quickAddModal">
             <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Quick Add</span>
           </button>
@@ -292,6 +295,89 @@
   <button type="button" class="btn btn-sm btn-outline-light ms-auto" onclick="clearBulk()">
     <i class="bi bi-x-lg"></i>
   </button>
+</div>
+
+<!-- ── Import Leads Modal ─────────────────────────────── -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="importModalLabel">
+          <i class="bi bi-upload me-2"></i>Import Leads
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pb-1">
+        <!-- Format tabs -->
+        <ul class="nav nav-tabs mb-3" id="importLeadsTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="imp-csv-tab" data-bs-toggle="tab"
+                    data-bs-target="#impCsvPane" type="button" role="tab">
+              <i class="bi bi-file-earmark-spreadsheet me-1"></i>CSV
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="imp-pdf-tab" data-bs-toggle="tab"
+                    data-bs-target="#impPdfPane" type="button" role="tab">
+              <i class="bi bi-file-earmark-pdf me-1 text-danger"></i>PDF
+            </button>
+          </li>
+        </ul>
+
+        <!-- CSV pane -->
+        <div class="tab-content">
+          <div class="tab-pane fade show active" id="impCsvPane" role="tabpanel">
+            <form method="POST" action="{{ url_for('import_leads') }}" enctype="multipart/form-data">
+              <input type="hidden" name="import_type" value="csv">
+              <div class="mb-3">
+                <label class="form-label fw-semibold small">CSV File</label>
+                <input type="file" name="import_file" class="form-control" accept=".csv" required>
+                <div class="form-text">Columns: name/full_name, phone/phone_number, email, city</div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold small">Source Tag</label>
+                <input type="text" name="source_tag" class="form-control" value="CSV Import" placeholder="e.g. Meta, Event">
+              </div>
+              {% if session.get('role') == 'admin' %}
+              <div class="mb-3">
+                <label class="form-label fw-semibold small">Assign To (username)</label>
+                <input type="text" name="assigned_to" class="form-control" placeholder="Leave blank = assign to yourself">
+              </div>
+              {% endif %}
+              <button type="submit" class="btn btn-primary w-100 fw-semibold mb-2">
+                <i class="bi bi-upload me-2"></i>Import CSV Leads
+              </button>
+            </form>
+          </div>
+
+          <!-- PDF pane -->
+          <div class="tab-pane fade" id="impPdfPane" role="tabpanel">
+            <form method="POST" action="{{ url_for('import_leads') }}" enctype="multipart/form-data">
+              <input type="hidden" name="import_type" value="pdf">
+              <div class="mb-3">
+                <label class="form-label fw-semibold small">PDF File</label>
+                <input type="file" name="import_file" class="form-control" accept=".pdf" required>
+                <div class="form-text">Works with tables or contact lists containing 10-digit Indian numbers</div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold small">Source Tag</label>
+                <input type="text" name="source_tag" class="form-control" value="PDF Import" placeholder="e.g. Event, Referral">
+              </div>
+              {% if session.get('role') == 'admin' %}
+              <div class="mb-3">
+                <label class="form-label fw-semibold small">Assign To (username)</label>
+                <input type="text" name="assigned_to" class="form-control" placeholder="Leave blank = assign to yourself">
+              </div>
+              {% endif %}
+              <button type="submit" class="btn btn-danger w-100 fw-semibold mb-2">
+                <i class="bi bi-upload me-2"></i>Import PDF Leads
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ── Quick Add Lead Modal ───────────────────────────── -->

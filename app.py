@@ -25,6 +25,13 @@ try:
 except ImportError:
     QR_AVAILABLE = False
 
+# Optional PDF support
+try:
+    import pdfplumber
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
+
 # Optional Web Push support (pywebpush + cryptography)
 try:
     from pywebpush import webpush, WebPushException
@@ -186,6 +193,73 @@ def _generate_upi_qr_base64(upi_id):
     """Generate UPI QR as base64 string."""
     data = _generate_upi_qr_bytes(upi_id)
     return base64.b64encode(data).decode('utf-8') if data else None
+
+
+import re as _re
+_PHONE_RE = _re.compile(r'(?:(?:\+|0{0,2})91[-\s]?)?([6-9]\d{9})\b')
+
+
+def _extract_leads_from_pdf(file_stream):
+    """
+    Extract (name, phone, email) rows from a PDF file stream.
+    Returns (list_of_dicts, error_string).  error_string is None on success.
+    """
+    if not PDF_AVAILABLE:
+        return None, "PDF parsing library not installed. Run: pip install pdfplumber"
+
+    leads = []
+    try:
+        with pdfplumber.open(file_stream) as pdf:
+            for page in pdf.pages:
+                # ── Try table extraction first ───────────────────────────
+                tables = page.extract_tables()
+                if tables:
+                    for table in tables:
+                        if not table:
+                            continue
+                        header_row = [str(c or '').lower().strip() for c in table[0]]
+                        name_col  = next((i for i, h in enumerate(header_row)
+                                          if 'name' in h), None)
+                        phone_col = next((i for i, h in enumerate(header_row)
+                                          if any(k in h for k in ('phone', 'mobile', 'contact', 'number'))), None)
+                        email_col = next((i for i, h in enumerate(header_row)
+                                          if 'email' in h or 'mail' in h), None)
+                        city_col  = next((i for i, h in enumerate(header_row)
+                                          if 'city' in h or 'location' in h), None)
+                        # skip header row if we detected column labels
+                        start = 1 if (name_col is not None or phone_col is not None) else 0
+                        for row in table[start:]:
+                            if not row:
+                                continue
+                            cells = [str(c or '').strip() for c in row]
+                            safe  = lambda i: cells[i] if i is not None and i < len(cells) else ''
+                            name  = safe(name_col)
+                            phone = safe(phone_col)
+                            email = safe(email_col)
+                            city  = safe(city_col)
+                            # normalize phone
+                            m = _PHONE_RE.search(phone)
+                            if m:
+                                phone = m.group(1)
+                            if name or phone:
+                                leads.append({'name': name, 'phone': phone,
+                                              'email': email, 'city': city})
+                else:
+                    # ── Fall back to line-by-line text scan ──────────────
+                    text = page.extract_text() or ''
+                    for line in text.split('\n'):
+                        m = _PHONE_RE.search(line)
+                        if not m:
+                            continue
+                        phone = m.group(1)
+                        # strip phone (and +91 prefix) from line → remaining text = name
+                        name = _PHONE_RE.sub('', line).strip(' -|,;:\t')
+                        leads.append({'name': name, 'phone': phone,
+                                      'email': '', 'city': ''})
+    except Exception as exc:
+        return None, f"Could not parse PDF: {exc}"
+
+    return leads, None
 
 
 def _get_or_create_vapid_keys(db):
@@ -1699,6 +1773,69 @@ def import_lead_pool_csv():
     return redirect(url_for('admin_lead_pool'))
 
 
+@app.route('/admin/lead-pool/import-pdf', methods=['POST'])
+@admin_required
+def import_lead_pool_pdf():
+    """Import leads from PDF into the lead pool."""
+    db             = get_db()
+    price_per_lead = float(request.form.get('price_per_lead') or 50)
+    source_tag     = request.form.get('source_tag', 'PDF').strip() or 'PDF'
+
+    if 'pdf_file' not in request.files:
+        flash('No file uploaded.', 'danger')
+        db.close()
+        return redirect(url_for('admin_lead_pool'))
+
+    f = request.files['pdf_file']
+    if not f.filename.lower().endswith('.pdf'):
+        flash('Please upload a .pdf file.', 'danger')
+        db.close()
+        return redirect(url_for('admin_lead_pool'))
+
+    rows_list, err = _extract_leads_from_pdf(f.stream)
+    if err:
+        flash(err, 'danger')
+        db.close()
+        return redirect(url_for('admin_lead_pool'))
+
+    existing_phones = {
+        r[0] for r in db.execute("SELECT phone FROM leads WHERE in_pool=1").fetchall()
+    }
+
+    imported = skipped = 0
+    for row in rows_list:
+        name  = row.get('name', '').strip()
+        phone = row.get('phone', '').strip()
+        email = row.get('email', '').strip()
+        city  = row.get('city', '').strip()
+
+        if not name and not phone:
+            skipped += 1
+            continue
+        if not name:
+            name = phone
+        if not phone:
+            phone = 'N/A'
+
+        if phone in existing_phones:
+            skipped += 1
+            continue
+        existing_phones.add(phone)
+
+        db.execute("""
+            INSERT INTO leads
+                (name, phone, email, assigned_to, source, status,
+                 in_pool, pool_price, claimed_at, city, notes)
+            VALUES (?, ?, ?, '', ?, 'New', 1, ?, '', ?, '')
+        """, (name, phone, email, source_tag, price_per_lead, city))
+        imported += 1
+
+    db.commit()
+    db.close()
+    flash(f'PDF import: {imported} leads added to pool. Skipped {skipped} (duplicates/empty).', 'success')
+    return redirect(url_for('admin_lead_pool'))
+
+
 @app.route('/admin/lead-pool/add-single', methods=['POST'])
 @admin_required
 def add_to_pool():
@@ -2246,6 +2383,122 @@ def export_leads():
     fname = f"leads_{datetime.date.today().isoformat()}.csv"
     return Response(buf.getvalue(), mimetype='text/csv',
                     headers={'Content-Disposition': f'attachment; filename={fname}'})
+
+
+# ─────────────────────────────────────────────
+#  Leads – Bulk Import (CSV / PDF)
+# ─────────────────────────────────────────────
+
+@app.route('/leads/import', methods=['POST'])
+@login_required
+def import_leads():
+    """
+    Bulk import leads from CSV or PDF into the current user's leads.
+    Admins can optionally assign to another user via form field 'assigned_to'.
+    """
+    db          = get_db()
+    username    = session['username']
+    is_admin    = session.get('role') == 'admin'
+    file_type   = request.form.get('import_type', 'csv')  # 'csv' or 'pdf'
+    source_tag  = request.form.get('source_tag', 'Import').strip() or 'Import'
+
+    if is_admin:
+        assigned_to = request.form.get('assigned_to', '').strip() or username
+    else:
+        assigned_to = username
+
+    rows_list = []
+    err       = None
+
+    if file_type == 'pdf':
+        f = request.files.get('import_file')
+        if not f or not f.filename:
+            flash('No file uploaded.', 'danger')
+            db.close()
+            return redirect(url_for('leads'))
+        if not f.filename.lower().endswith('.pdf'):
+            flash('Please upload a .pdf file.', 'danger')
+            db.close()
+            return redirect(url_for('leads'))
+        rows_list, err = _extract_leads_from_pdf(f.stream)
+        if err:
+            flash(err, 'danger')
+            db.close()
+            return redirect(url_for('leads'))
+
+    else:  # csv
+        f = request.files.get('import_file')
+        if not f or not f.filename:
+            flash('No file uploaded.', 'danger')
+            db.close()
+            return redirect(url_for('leads'))
+        if not f.filename.lower().endswith('.csv'):
+            flash('Please upload a .csv file.', 'danger')
+            db.close()
+            return redirect(url_for('leads'))
+        try:
+            content   = f.read().decode('utf-8-sig', errors='replace')
+            reader    = csv.DictReader(io.StringIO(content))
+            raw_rows  = list(reader)
+        except Exception as e:
+            flash(f'Could not parse CSV: {e}', 'danger')
+            db.close()
+            return redirect(url_for('leads'))
+
+        for row in raw_rows:
+            name  = (row.get('Full Name') or row.get('full_name') or
+                     row.get('name') or row.get('Name') or '').strip()
+            phone = (row.get('Phone Number (Calling Number)') or
+                     row.get('phone_number') or row.get('phone') or
+                     row.get('Phone') or row.get('Phone Number') or '').strip()
+            email = (row.get('email') or row.get('Email') or
+                     row.get('email_address') or '').strip()
+            city  = (row.get('Your City Name') or row.get('city') or
+                     row.get('City') or '').strip()
+            src   = (row.get('source') or row.get('Source') or '').strip()
+            rows_list.append({'name': name, 'phone': phone,
+                              'email': email, 'city': city, 'source': src})
+
+    # Pre-fetch existing phones (non-pool, non-deleted) for dedup
+    existing_phones = {
+        r[0] for r in db.execute(
+            "SELECT phone FROM leads WHERE in_pool=0 AND deleted_at=''"
+        ).fetchall()
+    }
+
+    imported = skipped = 0
+    for row in rows_list:
+        name  = row.get('name', '').strip()
+        phone = row.get('phone', '').strip()
+        email = row.get('email', '').strip()
+        city  = row.get('city', '').strip()
+        src   = row.get('source', '').strip() or source_tag
+
+        if not name and not phone:
+            skipped += 1
+            continue
+        if not name:
+            name = phone
+        if not phone:
+            phone = 'N/A'
+
+        if phone in existing_phones:
+            skipped += 1
+            continue
+        existing_phones.add(phone)
+
+        db.execute("""
+            INSERT INTO leads
+                (name, phone, email, assigned_to, source, status,
+                 in_pool, pool_price, claimed_at, city, notes)
+            VALUES (?, ?, ?, ?, ?, 'New', 0, 0, '', ?, '')
+        """, (name, phone, email, assigned_to, src, city))
+        imported += 1
+
+    db.commit()
+    db.close()
+    flash(f'Import complete: {imported} leads added, {skipped} skipped (duplicates/empty).', 'success')
+    return redirect(url_for('leads'))
 
 
 # ─────────────────────────────────────────────
