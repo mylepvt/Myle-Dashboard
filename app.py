@@ -14,7 +14,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from functools import wraps
 from flask import (Flask, render_template, request, redirect, url_for,
-                   flash, session, Response)
+                   flash, session, Response, make_response)
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_db, init_db, migrate_db, seed_users
 
@@ -938,7 +938,7 @@ def admin_dashboard():
     pool_count = db.execute("SELECT COUNT(*) FROM leads WHERE in_pool=1").fetchone()[0]
 
     db.close()
-    return render_template('admin.html',
+    resp = make_response(render_template('admin.html',
                            metrics=metrics,
                            recent=recent,
                            status_data=status_data,
@@ -951,7 +951,9 @@ def admin_dashboard():
                            report_verification=report_verification,
                            today=today,
                            wallet_pending_count=wallet_pending_count,
-                           pool_count=pool_count)
+                           pool_count=pool_count))
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+    return resp
 
 
 # ─────────────────────────────────────────────
@@ -1038,7 +1040,7 @@ def team_dashboard():
     calling_reminder_time = _cr_row['calling_reminder_time'] if _cr_row else ''
 
     db.close()
-    return render_template('dashboard.html',
+    resp = make_response(render_template('dashboard.html',
                            metrics=metrics,
                            wallet=wallet,
                            recent=recent,
@@ -1056,7 +1058,9 @@ def team_dashboard():
                            retarget_count=retarget_count,
                            zoom_link=zoom_link,
                            zoom_title=zoom_title,
-                           zoom_time=zoom_time)
+                           zoom_time=zoom_time))
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+    return resp
 
 
 # ─────────────────────────────────────────────
@@ -1091,6 +1095,7 @@ def leads():
     return render_template('leads.html',
                            leads=all_leads,
                            statuses=STATUSES,
+                           call_result_tags=CALL_RESULT_TAGS,
                            sources=SOURCES,
                            selected_status=status,
                            search=search,
@@ -1348,6 +1353,34 @@ def update_status(lead_id):
 
     flash('Status updated.', 'success')
     return redirect(request.referrer or url_for('leads'))
+
+
+# ─────────────────────────────────────────────
+#  Leads – Quick call-result update (AJAX)
+# ─────────────────────────────────────────────
+
+@app.route('/leads/<int:lead_id>/call-result', methods=['POST'])
+@login_required
+def update_call_result(lead_id):
+    tag = request.form.get('call_result', '').strip()
+    if tag not in CALL_RESULT_TAGS:
+        return {'ok': False, 'error': 'Invalid tag'}, 400
+    db = get_db()
+    if session.get('role') != 'admin':
+        lead = db.execute(
+            "SELECT id FROM leads WHERE id=? AND assigned_to=? AND in_pool=0",
+            (lead_id, session['username'])
+        ).fetchone()
+        if not lead:
+            db.close()
+            return {'ok': False, 'error': 'Access denied'}, 403
+    db.execute(
+        "UPDATE leads SET call_result=?, updated_at=datetime('now','localtime') WHERE id=? AND in_pool=0",
+        (tag, lead_id)
+    )
+    db.commit()
+    db.close()
+    return {'ok': True, 'call_result': tag}
 
 
 # ─────────────────────────────────────────────

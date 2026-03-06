@@ -120,8 +120,8 @@
         </span>
       </div>
 
-      <!-- Row 4: Status dropdown + action buttons -->
-      <div class="d-flex gap-2 align-items-center">
+      <!-- Row 4: Status + Call Result + actions -->
+      <div class="d-flex gap-2 align-items-center mb-2">
         <form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="flex-grow-1">
           <select name="status"
                   class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}"
@@ -140,6 +140,20 @@
             <i class="bi bi-trash-fill"></i>
           </button>
         </form>
+      </div>
+      <!-- Row 5: Call Result Tag -->
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-telephone-fill text-muted" style="font-size:0.8rem;"></i>
+        <select class="form-select form-select-sm call-result-select"
+                data-lead-id="{{ lead.id }}"
+                style="font-size:0.78rem; color: {% if lead.call_result == 'Interested' %}#198754{% elif lead.call_result in ['Call Not Picked','Phone Switched Off','Not Interested'] %}#dc3545{% elif lead.call_result %}#fd7e14{% else %}#6c757d{% endif %};">
+          <option value="">-- Call Result --</option>
+          {% for tag in call_result_tags %}
+            {% if tag %}
+              <option value="{{ tag }}" {% if lead.call_result == tag %}selected{% endif %}>{{ tag }}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
       </div>
 
     </div>
@@ -549,5 +563,39 @@ document.querySelectorAll('.lead-check').forEach(cb => {
   cb.addEventListener('change', updateBulkBar);
 });
 
+// ── Call Result AJAX ──────────────────────────────────────
+document.addEventListener('change', function(e) {
+  const sel = e.target;
+  if (!sel.classList.contains('call-result-select') || !sel.dataset.leadId) return;
+
+  const leadId = sel.dataset.leadId;
+  const tag    = sel.value;
+
+  fetch(`/leads/${leadId}/call-result`, {
+    method: 'POST',
+    headers: { 'X-Requested-With': 'XMLHttpRequest',
+               'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ call_result: tag })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      // Update color to reflect tag category
+      if (tag === 'Interested') {
+        sel.style.color = '#198754';
+      } else if (['Call Not Picked','Phone Switched Off','Not Interested'].includes(tag)) {
+        sel.style.color = '#dc3545';
+      } else if (tag) {
+        sel.style.color = '#fd7e14';
+      } else {
+        sel.style.color = '#6c757d';
+      }
+      showToast(tag ? 'Call result saved: ' + tag : 'Call result cleared', 'success');
+    } else {
+      showToast('Could not save. Try again.', 'danger');
+    }
+  })
+  .catch(() => showToast('Network error. Try again.', 'danger'));
+});
 </script>
 {% endblock %}
