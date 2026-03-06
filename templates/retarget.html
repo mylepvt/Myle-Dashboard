@@ -6,7 +6,7 @@
 <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
   <div>
     <h5 class="fw-bold mb-1">Retarget List</h5>
-    <p class="text-muted small mb-0">Leads to follow up — Call Not Picked, Switched Off, or Follow Up Later</p>
+    <p class="text-muted small mb-0">Leads needing follow-up — not reachable, callback pending, or follow-up scheduled</p>
   </div>
   <div class="ms-auto">
     <span class="badge bg-danger fs-6">{{ leads|length }} leads</span>
@@ -18,13 +18,19 @@
 <div class="d-flex gap-2 flex-wrap mb-3">
   <a href="{{ url_for('retarget') }}" class="btn btn-sm {% if not request.args.get('tag') %}btn-primary{% else %}btn-outline-secondary{% endif %}">All</a>
   <a href="{{ url_for('retarget', tag='Call Not Picked') }}" class="btn btn-sm {% if request.args.get('tag')=='Call Not Picked' %}btn-warning text-dark{% else %}btn-outline-secondary{% endif %}">
-    <i class="bi bi-telephone-x me-1"></i>Call Not Picked
+    <i class="bi bi-telephone-x me-1"></i>Not Picked
   </a>
   <a href="{{ url_for('retarget', tag='Phone Switched Off') }}" class="btn btn-sm {% if request.args.get('tag')=='Phone Switched Off' %}btn-danger{% else %}btn-outline-secondary{% endif %}">
     <i class="bi bi-phone-vibrate me-1"></i>Switched Off
   </a>
-  <a href="{{ url_for('retarget', tag='Follow Up Later') }}" class="btn btn-sm {% if request.args.get('tag')=='Follow Up Later' %}btn-info text-dark{% else %}btn-outline-secondary{% endif %}">
-    <i class="bi bi-clock me-1"></i>Follow Up Later
+  <a href="{{ url_for('retarget', tag='Not Reachable') }}" class="btn btn-sm {% if request.args.get('tag')=='Not Reachable' %}btn-danger{% else %}btn-outline-secondary{% endif %}">
+    <i class="bi bi-telephone-minus me-1"></i>Not Reachable
+  </a>
+  <a href="{{ url_for('retarget', tag='Follow Up Later') }}" class="btn btn-sm {% if request.args.get('tag')=='Follow Up Later' %}btn-warning text-dark{% else %}btn-outline-secondary{% endif %}">
+    <i class="bi bi-clock me-1"></i>Follow Up
+  </a>
+  <a href="{{ url_for('retarget', tag='Callback Requested') }}" class="btn btn-sm {% if request.args.get('tag')=='Callback Requested' %}btn-info text-dark{% else %}btn-outline-secondary{% endif %}">
+    <i class="bi bi-arrow-return-left me-1"></i>Callback
   </a>
 </div>
 
@@ -68,8 +74,12 @@
                 <span class="badge bg-warning text-dark"><i class="bi bi-telephone-x me-1"></i>Not Picked</span>
               {% elif lead.call_result == 'Phone Switched Off' %}
                 <span class="badge bg-danger"><i class="bi bi-phone-vibrate me-1"></i>Switched Off</span>
+              {% elif lead.call_result == 'Not Reachable' %}
+                <span class="badge bg-danger"><i class="bi bi-telephone-minus me-1"></i>Not Reachable</span>
               {% elif lead.call_result == 'Follow Up Later' %}
-                <span class="badge bg-info text-dark"><i class="bi bi-clock me-1"></i>Follow Up</span>
+                <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Follow Up</span>
+              {% elif lead.call_result == 'Callback Requested' %}
+                <span class="badge bg-info text-dark"><i class="bi bi-arrow-return-left me-1"></i>Callback</span>
               {% endif %}
             </td>
             <td><span class="badge status-{{ lead.status|replace(' ','') }}">{{ lead.status }}</span></td>

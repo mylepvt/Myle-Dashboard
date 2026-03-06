@@ -60,11 +60,29 @@ STATUSES = ['New Lead', 'New', 'Contacted', 'Invited', 'Video Sent', 'Video Watc
             'Paid ₹196', 'Day 1', 'Day 2', 'Interview', 'Converted', 'Lost']
 
 CALL_RESULT_TAGS = [
-    '', 'Call Not Picked', 'Phone Switched Off', 'Follow Up Later',
-    'Already Forever Living Distributor', 'Interested', 'Not Interested'
+    '',
+    # No response
+    'Call Not Picked',
+    'Phone Switched Off',
+    'Not Reachable',
+    'Wrong Number',
+    # Follow-up needed
+    'Follow Up Later',
+    'Callback Requested',
+    # Positive
+    'Interested',
+    # Negative / disqualified
+    'Not Interested',
+    'Already Forever Living Distributor',
+    'Already in Another Network',
+    'Underage',
+    'Language Barrier',
 ]
 
-RETARGET_TAGS = {'Call Not Picked', 'Phone Switched Off', 'Follow Up Later'}
+RETARGET_TAGS = {
+    'Call Not Picked', 'Phone Switched Off', 'Not Reachable',
+    'Follow Up Later', 'Callback Requested'
+}
 SOURCES  = ['WhatsApp', 'Facebook', 'Instagram', 'LinkedIn',
             'Walk-in', 'Referral', 'YouTube', 'Cold Call', 'Meta', 'Other']
 PAYMENT_AMOUNT = 196.0
@@ -1001,10 +1019,11 @@ def team_dashboard():
 
     pool_count = db.execute("SELECT COUNT(*) FROM leads WHERE in_pool=1").fetchone()[0]
 
+    _rt_ph = ','.join('?' * len(RETARGET_TAGS))
     retarget_count = db.execute(
-        "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' "
-        "AND assigned_to=? AND call_result IN ('Call Not Picked','Phone Switched Off','Follow Up Later')",
-        (username,)
+        f"SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' "
+        f"AND assigned_to=? AND call_result IN ({_rt_ph})",
+        (username, *RETARGET_TAGS)
     ).fetchone()[0]
 
     zoom_link  = _get_setting(db, 'zoom_link', '')
@@ -1295,10 +1314,11 @@ def edit_lead(lead_id):
 @login_required
 def retarget():
     db = get_db()
-    query  = """SELECT * FROM leads
+    rt_placeholders = ','.join('?' * len(RETARGET_TAGS))
+    query  = f"""SELECT * FROM leads
                 WHERE in_pool=0 AND deleted_at=''
-                AND call_result IN ('Call Not Picked','Phone Switched Off','Follow Up Later')"""
-    params = []
+                AND call_result IN ({rt_placeholders})"""
+    params = list(RETARGET_TAGS)
     if session.get('role') != 'admin':
         query += " AND assigned_to=?"
         params.append(session['username'])
