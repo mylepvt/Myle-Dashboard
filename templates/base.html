@@ -160,6 +160,20 @@
           <i class="bi bi-megaphone me-2"></i><span>Notice Board</span>
         </a>
       </li>
+      {% if session.get('role') != 'admin' %}
+      <li class="nav-item">
+        <a href="{{ url_for('retarget') }}"
+           class="nav-link text-white d-flex align-items-center justify-content-between {% if request.endpoint == 'retarget' %}active{% endif %}">
+          <span><i class="bi bi-bullseye me-2"></i><span>Retarget List</span></span>
+        </a>
+      </li>
+      {% endif %}
+      <li class="nav-item">
+        <a href="{{ url_for('live_session') if session.get('role') != 'admin' else url_for('admin_live_session') }}"
+           class="nav-link text-white {% if request.endpoint in ['live_session','admin_live_session'] %}active{% endif %}">
+          <i class="bi bi-camera-video me-2"></i><span>Live Session</span>
+        </a>
+      </li>
 
       <!-- ── System (admin only) ───────────────────────── -->
       {% if session.get('role') == 'admin' %}
@@ -291,8 +305,8 @@
   <a href="{{ url_for('wallet') }}" class="mbn-item {% if request.endpoint == 'wallet' %}active{% endif %}">
     <i class="bi bi-wallet2"></i><span>Wallet</span>
   </a>
-  <a href="{{ url_for('report_submit') }}" class="mbn-item {% if request.endpoint == 'report_submit' %}active{% endif %}">
-    <i class="bi bi-clipboard2-check-fill"></i><span>Report</span>
+  <a href="{{ url_for('retarget') }}" class="mbn-item {% if request.endpoint == 'retarget' %}active{% endif %}">
+    <i class="bi bi-bullseye"></i><span>Retarget</span>
   </a>
   {% endif %}
 </nav>

@@ -155,6 +155,15 @@
             </div>
           </div>
 
+          <div class="mb-3">
+            <label class="form-label">Call Result Tag</label>
+            <select name="call_result" class="form-select">
+              {% for tag in call_result_tags %}
+              <option value="{{ tag }}">{% if tag %}{{ tag }}{% else %}-- None --{% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+
           <!-- ── Section 4: Payment & Revenue ──────────────────── -->
           <div class="section-label">
             <i class="bi bi-currency-rupee text-success me-2"></i>Payment &amp; Revenue

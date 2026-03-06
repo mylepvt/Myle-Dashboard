@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Live Session – Myle Community{% endblock %}
+{% block page_title %}Live Session{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8 col-lg-6">
+
+    {% if zoom_link %}
+    <div class="card border-0 shadow" style="border-radius:16px; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
+      <div class="card-body p-4 text-white text-center">
+        <div class="mb-3">
+          <i class="bi bi-camera-video-fill" style="font-size:3rem;opacity:0.9;"></i>
+        </div>
+        <h4 class="fw-bold mb-1">{{ zoom_title }}</h4>
+        <div class="badge bg-white text-dark mb-3 px-3 py-2" style="font-size:0.9rem;">
+          <i class="bi bi-clock me-1"></i>{{ zoom_time }}
+        </div>
+        <div class="d-grid gap-2 mt-3">
+          <a href="{{ zoom_link }}" target="_blank" rel="noopener"
+             class="btn btn-light btn-lg fw-bold" style="border-radius:10px;">
+            <i class="bi bi-box-arrow-up-right me-2"></i>Join Zoom Meeting
+          </a>
+          <button class="btn btn-outline-light"
+                  onclick="navigator.clipboard.writeText('{{ zoom_link }}').then(()=>showToast('Link copied!','success'))">
+            <i class="bi bi-clipboard me-2"></i>Copy Link
+          </button>
+        </div>
+        <p class="mt-3 mb-0 opacity-75 small">{{ zoom_link }}</p>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mt-3" style="border-radius:12px;">
+      <div class="card-body p-3">
+        <h6 class="fw-semibold mb-2"><i class="bi bi-info-circle me-2 text-primary"></i>How to join</h6>
+        <ol class="small text-muted mb-0 ps-3">
+          <li class="mb-1">Click <strong>"Join Zoom Meeting"</strong> above</li>
+          <li class="mb-1">Zoom app will open automatically</li>
+          <li>If Zoom is not installed, copy the link and paste in browser</li>
+        </ol>
+      </div>
+    </div>
+
+    {% else %}
+    <div class="card border-0 shadow-sm text-center p-5" style="border-radius:16px;">
+      <i class="bi bi-camera-video-off text-muted" style="font-size:3rem;"></i>
+      <h5 class="mt-3 fw-semibold">No Session Scheduled</h5>
+      <p class="text-muted">Admin hasn't posted today's session link yet.<br>Check back later or ask on the group.</p>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

@@ -123,6 +123,16 @@
                      value="{{ lead.follow_up_date or '' }}">
               <div class="form-text">Leave blank to clear reminder.</div>
             </div>
+            <div class="col-md-8">
+              <label class="form-label fw-semibold">Call Result Tag</label>
+              <select name="call_result" class="form-select">
+                {% for tag in call_result_tags %}
+                <option value="{{ tag }}" {% if lead.call_result == tag %}selected{% endif %}>
+                  {% if tag %}{{ tag }}{% else %}-- None --{% endif %}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
 
             <!-- Notes -->
             <div class="col-12 mt-2"><h6 class="text-muted fw-semibold text-uppercase small">Notes</h6><hr class="mt-1 mb-2"/></div>

@@ -41,6 +41,7 @@ def init_db():
             day2_done      INTEGER NOT NULL DEFAULT 0,
             interview_done INTEGER NOT NULL DEFAULT 0,
             follow_up_date TEXT    NOT NULL DEFAULT '',
+            call_result    TEXT    NOT NULL DEFAULT '',
             notes          TEXT,
             city           TEXT    NOT NULL DEFAULT '',
             deleted_at     TEXT    NOT NULL DEFAULT '',
@@ -186,6 +187,7 @@ def migrate_db():
         ("source",         "TEXT NOT NULL DEFAULT ''"),
         ("revenue",        "REAL NOT NULL DEFAULT 0.0"),
         ("follow_up_date", "TEXT NOT NULL DEFAULT ''"),
+        ("call_result",    "TEXT NOT NULL DEFAULT ''"),
         ("in_pool",        "INTEGER NOT NULL DEFAULT 0"),
         ("pool_price",     "REAL NOT NULL DEFAULT 0.0"),
         ("claimed_at",     "TEXT NOT NULL DEFAULT ''"),
@@ -347,6 +349,7 @@ def migrate_db():
         "CREATE INDEX IF NOT EXISTS idx_leads_phone          ON leads(phone)",
         "CREATE INDEX IF NOT EXISTS idx_wallet_user_status   ON wallet_recharges(username, status)",
         "CREATE INDEX IF NOT EXISTS idx_reports_user_date    ON daily_reports(username, report_date)",
+        "CREATE INDEX IF NOT EXISTS idx_leads_call_result ON leads(call_result, in_pool, deleted_at)",
     ]
     for idx in indexes:
         try:

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Retarget List – Myle Community{% endblock %}
+{% block page_title %}Retarget List{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
+  <div>
+    <h5 class="fw-bold mb-1">🎯 Retarget List</h5>
+    <p class="text-muted small mb-0">Leads to follow up — Call Not Picked, Switched Off, or Follow Up Later</p>
+  </div>
+  <div class="ms-auto">
+    <span class="badge bg-danger fs-6">{{ leads|length }} leads</span>
+  </div>
+</div>
+
+{% if leads %}
+<!-- Filter pills -->
+<div class="d-flex gap-2 flex-wrap mb-3">
+  <a href="{{ url_for('retarget') }}" class="btn btn-sm {% if not request.args.get('tag') %}btn-primary{% else %}btn-outline-secondary{% endif %}">All</a>
+  <a href="{{ url_for('retarget', tag='Call Not Picked') }}" class="btn btn-sm {% if request.args.get('tag')=='Call Not Picked' %}btn-warning text-dark{% else %}btn-outline-secondary{% endif %}">
+    <i class="bi bi-telephone-x me-1"></i>Call Not Picked
+  </a>
+  <a href="{{ url_for('retarget', tag='Phone Switched Off') }}" class="btn btn-sm {% if request.args.get('tag')=='Phone Switched Off' %}btn-danger{% else %}btn-outline-secondary{% endif %}">
+    <i class="bi bi-phone-vibrate me-1"></i>Switched Off
+  </a>
+  <a href="{{ url_for('retarget', tag='Follow Up Later') }}" class="btn btn-sm {% if request.args.get('tag')=='Follow Up Later' %}btn-info text-dark{% else %}btn-outline-secondary{% endif %}">
+    <i class="bi bi-clock me-1"></i>Follow Up Later
+  </a>
+</div>
+
+<div class="card border-0 shadow-sm" style="border-radius:12px;">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Name</th>
+            <th>Phone</th>
+            <th>Tag</th>
+            <th>Status</th>
+            <th>Follow Up</th>
+            <th>Last Updated</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set tag_filter = request.args.get('tag', '') %}
+          {% for lead in leads %}
+          {% if not tag_filter or lead.call_result == tag_filter %}
+          <tr>
+            <td class="fw-semibold ps-3">{{ lead.name }}</td>
+            <td>
+              <div class="d-flex align-items-center gap-1">
+                <span class="small">{{ lead.phone }}</span>
+                <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-success px-1 py-0"
+                   title="Call" style="font-size:0.72rem;line-height:1.5;">
+                  <i class="bi bi-telephone-fill"></i>
+                </a>
+                <a href="https://wa.me/{{ lead.phone|wa_phone }}"
+                   class="btn btn-xs px-1 py-0" target="_blank" rel="noopener"
+                   title="WhatsApp" style="background:#25D366;color:#fff;font-size:0.72rem;line-height:1.5;border-radius:4px;">
+                  <i class="bi bi-whatsapp"></i>
+                </a>
+              </div>
+            </td>
+            <td>
+              {% if lead.call_result == 'Call Not Picked' %}
+                <span class="badge bg-warning text-dark"><i class="bi bi-telephone-x me-1"></i>Not Picked</span>
+              {% elif lead.call_result == 'Phone Switched Off' %}
+                <span class="badge bg-danger"><i class="bi bi-phone-vibrate me-1"></i>Switched Off</span>
+              {% elif lead.call_result == 'Follow Up Later' %}
+                <span class="badge bg-info text-dark"><i class="bi bi-clock me-1"></i>Follow Up</span>
+              {% endif %}
+            </td>
+            <td><span class="badge status-{{ lead.status|replace(' ','') }}">{{ lead.status }}</span></td>
+            <td class="text-muted small">
+              {% if lead.follow_up_date %}
+                <span class="badge bg-primary-subtle text-primary">{{ lead.follow_up_date }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-muted small">{{ lead.updated_at[:10] }}</td>
+            <td>
+              <a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-xs btn-outline-primary">
+                <i class="bi bi-pencil-fill me-1"></i>Update
+              </a>
+            </td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="text-center py-5">
+  <i class="bi bi-check-circle-fill text-success" style="font-size:3rem;"></i>
+  <h5 class="mt-3 fw-semibold">No retarget leads!</h5>
+  <p class="text-muted">All caught up — no pending callbacks or follow-ups.</p>
+  <a href="{{ url_for('leads') }}" class="btn btn-primary">View All Leads</a>
+</div>
+{% endif %}
+{% endblock %}

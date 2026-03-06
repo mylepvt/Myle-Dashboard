@@ -117,6 +117,12 @@
       <a href="{{ url_for('leads') }}" class="btn btn-sm btn-outline-secondary ms-auto">
         <i class="bi bi-list-ul me-1"></i>All Leads
       </a>
+      {% if retarget_count > 0 %}
+      <a href="{{ url_for('retarget') }}" class="btn btn-sm btn-outline-danger">
+        <i class="bi bi-bullseye me-1"></i>Retarget
+        <span class="badge bg-danger ms-1">{{ retarget_count }}</span>
+      </a>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -191,6 +197,25 @@
           <i class="bi bi-pencil-fill"></i>
         </button>
       </div>
+
+      {% if zoom_link %}
+      <div class="col-12 mt-2 pt-2 border-top">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-camera-video-fill fs-5 text-purple"></i>
+          <div>
+            <div class="fw-semibold small">{{ zoom_title }}</div>
+            <div class="text-muted" style="font-size:0.7rem;"><i class="bi bi-clock me-1"></i>{{ zoom_time }}</div>
+          </div>
+          <a href="{{ zoom_link }}" target="_blank" rel="noopener" class="btn btn-xs btn-primary ms-auto">
+            Join
+          </a>
+          <button class="btn btn-xs btn-outline-secondary"
+                  onclick="navigator.clipboard.writeText('{{ zoom_link }}').then(()=>showToast('Link copied!','success'))">
+            <i class="bi bi-clipboard"></i>
+          </button>
+        </div>
+      </div>
+      {% endif %}
 
     </div>
 
@@ -382,7 +407,7 @@ new Chart(statusCtx, {
     labels: [{% for s, c in status_data.items() %}'{{ s }}',{% endfor %}],
     datasets: [{
       data: [{% for s, c in status_data.items() %}{{ c }},{% endfor %}],
-      backgroundColor: ['#6c757d','#0dcaf0','#ffc107','#fd7e14','#6610f2','#198754','#dc3545'],
+      backgroundColor: ['#6c757d','#0d6efd','#0dcaf0','#20c997','#ffc107','#fd7e14','#6610f2','#d63384','#198754','#dc3545','#adb5bd','#343a40'],
       borderWidth: 2, borderColor: '#fff'
     }]
   },

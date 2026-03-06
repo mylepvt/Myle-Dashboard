@@ -53,8 +53,18 @@ except ImportError:
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'myle_community_secret_2024_local')
 app.permanent_session_lifetime = datetime.timedelta(days=3650)  # ~10 years = effectively forever
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
 
-STATUSES = ['New', 'Contacted', 'Day 1', 'Day 2', 'Interview', 'Converted', 'Lost']
+STATUSES = ['New Lead', 'New', 'Contacted', 'Invited', 'Video Sent', 'Video Watched',
+            'Paid ₹196', 'Day 1', 'Day 2', 'Interview', 'Converted', 'Lost']
+
+CALL_RESULT_TAGS = [
+    '', 'Call Not Picked', 'Phone Switched Off', 'Follow Up Later',
+    'Already Forever Living Distributor', 'Interested', 'Not Interested'
+]
+
+RETARGET_TAGS = {'Call Not Picked', 'Phone Switched Off', 'Follow Up Later'}
 SOURCES  = ['WhatsApp', 'Facebook', 'Instagram', 'LinkedIn',
             'Walk-in', 'Referral', 'YouTube', 'Cold Call', 'Meta', 'Other']
 PAYMENT_AMOUNT = 196.0
@@ -651,9 +661,7 @@ def login():
                 flash('Your registration request was rejected. Contact the admin for help.', 'danger')
                 return render_template('login.html')
 
-            # Remember Me – keep session alive for 30 days
-            if request.form.get('remember_me'):
-                session.permanent = True
+            session.permanent = True
 
             session['username'] = user['username']
             session['role']     = user['role']
@@ -991,6 +999,16 @@ def team_dashboard():
 
     pool_count = db.execute("SELECT COUNT(*) FROM leads WHERE in_pool=1").fetchone()[0]
 
+    retarget_count = db.execute(
+        "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' "
+        "AND assigned_to=? AND call_result IN ('Call Not Picked','Phone Switched Off','Follow Up Later')",
+        (username,)
+    ).fetchone()[0]
+
+    zoom_link  = _get_setting(db, 'zoom_link', '')
+    zoom_title = _get_setting(db, 'zoom_title', "Today's Live Session")
+    zoom_time  = _get_setting(db, 'zoom_time', '2:00 PM')
+
     # Daily earnings (₹196 payments done today)
     today_paid = db.execute("""
         SELECT COUNT(*) FROM leads
@@ -1034,7 +1052,11 @@ def team_dashboard():
                            today_earnings=today_earnings,
                            followups=followups,
                            notices=notices,
-                           calling_reminder_time=calling_reminder_time)
+                           calling_reminder_time=calling_reminder_time,
+                           retarget_count=retarget_count,
+                           zoom_link=zoom_link,
+                           zoom_title=zoom_title,
+                           zoom_time=zoom_time)
 
 
 # ─────────────────────────────────────────────
@@ -1099,6 +1121,7 @@ def add_lead():
         except ValueError:
             revenue = 0.0
         follow_up_date = request.form.get('follow_up_date', '').strip()
+        call_result    = request.form.get('call_result', '').strip()
         notes          = request.form.get('notes', '').strip()
         city           = request.form.get('city', '').strip()
 
@@ -1111,7 +1134,8 @@ def add_lead():
             flash('Name and Phone are required.', 'danger')
             db.close()
             return render_template('add_lead.html',
-                                   statuses=STATUSES, sources=SOURCES, team=team)
+                                   statuses=STATUSES, sources=SOURCES, team=team,
+                                   call_result_tags=CALL_RESULT_TAGS)
 
         # Req 8: Phone duplicate check
         dup = db.execute(
@@ -1121,7 +1145,8 @@ def add_lead():
             flash(f'A lead with phone {phone} already exists ({dup["name"]}). Duplicate entries are not allowed.', 'danger')
             db.close()
             return render_template('add_lead.html',
-                                   statuses=STATUSES, sources=SOURCES, team=team)
+                                   statuses=STATUSES, sources=SOURCES, team=team,
+                                   call_result_tags=CALL_RESULT_TAGS)
 
         if status not in STATUSES:
             status = 'New'
@@ -1130,11 +1155,11 @@ def add_lead():
             INSERT INTO leads
                 (name, phone, email, referred_by, assigned_to, source,
                  status, payment_done, payment_amount, revenue,
-                 follow_up_date, notes, city, in_pool, pool_price, claimed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, '')
+                 follow_up_date, call_result, notes, city, in_pool, pool_price, claimed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, '')
         """, (name, phone, email, referred_by, assigned_to, source,
               status, payment_done, payment_amount, revenue,
-              follow_up_date, notes, city))
+              follow_up_date, call_result, notes, city))
         db.commit()
         db.close()
         flash(f'Lead "{name}" added successfully.', 'success')
@@ -1142,7 +1167,8 @@ def add_lead():
 
     db.close()
     return render_template('add_lead.html',
-                           statuses=STATUSES, sources=SOURCES, team=team)
+                           statuses=STATUSES, sources=SOURCES, team=team,
+                           call_result_tags=CALL_RESULT_TAGS)
 
 
 # ─────────────────────────────────────────────
@@ -1183,6 +1209,7 @@ def edit_lead(lead_id):
         interview_done = 1 if request.form.get('interview_done') else 0
         notes          = request.form.get('notes', '').strip()
         follow_up_date = request.form.get('follow_up_date', '').strip()
+        call_result    = request.form.get('call_result', lead['call_result'] if 'call_result' in lead.keys() else '').strip()
         city           = request.form.get('city', '').strip()
 
         if not name or not phone:
@@ -1195,7 +1222,8 @@ def edit_lead(lead_id):
             return render_template('edit_lead.html',
                                    lead=lead, statuses=STATUSES,
                                    team=team, payment_amount=PAYMENT_AMOUNT,
-                                   lead_notes=lead_notes_rows)
+                                   lead_notes=lead_notes_rows,
+                                   call_result_tags=CALL_RESULT_TAGS)
 
         # Req 8: Phone duplicate check (exclude current lead)
         dup = db.execute(
@@ -1212,7 +1240,8 @@ def edit_lead(lead_id):
             return render_template('edit_lead.html',
                                    lead=lead, statuses=STATUSES,
                                    team=team, payment_amount=PAYMENT_AMOUNT,
-                                   lead_notes=lead_notes_rows)
+                                   lead_notes=lead_notes_rows,
+                                   call_result_tags=CALL_RESULT_TAGS)
 
         if status not in STATUSES:
             status = lead['status']
@@ -1227,13 +1256,13 @@ def edit_lead(lead_id):
             SET name=?, phone=?, email=?, referred_by=?, assigned_to=?, status=?,
                 payment_done=?, payment_amount=?,
                 day1_done=?, day2_done=?, interview_done=?,
-                follow_up_date=?, notes=?, city=?,
+                follow_up_date=?, call_result=?, notes=?, city=?,
                 updated_at=datetime('now','localtime')
             WHERE id=?
         """, (name, phone, email, referred_by, assigned_to, status,
               payment_done, payment_amount,
               day1_done, day2_done, interview_done,
-              follow_up_date, notes, city, lead_id))
+              follow_up_date, call_result, notes, city, lead_id))
         db.commit()
         db.close()
         flash(f'Lead "{name}" updated.', 'success')
@@ -1249,7 +1278,32 @@ def edit_lead(lead_id):
                            statuses=STATUSES,
                            team=team,
                            payment_amount=PAYMENT_AMOUNT,
-                           lead_notes=lead_notes_rows)
+                           lead_notes=lead_notes_rows,
+                           call_result_tags=CALL_RESULT_TAGS)
+
+
+# ─────────────────────────────────────────────
+#  Retarget List
+# ─────────────────────────────────────────────
+
+@app.route('/retarget')
+@login_required
+def retarget():
+    db = get_db()
+    query  = """SELECT * FROM leads
+                WHERE in_pool=0 AND deleted_at=''
+                AND call_result IN ('Call Not Picked','Phone Switched Off','Follow Up Later')"""
+    params = []
+    if session.get('role') != 'admin':
+        query += " AND assigned_to=?"
+        params.append(session['username'])
+    query += " ORDER BY updated_at DESC"
+    leads_list = db.execute(query, params).fetchall()
+    db.close()
+    return render_template('retarget.html',
+                           leads=leads_list,
+                           call_result_tags=CALL_RESULT_TAGS,
+                           statuses=STATUSES)
 
 
 # ─────────────────────────────────────────────
@@ -2908,6 +2962,45 @@ if SCHEDULER_AVAILABLE and not os.environ.get('SCHEDULER_STARTED'):
                        id='calling_reminder', replace_existing=True)
     _scheduler.start()
     atexit.register(lambda: _scheduler.shutdown(wait=False))
+
+# ─────────────────────────────────────────────
+#  Live Session
+# ─────────────────────────────────────────────
+
+@app.route('/live-session')
+@login_required
+def live_session():
+    db    = get_db()
+    link  = _get_setting(db, 'zoom_link', '')
+    title = _get_setting(db, 'zoom_title', "Today's Live Session")
+    time_ = _get_setting(db, 'zoom_time', '2:00 PM')
+    db.close()
+    return render_template('live_session.html',
+                           zoom_link=link, zoom_title=title, zoom_time=time_)
+
+
+@app.route('/admin/live-session', methods=['GET', 'POST'])
+@admin_required
+def admin_live_session():
+    db = get_db()
+    if request.method == 'POST':
+        link  = request.form.get('zoom_link', '').strip()
+        title = request.form.get('zoom_title', '').strip() or "Today's Live Session"
+        time_ = request.form.get('zoom_time', '').strip() or '2:00 PM'
+        _set_setting(db, 'zoom_link',  link)
+        _set_setting(db, 'zoom_title', title)
+        _set_setting(db, 'zoom_time',  time_)
+        db.commit()
+        db.close()
+        flash('Live session updated.', 'success')
+        return redirect(url_for('admin_live_session'))
+    link  = _get_setting(db, 'zoom_link', '')
+    title = _get_setting(db, 'zoom_title', "Today's Live Session")
+    time_ = _get_setting(db, 'zoom_time', '2:00 PM')
+    db.close()
+    return render_template('live_session_admin.html',
+                           zoom_link=link, zoom_title=title, zoom_time=time_)
+
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5001)
