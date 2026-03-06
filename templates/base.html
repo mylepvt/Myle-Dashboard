@@ -38,8 +38,9 @@
     </a>
     <hr />
 
-    <ul class="nav nav-pills flex-column mb-auto gap-1">
-      <!-- Dashboard link – admin goes to /admin, team goes to /dashboard -->
+    <ul class="nav nav-pills flex-column mb-auto" id="sidebarNav">
+
+      <!-- ── Overview ─────────────────────────────────── -->
       <li class="nav-item">
         {% if session.get('role') == 'admin' %}
         <a href="{{ url_for('admin_dashboard') }}"
@@ -49,55 +50,79 @@
         {% else %}
         <a href="{{ url_for('team_dashboard') }}"
            class="nav-link text-white {% if request.endpoint == 'team_dashboard' %}active{% endif %}">
-          <i class="bi bi-speedometer2 me-2"></i><span>My Dashboard</span>
+          <i class="bi bi-speedometer2 me-2"></i><span>Dashboard</span>
         </a>
         {% endif %}
       </li>
 
+      <!-- ── Leads ─────────────────────────────────────── -->
+      <li class="nav-section-label"><span>Leads</span><hr class="nav-section-line"></li>
+
       <li class="nav-item">
         <a href="{{ url_for('leads') }}"
-           class="nav-link text-white {% if request.endpoint in ['leads','add_lead','edit_lead'] %}active{% endif %}">
+           class="nav-link text-white {% if request.endpoint in ['leads','edit_lead'] %}active{% endif %}">
           <i class="bi bi-people-fill me-2"></i>
           <span>{% if session.get('role') == 'admin' %}All Leads{% else %}My Leads{% endif %}</span>
         </a>
       </li>
-
-      <li class="nav-item">
-        <a href="{{ url_for('recycle_bin') }}"
-           class="nav-link text-white {% if request.endpoint == 'recycle_bin' %}active{% endif %}">
-          <i class="bi bi-trash2-fill me-2"></i><span>Recycle Bin</span>
-        </a>
-      </li>
-
       <li class="nav-item">
         <a href="{{ url_for('add_lead') }}"
            class="nav-link text-white {% if request.endpoint == 'add_lead' %}active{% endif %}">
-          <i class="bi bi-person-plus-fill me-2"></i><span>Add Lead</span>
+          <i class="bi bi-person-plus me-2"></i><span>Add Lead</span>
+        </a>
+      </li>
+      {% if session.get('role') == 'admin' %}
+      <li class="nav-item">
+        <a href="{{ url_for('admin_lead_pool') }}"
+           class="nav-link text-white {% if request.endpoint in ['admin_lead_pool','import_lead_pool_csv','import_lead_pool_pdf','add_to_pool'] %}active{% endif %}">
+          <i class="bi bi-inbox-fill me-2"></i><span>Lead Pool</span>
+        </a>
+      </li>
+      {% endif %}
+      <li class="nav-item">
+        <a href="{{ url_for('recycle_bin') }}"
+           class="nav-link text-white {% if request.endpoint == 'recycle_bin' %}active{% endif %}">
+          <i class="bi bi-trash2 me-2"></i><span>Recycle Bin</span>
         </a>
       </li>
 
-      <!-- Leaderboard + Announcements – all users -->
-      <li class="nav-item">
-        <a href="{{ url_for('leaderboard') }}"
-           class="nav-link text-white {% if request.endpoint == 'leaderboard' %}active{% endif %}">
-          <i class="bi bi-trophy-fill me-2"></i><span>Leaderboard</span>
-        </a>
-      </li>
-      <li class="nav-item">
-        <a href="{{ url_for('announcements') }}"
-           class="nav-link text-white {% if request.endpoint in ['announcements','post_announcement','delete_announcement'] %}active{% endif %}">
-          <i class="bi bi-megaphone-fill me-2"></i><span>Notice Board</span>
-        </a>
-      </li>
+      <!-- ── Team (admin only) ─────────────────────────── -->
+      {% if session.get('role') == 'admin' %}
+      <li class="nav-section-label"><span>Team</span><hr class="nav-section-line"></li>
 
-      <!-- Daily Report + Wallet + Lead Pool – team members -->
-      {% if session.get('role') != 'admin' %}
       <li class="nav-item">
-        <a href="{{ url_for('report_submit') }}"
-           class="nav-link text-white {% if request.endpoint == 'report_submit' %}active{% endif %}">
-          <i class="bi bi-clipboard2-check-fill me-2"></i><span>Daily Report</span>
+        <a href="{{ url_for('team') }}"
+           class="nav-link text-white {% if request.endpoint == 'team' %}active{% endif %}">
+          <i class="bi bi-people me-2"></i><span>Members</span>
         </a>
       </li>
+      <li class="nav-item">
+        <a href="{{ url_for('reports_admin') }}"
+           class="nav-link text-white {% if request.endpoint == 'reports_admin' %}active{% endif %}">
+          <i class="bi bi-clipboard2-data me-2"></i><span>Reports</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('admin_approvals') }}"
+           class="nav-link text-white d-flex align-items-center justify-content-between {% if request.endpoint in ['admin_approvals','approve_user','reject_user'] %}active{% endif %}">
+          <span><i class="bi bi-person-check me-2"></i><span>Approvals</span></span>
+          {% if pending_count > 0 %}<span class="badge bg-warning text-dark">{{ pending_count }}</span>{% endif %}
+        </a>
+      </li>
+      {% endif %}
+
+      <!-- ── Finance ───────────────────────────────────── -->
+      <li class="nav-section-label"><span>Finance</span><hr class="nav-section-line"></li>
+
+      {% if session.get('role') == 'admin' %}
+      <li class="nav-item">
+        <a href="{{ url_for('admin_wallet_requests') }}"
+           class="nav-link text-white d-flex align-items-center justify-content-between {% if request.endpoint in ['admin_wallet_requests','approve_recharge','reject_recharge'] %}active{% endif %}">
+          <span><i class="bi bi-wallet2 me-2"></i><span>Recharges</span></span>
+          {% if wallet_pending > 0 %}<span class="badge bg-success">{{ wallet_pending }}</span>{% endif %}
+        </a>
+      </li>
+      {% else %}
       <li class="nav-item">
         <a href="{{ url_for('wallet') }}"
            class="nav-link text-white {% if request.endpoint == 'wallet' %}active{% endif %}">
@@ -107,56 +132,46 @@
       <li class="nav-item">
         <a href="{{ url_for('lead_pool') }}"
            class="nav-link text-white {% if request.endpoint == 'lead_pool' %}active{% endif %}">
-          <i class="bi bi-lightning-charge-fill me-2"></i><span>Lead Pool</span>
+          <i class="bi bi-lightning-charge me-2"></i><span>Lead Pool</span>
         </a>
       </li>
       {% endif %}
 
-      <!-- Reports + Team + Approvals + Pool + Wallet – admin only -->
-      {% if session.get('role') == 'admin' %}
+      <!-- ── Activity ──────────────────────────────────── -->
+      <li class="nav-section-label"><span>Activity</span><hr class="nav-section-line"></li>
+
+      {% if session.get('role') != 'admin' %}
       <li class="nav-item">
-        <a href="{{ url_for('team') }}"
-           class="nav-link text-white {% if request.endpoint == 'team' %}active{% endif %}">
-          <i class="bi bi-trophy-fill me-2"></i><span>Team</span>
-        </a>
-      </li>
-      <li class="nav-item">
-        <a href="{{ url_for('reports_admin') }}"
-           class="nav-link text-white {% if request.endpoint == 'reports_admin' %}active{% endif %}">
-          <i class="bi bi-clipboard2-data-fill me-2"></i><span>Reports</span>
-        </a>
-      </li>
-      <li class="nav-item">
-        <a href="{{ url_for('admin_lead_pool') }}"
-           class="nav-link text-white {% if request.endpoint in ['admin_lead_pool','import_lead_pool_csv','add_to_pool'] %}active{% endif %}">
-          <i class="bi bi-people-fill me-2"></i><span>Lead Pool</span>
-        </a>
-      </li>
-      <li class="nav-item">
-        <a href="{{ url_for('admin_wallet_requests') }}"
-           class="nav-link text-white d-flex align-items-center justify-content-between {% if request.endpoint in ['admin_wallet_requests','approve_recharge','reject_recharge'] %}active{% endif %}">
-          <span><i class="bi bi-wallet2 me-2"></i><span>Recharges</span></span>
-          {% if wallet_pending > 0 %}
-            <span class="badge bg-success ms-1">{{ wallet_pending }}</span>
-          {% endif %}
-        </a>
-      </li>
-      <li class="nav-item">
-        <a href="{{ url_for('admin_approvals') }}"
-           class="nav-link text-white d-flex align-items-center justify-content-between {% if request.endpoint in ['admin_approvals','approve_user','reject_user'] %}active{% endif %}">
-          <span><i class="bi bi-person-check-fill me-2"></i><span>Approvals</span></span>
-          {% if pending_count > 0 %}
-            <span class="badge bg-warning text-dark ms-1">{{ pending_count }}</span>
-          {% endif %}
-        </a>
-      </li>
-      <li class="nav-item">
-        <a href="{{ url_for('admin_settings') }}"
-           class="nav-link text-white {% if request.endpoint == 'admin_settings' %}active{% endif %}">
-          <i class="bi bi-gear-fill me-2"></i><span>Settings</span>
+        <a href="{{ url_for('report_submit') }}"
+           class="nav-link text-white {% if request.endpoint == 'report_submit' %}active{% endif %}">
+          <i class="bi bi-clipboard2-check me-2"></i><span>Daily Report</span>
         </a>
       </li>
       {% endif %}
+      <li class="nav-item">
+        <a href="{{ url_for('leaderboard') }}"
+           class="nav-link text-white {% if request.endpoint == 'leaderboard' %}active{% endif %}">
+          <i class="bi bi-trophy me-2"></i><span>Leaderboard</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('announcements') }}"
+           class="nav-link text-white {% if request.endpoint in ['announcements','post_announcement','delete_announcement'] %}active{% endif %}">
+          <i class="bi bi-megaphone me-2"></i><span>Notice Board</span>
+        </a>
+      </li>
+
+      <!-- ── System (admin only) ───────────────────────── -->
+      {% if session.get('role') == 'admin' %}
+      <li class="nav-section-label"><span>System</span><hr class="nav-section-line"></li>
+      <li class="nav-item">
+        <a href="{{ url_for('admin_settings') }}"
+           class="nav-link text-white {% if request.endpoint == 'admin_settings' %}active{% endif %}">
+          <i class="bi bi-gear me-2"></i><span>Settings</span>
+        </a>
+      </li>
+      {% endif %}
+
     </ul>
 
     <hr />
@@ -210,11 +225,11 @@
         </button>
         {% endif %}
         {% if session.get('role') == 'admin' %}
-        <a href="{{ url_for('add_lead') }}" class="btn btn-primary btn-sm">
+        <a href="{{ url_for('add_lead') }}" class="btn btn-primary btn-sm d-none d-sm-inline-flex">
           <i class="bi bi-plus-lg me-1"></i>Add Lead
         </a>
         {% else %}
-        <a href="{{ url_for('lead_pool') }}" class="btn btn-warning btn-sm text-dark fw-semibold">
+        <a href="{{ url_for('lead_pool') }}" class="btn btn-warning btn-sm text-dark fw-semibold d-none d-sm-inline-flex">
           <i class="bi bi-lightning-charge-fill me-1"></i>Lead Pool
         </a>
         {% endif %}
@@ -241,6 +256,47 @@
     </div>
   </div>
 </div>
+
+<!-- ── Mobile Bottom Nav ──────────────────────────────────── -->
+{% if session.get('username') %}
+<nav class="mobile-bottom-nav d-md-none">
+  {% if session.get('role') == 'admin' %}
+  <a href="{{ url_for('admin_dashboard') }}" class="mbn-item {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+    <i class="bi bi-speedometer2"></i><span>Home</span>
+  </a>
+  <a href="{{ url_for('leads') }}" class="mbn-item {% if request.endpoint in ['leads','add_lead','edit_lead'] %}active{% endif %}">
+    <i class="bi bi-people-fill"></i><span>Leads</span>
+  </a>
+  <a href="{{ url_for('admin_lead_pool') }}" class="mbn-item {% if request.endpoint == 'admin_lead_pool' %}active{% endif %}">
+    <i class="bi bi-inbox-fill"></i><span>Pool</span>
+  </a>
+  <a href="{{ url_for('admin_approvals') }}" class="mbn-item {% if request.endpoint == 'admin_approvals' %}active{% endif %}">
+    <i class="bi bi-person-check-fill"></i>
+    <span>Approvals{% if pending_count > 0 %} <span class="mbn-badge">{{ pending_count }}</span>{% endif %}</span>
+  </a>
+  <a href="{{ url_for('admin_wallet_requests') }}" class="mbn-item {% if request.endpoint == 'admin_wallet_requests' %}active{% endif %}">
+    <i class="bi bi-wallet2"></i>
+    <span>Finance{% if wallet_pending > 0 %} <span class="mbn-badge">{{ wallet_pending }}</span>{% endif %}</span>
+  </a>
+  {% else %}
+  <a href="{{ url_for('team_dashboard') }}" class="mbn-item {% if request.endpoint == 'team_dashboard' %}active{% endif %}">
+    <i class="bi bi-speedometer2"></i><span>Home</span>
+  </a>
+  <a href="{{ url_for('leads') }}" class="mbn-item {% if request.endpoint in ['leads','add_lead','edit_lead'] %}active{% endif %}">
+    <i class="bi bi-people-fill"></i><span>Leads</span>
+  </a>
+  <a href="{{ url_for('lead_pool') }}" class="mbn-item {% if request.endpoint == 'lead_pool' %}active{% endif %}">
+    <i class="bi bi-lightning-charge-fill"></i><span>Pool</span>
+  </a>
+  <a href="{{ url_for('wallet') }}" class="mbn-item {% if request.endpoint == 'wallet' %}active{% endif %}">
+    <i class="bi bi-wallet2"></i><span>Wallet</span>
+  </a>
+  <a href="{{ url_for('report_submit') }}" class="mbn-item {% if request.endpoint == 'report_submit' %}active{% endif %}">
+    <i class="bi bi-clipboard2-check-fill"></i><span>Report</span>
+  </a>
+  {% endif %}
+</nav>
+{% endif %}
 
 <!-- Top progress bar -->
 <div id="topbar"></div>

@@ -90,6 +90,99 @@ body {
   box-shadow: 0 0 0 1px rgba(255,255,255,0.1);
 }
 
+/* ── Sidebar Section Labels ─────────────────────────────── */
+.nav-section-label {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.5rem 0.2rem;
+}
+.nav-section-label span {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.3);
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.nav-section-line {
+  flex: 1;
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  margin: 0;
+  opacity: 1;
+}
+#sidebar.collapsed .nav-section-label { display: none; }
+
+/* ── Mobile Bottom Navigation ───────────────────────────── */
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 58px;
+  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: stretch;
+  z-index: 1050;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.25);
+}
+.mbn-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.5);
+  text-decoration: none;
+  font-size: 0.6rem;
+  gap: 2px;
+  transition: color 0.15s ease, background 0.15s ease;
+  position: relative;
+  padding: 6px 2px 4px;
+}
+.mbn-item i {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.mbn-item.active {
+  color: #818cf8;
+}
+.mbn-item.active::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 20%; right: 20%;
+  height: 2px;
+  background: #818cf8;
+  border-radius: 0 0 3px 3px;
+}
+.mbn-item:hover { color: rgba(255,255,255,0.8); }
+.mbn-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f59e0b;
+  color: #000;
+  font-size: 0.55rem;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 0 4px;
+  min-width: 14px;
+  height: 14px;
+  vertical-align: middle;
+}
+
+/* Bottom nav safe area + content padding on mobile */
+@media (max-width: 767px) {
+  #page-content-wrapper .container-fluid {
+    padding-bottom: 72px !important;
+  }
+  #toastContainer {
+    bottom: 70px;
+  }
+}
+
 /* ── KPI Cards ──────────────────────────────────────────── */
 .kpi-card {
   border-radius: 12px;
