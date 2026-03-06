@@ -17,6 +17,9 @@
 <!-- Filter pills -->
 <div class="d-flex gap-2 flex-wrap mb-3">
   <a href="{{ url_for('retarget') }}" class="btn btn-sm {% if not request.args.get('tag') %}btn-primary{% else %}btn-outline-secondary{% endif %}">All</a>
+  <a href="{{ url_for('retarget', tag='Retarget') }}" class="btn btn-sm {% if request.args.get('tag')=='Retarget' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+    <i class="bi bi-arrow-repeat me-1"></i>Retarget Status
+  </a>
   <a href="{{ url_for('retarget', tag='Call Not Picked') }}" class="btn btn-sm {% if request.args.get('tag')=='Call Not Picked' %}btn-warning text-dark{% else %}btn-outline-secondary{% endif %}">
     <i class="bi bi-telephone-x me-1"></i>Not Picked
   </a>
@@ -52,7 +55,9 @@
         <tbody>
           {% set tag_filter = request.args.get('tag', '') %}
           {% for lead in leads %}
-          {% if not tag_filter or lead.call_result == tag_filter %}
+          {% if not tag_filter or
+               (tag_filter == 'Retarget' and lead.status == 'Retarget') or
+               (tag_filter != 'Retarget' and lead.call_result == tag_filter) %}
           <tr>
             <td class="fw-semibold ps-3">{{ lead.name }}</td>
             <td>
@@ -84,7 +89,9 @@
               </div>
             </td>
             <td>
-              {% if lead.call_result == 'Call Not Picked' %}
+              {% if lead.status == 'Retarget' and not lead.call_result %}
+                <span class="badge status-Retarget"><i class="bi bi-arrow-repeat me-1"></i>Retarget</span>
+              {% elif lead.call_result == 'Call Not Picked' %}
                 <span class="badge bg-warning text-dark"><i class="bi bi-telephone-x me-1"></i>Not Picked</span>
               {% elif lead.call_result == 'Phone Switched Off' %}
                 <span class="badge bg-danger"><i class="bi bi-phone-vibrate me-1"></i>Switched Off</span>
@@ -94,6 +101,8 @@
                 <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Follow Up</span>
               {% elif lead.call_result == 'Callback Requested' %}
                 <span class="badge bg-info text-dark"><i class="bi bi-arrow-return-left me-1"></i>Callback</span>
+              {% elif lead.status == 'Retarget' %}
+                <span class="badge status-Retarget"><i class="bi bi-arrow-repeat me-1"></i>Retarget</span>
               {% endif %}
             </td>
             <td><span class="badge status-{{ lead.status|replace(' ','') }}">{{ lead.status }}</span></td>

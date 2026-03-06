@@ -69,7 +69,7 @@
             <div class="col-12 mt-2"><h6 class="text-muted fw-semibold text-uppercase small">Status & Funnel</h6><hr class="mt-1 mb-2"/></div>
             <div class="col-md-4">
               <label class="form-label fw-semibold">Lead Status</label>
-              <select name="status" class="form-select">
+              <select name="status" id="statusSelect" class="form-select">
                 {% for s in statuses %}
                   <option value="{{ s }}" {% if s == lead.status %}selected{% endif %}>{{ s }}</option>
                 {% endfor %}
@@ -117,9 +117,15 @@
 
             <!-- Follow-up Date -->
             <div class="col-12 mt-2"><h6 class="text-muted fw-semibold text-uppercase small">Follow-up</h6><hr class="mt-1 mb-2"/></div>
+            <div id="retargetDateAlert" class="col-12" style="display:none;">
+              <div class="alert alert-warning py-2 mb-2 d-flex align-items-center gap-2">
+                <i class="bi bi-calendar-event-fill"></i>
+                <span>Status set to <strong>Retarget</strong> — please set a follow-up date below so this lead appears in the Retarget List with a scheduled date.</span>
+              </div>
+            </div>
             <div class="col-md-4">
               <label class="form-label fw-semibold">Follow-up Date</label>
-              <input type="date" name="follow_up_date" class="form-control"
+              <input type="date" id="followUpDateInput" name="follow_up_date" class="form-control"
                      value="{{ lead.follow_up_date or '' }}">
               <div class="form-text">Leave blank to clear reminder.</div>
             </div>
@@ -221,4 +227,29 @@
   </div>
 </div>
 
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  const statusSel  = document.getElementById('statusSelect');
+  const dateAlert  = document.getElementById('retargetDateAlert');
+  const dateInput  = document.getElementById('followUpDateInput');
+
+  function toggleRetarget() {
+    if (statusSel.value === 'Retarget') {
+      dateAlert.style.display = '';
+      dateInput.classList.add('border-warning');
+      dateInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      dateAlert.style.display = 'none';
+      dateInput.classList.remove('border-warning');
+    }
+  }
+
+  // Run on page load in case lead already has Retarget status
+  toggleRetarget();
+  statusSel.addEventListener('change', toggleRetarget);
+})();
+</script>
 {% endblock %}

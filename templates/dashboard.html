@@ -421,7 +421,7 @@ new Chart(statusCtx, {
     labels: [{% for s, c in status_data.items() %}'{{ s }}',{% endfor %}],
     datasets: [{
       data: [{% for s, c in status_data.items() %}{{ c }},{% endfor %}],
-      backgroundColor: ['#6c757d','#0d6efd','#0dcaf0','#20c997','#ffc107','#fd7e14','#6610f2','#d63384','#198754','#dc3545','#adb5bd','#343a40'],
+      backgroundColor: ['#6c757d','#0d6efd','#0dcaf0','#20c997','#ffc107','#fd7e14','#6610f2','#d63384','#198754','#dc3545','#adb5bd','#343a40','#e65100'],
       borderWidth: 2, borderColor: '#fff'
     }]
   },

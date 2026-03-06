@@ -57,7 +57,7 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 
 STATUSES = ['New Lead', 'New', 'Contacted', 'Invited', 'Video Sent', 'Video Watched',
-            'Paid ₹196', 'Day 1', 'Day 2', 'Interview', 'Converted', 'Lost']
+            'Paid ₹196', 'Day 1', 'Day 2', 'Interview', 'Converted', 'Lost', 'Retarget']
 
 CALL_RESULT_TAGS = [
     '',
@@ -1022,7 +1022,7 @@ def team_dashboard():
     _rt_ph = ','.join('?' * len(RETARGET_TAGS))
     retarget_count = db.execute(
         f"SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' "
-        f"AND assigned_to=? AND call_result IN ({_rt_ph})",
+        f"AND assigned_to=? AND (call_result IN ({_rt_ph}) OR status='Retarget')",
         (username, *RETARGET_TAGS)
     ).fetchone()[0]
 
@@ -1317,7 +1317,7 @@ def retarget():
     rt_placeholders = ','.join('?' * len(RETARGET_TAGS))
     query  = f"""SELECT * FROM leads
                 WHERE in_pool=0 AND deleted_at=''
-                AND call_result IN ({rt_placeholders})"""
+                AND (call_result IN ({rt_placeholders}) OR status='Retarget')"""
     params = list(RETARGET_TAGS)
     if session.get('role') != 'admin':
         query += " AND assigned_to=?"

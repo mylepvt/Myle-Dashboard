@@ -229,6 +229,7 @@ body {
 .badge.status-Interview   { background: #6610f2; }
 .badge.status-Converted   { background: #198754; }
 .badge.status-Lost        { background: #dc3545; }
+.badge.status-Retarget    { background: #e65100; }
 
 /* ── Status Dropdown Colors ─────────────────────────────── */
 .status-select.status-New         { border-color: #6c757d; }
@@ -238,6 +239,7 @@ body {
 .status-select.status-Interview   { border-color: #6610f2; }
 .status-select.status-Converted   { border-color: #198754; background: #d1e7dd; }
 .status-select.status-Lost        { border-color: #dc3545; background: #f8d7da; }
+.status-select.status-Retarget    { border-color: #e65100; background: #fff3e0; }
 
 /* ── Small Buttons ──────────────────────────────────────── */
 .btn-xs {
