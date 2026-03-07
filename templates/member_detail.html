@@ -5,7 +5,7 @@
 {% block content %}
 
 <!-- Back + Status Badge -->
-<div class="d-flex align-items-center gap-3 mb-4">
+<div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
   <a href="{{ url_for('admin_members') }}" class="btn btn-sm btn-outline-secondary">
     <i class="bi bi-arrow-left me-1"></i>All Members
   </a>
@@ -16,9 +16,14 @@
   {% else %}
     <span class="badge bg-danger fs-6">Rejected</span>
   {% endif %}
-  <a href="{{ url_for('admin_approvals') }}?filter=all" class="btn btn-sm btn-outline-primary ms-auto">
-    <i class="bi bi-shield-lock me-1"></i>Manage Account
-  </a>
+  <div class="ms-auto d-flex gap-2">
+    <a href="{{ url_for('admin_approvals') }}?filter=all" class="btn btn-sm btn-outline-primary">
+      <i class="bi bi-shield-lock me-1"></i>Manage Account
+    </a>
+    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#walletAdjustModal">
+      <i class="bi bi-wallet2 me-1"></i>Adjust Wallet
+    </button>
+  </div>
 </div>
 
 <!-- Profile Header -->
@@ -101,11 +106,12 @@
     </div>
   </div>
   <div class="col-6 col-md-3">
-    <div class="card border-0 shadow-sm text-center py-3">
+    <div class="card border-0 shadow-sm text-center py-3" style="cursor:pointer;"
+         data-bs-toggle="modal" data-bs-target="#walletAdjustModal" title="Click to adjust wallet">
       <div class="fw-bold fs-3 {% if wallet.balance >= 0 %}text-success{% else %}text-danger{% endif %}">
         ₹{{ wallet.balance|int }}
       </div>
-      <div class="text-muted small">Wallet Balance</div>
+      <div class="text-muted small">Wallet Balance <i class="bi bi-pencil-fill ms-1" style="font-size:0.65rem;"></i></div>
     </div>
   </div>
 </div>
@@ -282,6 +288,57 @@
       </div>
     </div>
     {% endif %}
+  </div>
+</div>
+
+<!-- ── Wallet Adjust Modal ────────────────────────────── -->
+<div class="modal fade" id="walletAdjustModal" tabindex="-1" aria-labelledby="walletAdjustLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <form method="post" action="{{ url_for('admin_wallet_adjust', username=member.username) }}">
+        <div class="modal-header text-white" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);">
+          <h5 class="modal-title" id="walletAdjustLabel">
+            <i class="bi bi-wallet2 me-2"></i>Adjust Wallet — @{{ member.username }}
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+
+          <!-- Current balance display -->
+          <div class="rounded p-3 mb-4 text-center"
+               style="background:#f5f3ff;border:1px solid #e0d9ff;">
+            <div class="text-muted small mb-1">Current Balance</div>
+            <div class="fw-bold fs-3 {% if wallet.balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+              ₹{{ wallet.balance|int }}
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">
+              Amount <span class="text-danger">*</span>
+              <span class="text-muted fw-normal small ms-1">(use negative to deduct, e.g. -500)</span>
+            </label>
+            <div class="input-group">
+              <span class="input-group-text fw-bold">₹</span>
+              <input type="number" name="amount" class="form-control form-control-lg fw-bold"
+                     placeholder="e.g. 500 or -200" step="1" required autofocus>
+            </div>
+          </div>
+
+          <div class="mb-1">
+            <label class="form-label fw-semibold">Note / Reason</label>
+            <input type="text" name="note" class="form-control"
+                   placeholder="e.g. Bonus credit, Event refund, Penalty…">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success px-4 fw-semibold">
+            <i class="bi bi-check-circle me-1"></i>Apply Adjustment
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 
