@@ -1,0 +1,45 @@
+{% extends "base.html" %} {% block title %}All Members â€“ Myle Community{% endblock %} {% block page_title %}All Registered Members{% endblock %} {% block content %}
+{% set approved = users|selectattr('status','equalto','approved')|list %} {% set pending = users|selectattr('status','equalto','pending')|list %} {% set rejected = users|selectattr('status','equalto','rejected')|list %}
+{{ users|length }}
+Total Members
+{{ approved|length }}
+Approved
+{{ pending|length }}
+Pending
+{{ rejected|length }}
+Rejected
+
+          All Statuses
+          Approved
+          Pending
+          Rejected
+        
+{% for u in users %} {% set s = stats_map.get(u.username, {}) %} {% else %} {% endfor %}
+Member
+FBO ID
+Upline
+Phone / Email
+Leads
+Paid
+Converted
+Reports
+Status
+Joined
+
+{% if u.display_picture %} ￼ {% else %}
+{{ u.username[0]|upper }}
+{% endif %}
+@{{ u.username }}
+{{ u.fbo_id or 'â€”' }}
+{{ u.upline_name or 'â€”' }}
+{{ u.phone or 'â€”' }}
+{{ u.email or 'â€”' }}
+{{ s.total_leads if s else 0 }}
+{{ s.paid if s else 0 }}
+{{ s.converted if s else 0 }}
+{{ report_map.get(u.username, 0) }}
+{% if u.status == 'approved' %} Active {% elif u.status == 'pending' %} Pending {% else %} Rejected {% endif %}
+{{ u.created_at[:10] }}
+View Activity
+No members registered yet.
+{% endblock %}
