@@ -1,78 +1,6 @@
 {% extends "base.html" %}
-{% block title %}@{{ member.username }} – Activity<!-- Edit Member Modal -->
-<div class="modal fade" id="editMemberModal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <form method="post" action="{{ url_for('admin_edit_member', username=member.username) }}">
-        <div class="modal-header" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);">
-          <h5 class="modal-title text-white"><i class="bi bi-pencil me-2"></i>Edit Member — @{{ member.username }}</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="alert alert-info small py-2 mb-3">
-            <i class="bi bi-info-circle me-1"></i>
-            Leave a field blank to keep it unchanged. Username must be unique and at least 3 characters.
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold small">New Username</label>
-            <div class="input-group">
-              <span class="input-group-text">@</span>
-              <input type="text" name="new_username" class="form-control"
-                     placeholder="{{ member.username }}" autocomplete="off">
-            </div>
-            <div class="form-text">Current: @{{ member.username }}</div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold small">New Email Address</label>
-            <input type="email" name="new_email" class="form-control"
-                   placeholder="{{ member.email or 'No email set' }}" autocomplete="off">
-            <div class="form-text">Current: {{ member.email or '(not set)' }}</div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary fw-semibold px-4">
-            <i class="bi bi-check-circle me-1"></i>Save Changes
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
+{% block title %}@{{ member.username }} – Activity{% endblock %}
 
-<!-- Delete Member Modal -->
-<div class="modal fade" id="deleteMemberModal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content border-danger">
-      <form method="post" action="{{ url_for('admin_delete_member', username=member.username) }}">
-        <div class="modal-header bg-danger text-white">
-          <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Permanently Delete Member</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="alert alert-danger">
-            <strong>⚠️ This action cannot be undone!</strong><br>
-            Deleting @{{ member.username }} will permanently remove their account, wallet history, and reports.
-            Their claimed leads will be returned to the pool.
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Type <code>{{ member.username }}</code> to confirm:</label>
-            <input type="text" name="confirm_username" class="form-control border-danger"
-                   placeholder="Type username to confirm" autocomplete="off" required>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-danger fw-semibold px-4">
-            <i class="bi bi-trash me-1"></i>Delete Permanently
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-{% endblock %}
 {% block page_title %}Member: @{{ member.username }}{% endblock %}
 
 {% block content %}
@@ -411,6 +339,79 @@
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-success px-4 fw-semibold">
             <i class="bi bi-check-circle me-1"></i>Apply Adjustment
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" id="editMemberModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('admin_edit_member', username=member.username) }}">
+        <div class="modal-header" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);">
+          <h5 class="modal-title text-white"><i class="bi bi-pencil me-2"></i>Edit Member — @{{ member.username }}</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info small py-2 mb-3">
+            <i class="bi bi-info-circle me-1"></i>
+            Leave a field blank to keep it unchanged. Username must be unique and at least 3 characters.
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">New Username</label>
+            <div class="input-group">
+              <span class="input-group-text">@</span>
+              <input type="text" name="new_username" class="form-control"
+                     placeholder="{{ member.username }}" autocomplete="off">
+            </div>
+            <div class="form-text">Current: @{{ member.username }}</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">New Email Address</label>
+            <input type="email" name="new_email" class="form-control"
+                   placeholder="{{ member.email or 'No email set' }}" autocomplete="off">
+            <div class="form-text">Current: {{ member.email or '(not set)' }}</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary fw-semibold px-4">
+            <i class="bi bi-check-circle me-1"></i>Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Member Modal -->
+<div class="modal fade" id="deleteMemberModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content border-danger">
+      <form method="post" action="{{ url_for('admin_delete_member', username=member.username) }}">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Permanently Delete Member</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-danger">
+            <strong>⚠️ This action cannot be undone!</strong><br>
+            Deleting @{{ member.username }} will permanently remove their account, wallet history, and reports.
+            Their claimed leads will be returned to the pool.
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Type <code>{{ member.username }}</code> to confirm:</label>
+            <input type="text" name="confirm_username" class="form-control border-danger"
+                   placeholder="Type username to confirm" autocomplete="off" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger fw-semibold px-4">
+            <i class="bi bi-trash me-1"></i>Delete Permanently
           </button>
         </div>
       </form>
