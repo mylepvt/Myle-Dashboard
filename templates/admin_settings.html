@@ -160,6 +160,12 @@
                 <i class="bi bi-bell-fill"></i> Send Test Push to Me
               </button>
             </form>
+            <form method="post" action="{{ url_for('admin_test_calling_reminder') }}">
+              <button type="submit" class="btn btn-sm btn-outline-info"
+                      onclick="return confirm('This will fire the calling reminder job NOW for all users whose reminder time matches the current IST minute. Continue?')">
+                <i class="bi bi-telephone-fill"></i> Test Calling Reminder Job
+              </button>
+            </form>
             <form method="post" action="{{ url_for('admin_reset_vapid') }}">
               <button type="submit" class="btn btn-sm btn-outline-danger"
                       onclick="return confirm('This will clear VAPID keys. All users must refresh their browser to re-subscribe. Continue?')">
