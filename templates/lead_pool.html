@@ -25,57 +25,57 @@
 </div>
 
 <!-- ── Pool Stats ─────────────────────────────────────── -->
-<div class="row g-3 mb-4">
+<div class="row g-2 g-md-3 mb-4">
 
-  <div class="col-md-4">
+  <div class="col-4">
     <div class="card border-0 shadow-sm h-100 text-center">
-      <div class="card-body py-4">
-        <div class="mb-2">
+      <div class="card-body py-3 py-md-4 px-2">
+        <div class="mb-2 d-none d-md-flex justify-content-center">
           <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary-subtle"
-                style="width:56px; height:56px;">
-            <i class="bi bi-person-lines-fill fs-3 text-primary"></i>
+                style="width:48px; height:48px;">
+            <i class="bi bi-person-lines-fill fs-4 text-primary"></i>
           </span>
         </div>
-        <h1 class="fw-bold text-primary display-5 mb-0">{{ pool_count }}</h1>
-        <div class="text-muted mt-1">Leads Available</div>
+        <div class="fw-bold text-primary fs-3 fs-md-1 mb-0">{{ pool_count }}</div>
+        <div class="text-muted mt-1" style="font-size:0.75rem;">Available</div>
       </div>
     </div>
   </div>
 
-  <div class="col-md-4">
+  <div class="col-4">
     <div class="card border-0 shadow-sm h-100 text-center">
-      <div class="card-body py-4">
-        <div class="mb-2">
+      <div class="card-body py-3 py-md-4 px-2">
+        <div class="mb-2 d-none d-md-flex justify-content-center">
           <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-warning-subtle"
-                style="width:56px; height:56px;">
-            <i class="bi bi-tag-fill fs-3 text-warning"></i>
+                style="width:48px; height:48px;">
+            <i class="bi bi-tag-fill fs-4 text-warning"></i>
           </span>
         </div>
         {% if price_info and price_info.avg_p %}
           {% if price_info.min_p == price_info.max_p %}
-            <h1 class="fw-bold text-warning display-5 mb-0">₹{{ '%g' % price_info.min_p }}</h1>
+            <div class="fw-bold text-warning fs-4 mb-0">₹{{ '%g' % price_info.min_p }}</div>
           {% else %}
-            <h2 class="fw-bold text-warning mb-0">₹{{ '%g' % price_info.min_p }}–{{ '%g' % price_info.max_p }}</h2>
+            <div class="fw-bold text-warning fs-5 mb-0">₹{{ '%g' % price_info.min_p }}–{{ '%g' % price_info.max_p }}</div>
           {% endif %}
         {% else %}
-          <h1 class="fw-bold text-warning display-5 mb-0">—</h1>
+          <div class="fw-bold text-warning fs-3 mb-0">—</div>
         {% endif %}
-        <div class="text-muted mt-1">Per Lead</div>
+        <div class="text-muted mt-1" style="font-size:0.75rem;">Per Lead</div>
       </div>
     </div>
   </div>
 
-  <div class="col-md-4">
+  <div class="col-4">
     <div class="card border-0 shadow-sm h-100 text-center">
-      <div class="card-body py-4">
-        <div class="mb-2">
+      <div class="card-body py-3 py-md-4 px-2">
+        <div class="mb-2 d-none d-md-flex justify-content-center">
           <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-success-subtle"
-                style="width:56px; height:56px;">
-            <i class="bi bi-check-circle-fill fs-3 text-success"></i>
+                style="width:48px; height:48px;">
+            <i class="bi bi-check-circle-fill fs-4 text-success"></i>
           </span>
         </div>
-        <h1 class="fw-bold text-success display-5 mb-0">{{ my_claims }}</h1>
-        <div class="text-muted mt-1">My Total Claimed</div>
+        <div class="fw-bold text-success fs-3 mb-0">{{ my_claims }}</div>
+        <div class="text-muted mt-1" style="font-size:0.75rem;">My Claimed</div>
       </div>
     </div>
   </div>

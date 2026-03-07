@@ -1071,7 +1071,7 @@ def admin_dashboard():
     metrics = _get_metrics(db)
 
     recent = db.execute(
-        "SELECT * FROM leads WHERE in_pool=0 ORDER BY created_at DESC LIMIT 5"
+        "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' ORDER BY created_at DESC LIMIT 5"
     ).fetchall()
 
     _sc = db.execute(
@@ -1092,14 +1092,16 @@ def admin_dashboard():
         LIMIT 6
     """).fetchall()
 
-    members = db.execute("SELECT * FROM team_members ORDER BY name").fetchall()
+    members = db.execute(
+        "SELECT username as name FROM users WHERE role='team' AND status='approved' ORDER BY username"
+    ).fetchall()
     _stats_rows = db.execute("""
         SELECT assigned_to,
             COUNT(*) as total,
             SUM(CASE WHEN status='Converted' THEN 1 ELSE 0 END) as converted,
             SUM(CASE WHEN payment_done=1     THEN 1 ELSE 0 END) as paid,
             SUM(COALESCE(payment_amount,0) + COALESCE(revenue,0)) as revenue
-        FROM leads WHERE in_pool=0
+        FROM leads WHERE in_pool=0 AND deleted_at=''
         GROUP BY assigned_to
     """).fetchall()
     _stats_map = {r['assigned_to']: r for r in _stats_rows}
@@ -1210,12 +1212,14 @@ def team_dashboard():
     zoom_title = _get_setting(db, 'zoom_title', "Today's Live Session")
     zoom_time  = _get_setting(db, 'zoom_time', '2:00 PM')
 
-    today_paid = db.execute("""
-        SELECT COUNT(*) FROM leads
+    _today_stats = db.execute("""
+        SELECT COUNT(*) as cnt, COALESCE(SUM(payment_amount),0) as total
+        FROM leads
         WHERE assigned_to=? AND payment_done=1 AND in_pool=0
           AND date(updated_at)=?
-    """, (username, today)).fetchone()[0] or 0
-    today_earnings = today_paid * PAYMENT_AMOUNT
+    """, (username, today)).fetchone()
+    today_paid     = _today_stats['cnt'] or 0
+    today_earnings = _today_stats['total'] or 0
 
     followups = db.execute("""
         SELECT id, name, phone, follow_up_date FROM leads
