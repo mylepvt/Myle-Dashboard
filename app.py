@@ -463,7 +463,7 @@ def _push_to_users(db, usernames, title, body, url='/'):
                     subscription_info=sub_info,
                     data=payload,
                     vapid_private_key=private_pem,
-                    vapid_claims={'sub': 'mailto:admin@mylecommunity.com'}
+                    vapid_claims={'sub': 'mailto:' + (_get_setting(db, 'smtp_user') or 'admin@mylecommunity.com')}
                 )
             except Exception as exc:
                 # 410 Gone / 404 Not Found \u2192 subscription expired, clean up
