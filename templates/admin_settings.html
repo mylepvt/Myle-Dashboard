@@ -154,14 +154,22 @@
         <!-- Test Push Notification -->
         <div class="border-top mt-3 pt-3">
           <p class="small fw-semibold mb-2"><i class="bi bi-bell me-1 text-warning"></i>Test Push Notifications</p>
-          <form method="post" action="{{ url_for('admin_test_push') }}">
-            <button type="submit" class="btn btn-sm btn-outline-warning">
-              <i class="bi bi-bell-fill"></i> Send Test Push to Me
-            </button>
-          </form>
+          <div class="d-flex gap-2 flex-wrap align-items-center">
+            <form method="post" action="{{ url_for('admin_test_push') }}">
+              <button type="submit" class="btn btn-sm btn-outline-warning">
+                <i class="bi bi-bell-fill"></i> Send Test Push to Me
+              </button>
+            </form>
+            <form method="post" action="{{ url_for('admin_reset_vapid') }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger"
+                      onclick="return confirm('This will clear VAPID keys. All users must refresh their browser to re-subscribe. Continue?')">
+                <i class="bi bi-arrow-clockwise"></i> Reset VAPID Keys
+              </button>
+            </form>
+          </div>
           <div class="text-muted" style="font-size:0.72rem;margin-top:4px;">
-            You must have the bell icon enabled (notifications allowed) in this browser first.
-            Check your browser console for push errors.
+            <strong>If push is broken:</strong> click "Reset VAPID Keys" first, then refresh your browser and test again.
+            All users need to refresh once after a VAPID reset.
           </div>
         </div>
       </div>
