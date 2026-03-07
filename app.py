@@ -1955,13 +1955,19 @@ def admin_test_email():
 @app.route('/admin/settings/reset-vapid', methods=['POST'])
 @admin_required
 def admin_reset_vapid():
-    """Wipe stored VAPID keys so they regenerate fresh on next push attempt."""
+    """Wipe VAPID keys AND all push subscriptions so everything starts fresh."""
     db = get_db()
     _set_setting(db, 'vapid_private_pem', '')
     _set_setting(db, 'vapid_public_key', '')
+    sub_count = db.execute('SELECT COUNT(*) FROM push_subscriptions').fetchone()[0]
+    db.execute('DELETE FROM push_subscriptions')
     db.commit()
+    # Immediately generate a fresh key pair so the new public key is ready
+    _get_or_create_vapid_keys(db)
     db.close()
-    flash('VAPID keys cleared. They will regenerate automatically on next push. All browser subscriptions need to re-subscribe — ask users to refresh their browser.', 'warning')
+    flash(f'VAPID keys reset and {sub_count} old subscription(s) cleared. '
+          'All users must refresh their browser once to re-subscribe — notifications will work after that.',
+          'warning')
     return redirect(url_for('admin_settings'))
 
 
