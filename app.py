@@ -1972,7 +1972,7 @@ def admin_test_email():
     """Send a test email to verify SMTP configuration."""
     db = get_db()
     smtp_host     = _get_setting(db, 'smtp_host', '')
-    smtp_port     = int(_get_setting(db, 'smtp_port', '587') or 587)
+    smtp_port     = int(_get_setting(db, 'smtp_port', '465') or 465)
     smtp_user     = _get_setting(db, 'smtp_user', '')
     smtp_password = _get_setting(db, 'smtp_password', '')
     from_name     = _get_setting(db, 'smtp_from_name', 'Myle Community')
