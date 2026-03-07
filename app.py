@@ -63,13 +63,14 @@ _env_secret = os.environ.get('SECRET_KEY')
 if _env_secret:
     app.secret_key = _env_secret
 else:
-    # Dev fallback: random per-boot key (sessions reset on restart).
-    # NEVER rely on this in production — set SECRET_KEY env var.
+    # Stable fallback for dev / when SECRET_KEY env var is not set.
+    # Sessions survive restarts but are NOT cryptographically secret if the
+    # code is public.  Set SECRET_KEY env var on Render for full security.
     import sys as _sys
-    app.secret_key = secrets.token_hex(32)
-    print('[SECURITY WARNING] SECRET_KEY env var not set. '
-          'Generated a random boot key — all sessions will reset on restart. '
-          'Set SECRET_KEY in production!', file=_sys.stderr)
+    app.secret_key = 'myle_community_secret_2024_local'
+    print('[SECURITY WARNING] SECRET_KEY env var not set — using default fallback. '
+          'Set SECRET_KEY in your Render environment for production security!',
+          file=_sys.stderr)
 
 app.permanent_session_lifetime = datetime.timedelta(days=3650)  # ~10 years = effectively forever
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -704,8 +705,11 @@ def inject_pending_count():
 #  CSRF Protection
 # ──────────────────────────────────────────────────────────────
 
-# Routes that must be exempt from CSRF (external POSTs like webhooks)
-_CSRF_EXEMPT_PREFIXES = ('/meta/webhook',)
+# Routes exempt from CSRF:
+#   - /login, /register  → standalone pages (don't extend base.html, so the
+#                          auto-inject JS never runs → form has no csrf_token)
+#   - /meta/webhook      → external service uses its own HMAC signature
+_CSRF_EXEMPT_PREFIXES = ('/meta/webhook', '/login', '/register')
 
 @app.before_request
 def csrf_protect():
