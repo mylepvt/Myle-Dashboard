@@ -562,18 +562,42 @@
   async function initPushSubscription(reg) {
     if (!('PushManager' in window)) { console.warn('[Push] PushManager not supported'); return; }
     try {
+      // Always fetch current server VAPID public key first
+      const keyRes = await fetch('/push/vapid-key');
+      const { public_key: serverKey } = await keyRes.json();
+      if (!serverKey) { console.warn('[Push] No VAPID key from server'); return; }
+
       const existing = await reg.pushManager.getSubscription();
       if (existing) {
-        // Already subscribed — re-sync with server
-        await fetch('/push/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(existing.toJSON())
-        });
-        console.log('[Push] Re-synced existing subscription');
-        _updateNotifUI();
-        return;
+        // Check if the existing subscription was made with the current VAPID key
+        // by comparing the applicationServerKey stored in the subscription
+        let keyMismatch = false;
+        try {
+          const subKey = existing.options && existing.options.applicationServerKey;
+          if (subKey) {
+            const subKeyB64 = btoa(String.fromCharCode(...new Uint8Array(subKey)))
+              .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+            keyMismatch = (subKeyB64 !== serverKey);
+          }
+        } catch(_) {}
+
+        if (keyMismatch) {
+          console.log('[Push] VAPID key changed — unsubscribing old subscription and re-subscribing...');
+          await existing.unsubscribe();
+        } else {
+          // Key matches — just re-sync endpoint with server
+          await fetch('/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(existing.toJSON())
+          });
+          console.log('[Push] Re-synced existing subscription');
+          _updateNotifUI();
+          return;
+        }
       }
+
+      // No subscription or old one was cleared — create fresh one
       if (Notification.permission === 'granted') {
         await _doSubscribe(reg);
       } else if (Notification.permission !== 'denied') {
