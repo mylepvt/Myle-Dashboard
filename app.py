@@ -3080,8 +3080,94 @@ if __name__ == '__main__':
 
 
 # ─────────────────────────────────────────────
-#  Health Check
+#  Admin – All Members List + Individual Activity
 # ─────────────────────────────────────────────
+
+@app.route('/admin/members')
+@admin_required
+def admin_members():
+    db = get_db()
+    users = db.execute(
+        "SELECT * FROM users WHERE role='team' ORDER BY status, created_at DESC"
+    ).fetchall()
+
+    # Quick stats per member in one query
+    _rows = db.execute("""
+        SELECT assigned_to,
+            COUNT(*) as total_leads,
+            SUM(CASE WHEN status='Converted' THEN 1 ELSE 0 END) as converted,
+            SUM(CASE WHEN payment_done=1 THEN 1 ELSE 0 END) as paid
+        FROM leads WHERE in_pool=0
+        GROUP BY assigned_to
+    """).fetchall()
+    stats_map = {r['assigned_to']: r for r in _rows}
+
+    # Report count per member
+    _rep_rows = db.execute(
+        "SELECT username, COUNT(*) as report_count FROM daily_reports GROUP BY username"
+    ).fetchall()
+    report_map = {r['username']: r['report_count'] for r in _rep_rows}
+
+    db.close()
+    return render_template('all_members.html',
+                           users=users,
+                           stats_map=stats_map,
+                           report_map=report_map)
+
+
+@app.route('/admin/members/<username>')
+@admin_required
+def member_detail(username):
+    db   = get_db()
+    user = db.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+    if not user:
+        flash('Member not found.', 'danger')
+        db.close()
+        return redirect(url_for('admin_members'))
+
+    metrics = _get_metrics(db, username=username)
+    wallet  = _get_wallet(db, username)
+
+    recent_leads = db.execute(
+        "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 ORDER BY created_at DESC LIMIT 20",
+        (username,)
+    ).fetchall()
+
+    recent_reports = db.execute(
+        "SELECT * FROM daily_reports WHERE username=? ORDER BY report_date DESC LIMIT 10",
+        (username,)
+    ).fetchall()
+
+    # Status breakdown
+    _sc = db.execute(
+        "SELECT status, COUNT(*) as c FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' GROUP BY status",
+        (username,)
+    ).fetchall()
+    status_data = {s: 0 for s in STATUSES}
+    for row in _sc:
+        if row['status'] in status_data:
+            status_data[row['status']] = row['c']
+
+    # Downline
+    downlines = db.execute(
+        "SELECT username, status FROM users WHERE upline_name=? ORDER BY username",
+        (username,)
+    ).fetchall()
+
+    db.close()
+    return render_template('member_detail.html',
+                           member=user,
+                           metrics=metrics,
+                           wallet=wallet,
+                           recent_leads=recent_leads,
+                           recent_reports=recent_reports,
+                           status_data=status_data,
+                           downlines=downlines,
+                           statuses=STATUSES,
+                           payment_amount=PAYMENT_AMOUNT)
+
+
+
 
 @app.route('/health')
 def health():
