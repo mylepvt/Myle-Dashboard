@@ -103,11 +103,20 @@
         <thead class="table-light">
           <tr>
             <th>Member</th>
-            <th class="text-center">Calls</th>
-            <th class="text-center">PDF</th>
-            <th class="text-center">Enrolled<br><small class="fw-normal text-muted">Reported</small></th>
+            <th class="text-center">
+              <a href="{{ url_for('drilldown', metric='total_calling') }}" class="text-decoration-none text-dark">Calls</a>
+            </th>
+            <th class="text-center">
+              <a href="{{ url_for('drilldown', metric='pdf_covered') }}" class="text-decoration-none text-dark">PDF</a>
+            </th>
+            <th class="text-center">
+              <a href="{{ url_for('drilldown', metric='enrollments_done') }}" class="text-decoration-none text-dark">Enrolled</a><br>
+              <small class="fw-normal text-muted">Reported</small>
+            </th>
             <th class="text-center">₹196 Actual<br><small class="fw-normal text-muted">In System</small></th>
-            <th class="text-center">2CC</th>
+            <th class="text-center">
+              <a href="{{ url_for('drilldown', metric='plan_2cc') }}" class="text-decoration-none text-dark">2CC</a>
+            </th>
             <th class="text-center">Educated</th>
             <th>Remarks</th>
           </tr>
@@ -161,59 +170,67 @@
 <div class="row g-3 mb-4">
 
   <div class="col-6 col-md-3">
-    <div class="card kpi-card border-0 shadow-sm h-100">
+    <div class="card kpi-card border-0 shadow-sm h-100 position-relative" style="cursor:pointer;">
       <div class="card-body">
         <div class="d-flex align-items-center mb-2">
           <div class="kpi-icon bg-primary-subtle text-primary me-3">
             <i class="bi bi-people-fill"></i>
           </div>
           <span class="text-muted small">Total Leads</span>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50 small"></i>
         </div>
         <h3 class="fw-bold mb-0">{{ metrics.total }}</h3>
+        <a href="{{ url_for('drilldown', metric='total') }}" class="stretched-link"></a>
       </div>
     </div>
   </div>
 
   <div class="col-6 col-md-3">
-    <div class="card kpi-card border-0 shadow-sm h-100">
+    <div class="card kpi-card border-0 shadow-sm h-100 position-relative" style="cursor:pointer;">
       <div class="card-body">
         <div class="d-flex align-items-center mb-2">
           <div class="kpi-icon bg-success-subtle text-success me-3">
             <i class="bi bi-check-circle-fill"></i>
           </div>
           <span class="text-muted small">Converted</span>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50 small"></i>
         </div>
         <h3 class="fw-bold mb-0">{{ metrics.converted }}
           <small class="fs-6 text-success fw-normal">{{ metrics.conv_rate }}%</small>
         </h3>
+        <a href="{{ url_for('drilldown', metric='converted') }}" class="stretched-link"></a>
       </div>
     </div>
   </div>
 
   <div class="col-6 col-md-3">
-    <div class="card kpi-card border-0 shadow-sm h-100">
+    <div class="card kpi-card border-0 shadow-sm h-100 position-relative" style="cursor:pointer;">
       <div class="card-body">
         <div class="d-flex align-items-center mb-2">
           <div class="kpi-icon bg-warning-subtle text-warning me-3">
             <i class="bi bi-currency-rupee"></i>
           </div>
           <span class="text-muted small">Total Revenue</span>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50 small"></i>
         </div>
         <h3 class="fw-bold mb-0">₹{{ "%.0f"|format(metrics.revenue) }}</h3>
+        <a href="{{ url_for('drilldown', metric='revenue') }}" class="stretched-link"></a>
       </div>
     </div>
   </div>
 
   <div class="col-6 col-md-3">
-    <div class="card kpi-card border-0 shadow-sm h-100">
+    <div class="card kpi-card border-0 shadow-sm h-100 position-relative" style="cursor:pointer;">
       <div class="card-body">
         <div class="d-flex align-items-center mb-2">
           <div class="kpi-icon bg-info-subtle text-info me-3">
             <i class="bi bi-credit-card-2-front-fill"></i>
           </div>
           <span class="text-muted small">Payments (₹{{ payment_amount|int }})</span>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50 small"></i>
         </div>
         <h3 class="fw-bold mb-0">{{ metrics.paid }}</h3>
+        <a href="{{ url_for('drilldown', metric='paid') }}" class="stretched-link"></a>
       </div>
     </div>
   </div>
@@ -304,38 +321,24 @@
     <div class="card border-0 shadow-sm h-100">
       <div class="card-body">
         <h6 class="card-title text-muted mb-3"><i class="bi bi-funnel-fill me-2 text-primary"></i>Funnel Progress</h6>
+        {% for label_f, val_f, color_f, metric_f in [
+            ('Day 1 Done',     metrics.day1,       'bg-info',    'day1'),
+            ('Day 2 Done',     metrics.day2,       'bg-warning', 'day2'),
+            ('Interview Done', metrics.interviews, 'bg-danger',  'interview'),
+            ('Converted',      metrics.converted,  'bg-success', 'converted')
+        ] %}
         <div class="funnel-step mb-2">
           <div class="d-flex justify-content-between small mb-1">
-            <span>Day 1 Done</span><strong>{{ metrics.day1 }}</strong>
+            <a href="{{ url_for('drilldown', metric=metric_f) }}"
+               class="text-decoration-none text-dark">{{ label_f }}</a>
+            <strong>{{ val_f }}</strong>
           </div>
           <div class="progress" style="height:8px;">
-            <div class="progress-bar bg-info" style="width:{{ ((metrics.day1/metrics.total)*100)|int if metrics.total else 0 }}%"></div>
+            <div class="progress-bar {{ color_f }}"
+                 style="width:{{ ((val_f/metrics.total)*100)|int if metrics.total else 0 }}%"></div>
           </div>
         </div>
-        <div class="funnel-step mb-2">
-          <div class="d-flex justify-content-between small mb-1">
-            <span>Day 2 Done</span><strong>{{ metrics.day2 }}</strong>
-          </div>
-          <div class="progress" style="height:8px;">
-            <div class="progress-bar bg-warning" style="width:{{ ((metrics.day2/metrics.total)*100)|int if metrics.total else 0 }}%"></div>
-          </div>
-        </div>
-        <div class="funnel-step mb-2">
-          <div class="d-flex justify-content-between small mb-1">
-            <span>Interview Done</span><strong>{{ metrics.interviews }}</strong>
-          </div>
-          <div class="progress" style="height:8px;">
-            <div class="progress-bar bg-danger" style="width:{{ ((metrics.interviews/metrics.total)*100)|int if metrics.total else 0 }}%"></div>
-          </div>
-        </div>
-        <div class="funnel-step">
-          <div class="d-flex justify-content-between small mb-1">
-            <span>Converted</span><strong>{{ metrics.converted }}</strong>
-          </div>
-          <div class="progress" style="height:8px;">
-            <div class="progress-bar bg-success" style="width:{{ ((metrics.converted/metrics.total)*100)|int if metrics.total else 0 }}%"></div>
-          </div>
-        </div>
+        {% endfor %}
       </div>
     </div>
   </div>

@@ -29,42 +29,48 @@
 <div class="row g-2 mb-3">
 
   <div class="col-6 col-md-3">
-    <div class="card border-0 shadow-sm h-100" style="border-radius:12px;">
+    <div class="card border-0 shadow-sm h-100 position-relative" style="border-radius:12px;cursor:pointer;">
       <div class="card-body p-3">
         <div class="d-flex align-items-center gap-2 mb-1">
           <div class="kpi-icon bg-primary-subtle text-primary"><i class="bi bi-people-fill"></i></div>
           <span class="text-muted" style="font-size:0.72rem;">Total Leads</span>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50" style="font-size:0.65rem;"></i>
         </div>
         <div class="fw-bold fs-5 mb-0">{{ metrics.total }}</div>
         <div class="text-muted" style="font-size:0.68rem;">{{ metrics.converted }} converted ({{ metrics.conv_rate }}%)</div>
+        <a href="{{ url_for('drilldown', metric='total') }}" class="stretched-link"></a>
       </div>
     </div>
   </div>
 
   <div class="col-6 col-md-3">
-    <div class="card border-0 shadow-sm h-100" style="border-radius:12px;">
+    <div class="card border-0 shadow-sm h-100 position-relative" style="border-radius:12px;cursor:pointer;">
       <div class="card-body p-3">
         <div class="d-flex align-items-center gap-2 mb-1">
           <div class="kpi-icon bg-success-subtle text-success"><i class="bi bi-currency-rupee"></i></div>
           <span class="text-muted" style="font-size:0.72rem;">Total Revenue</span>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50" style="font-size:0.65rem;"></i>
         </div>
         <div class="fw-bold fs-5 mb-0">₹{{ "%.0f"|format(metrics.revenue) }}</div>
         <div class="text-muted" style="font-size:0.68rem;">₹{{ today_earnings|int }} today</div>
+        <a href="{{ url_for('drilldown', metric='revenue') }}" class="stretched-link"></a>
       </div>
     </div>
   </div>
 
   <div class="col-6 col-md-3">
-    <div class="card border-0 shadow-sm h-100" style="border-radius:12px;">
+    <div class="card border-0 shadow-sm h-100 position-relative" style="border-radius:12px;cursor:pointer;">
       <div class="card-body p-3">
         <div class="d-flex align-items-center gap-2 mb-1">
           <div class="kpi-icon bg-purple-subtle text-purple"><i class="bi bi-trophy-fill"></i></div>
           <span class="text-muted" style="font-size:0.72rem;">Close Rate</span>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50" style="font-size:0.65rem;"></i>
         </div>
         <div class="fw-bold fs-5 mb-0 text-purple">{{ metrics.close_pct }}%</div>
         <div class="progress mt-1" style="height:3px;">
           <div class="progress-bar bg-purple" style="width:{{ metrics.close_pct }}%;"></div>
         </div>
+        <a href="{{ url_for('drilldown', metric='converted') }}" class="stretched-link"></a>
       </div>
     </div>
   </div>
@@ -253,8 +259,10 @@
             <div class="text-muted" style="font-size:0.72rem;">Rev / Lead</div>
           </div>
           <div class="text-end">
-            <div class="fw-bold fs-6">{{ today_paid }}</div>
-            <div class="text-muted" style="font-size:0.72rem;">Payment{{ 's' if today_paid != 1 }} Today</div>
+            <a href="{{ url_for('drilldown', metric='paid') }}" class="text-decoration-none text-dark">
+              <div class="fw-bold fs-6">{{ today_paid }}</div>
+              <div class="text-muted" style="font-size:0.72rem;">Payment{{ 's' if today_paid != 1 }} Today <i class="bi bi-chevron-right" style="font-size:0.6rem;"></i></div>
+            </a>
           </div>
         </div>
         <div class="mb-2">
@@ -287,15 +295,16 @@
             style="font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em;">
           <i class="bi bi-funnel-fill me-1 text-primary"></i>Funnel
         </h6>
-        {% for label, val, color in [
-            ('Day 1',     metrics.day1,       'bg-info'),
-            ('Day 2',     metrics.day2,       'bg-warning'),
-            ('Interview', metrics.interviews, 'bg-danger'),
-            ('Converted', metrics.converted,  'bg-success')
+        {% for label, val, color, metric_key in [
+            ('Day 1',     metrics.day1,       'bg-info',    'day1'),
+            ('Day 2',     metrics.day2,       'bg-warning', 'day2'),
+            ('Interview', metrics.interviews, 'bg-danger',  'interview'),
+            ('Converted', metrics.converted,  'bg-success', 'converted')
         ] %}
         <div class="mb-2">
           <div class="d-flex justify-content-between small mb-1">
-            <span>{{ label }}</span>
+            <a href="{{ url_for('drilldown', metric=metric_key) }}"
+               class="text-decoration-none text-dark">{{ label }}</a>
             <strong>{{ val }}</strong>
           </div>
           <div class="progress" style="height:6px;">

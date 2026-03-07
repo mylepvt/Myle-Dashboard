@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block title %}{{ label }} – Drill Down – Myle Community{% endblock %}
+{% block page_title %}{{ label }}{% endblock %}
+{% block extra_head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>{% endblock %}
+
+{% block content %}
+
+<!-- ── Header ───────────────────────────────────────────── -->
+<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+  <a href="{{ url_for('admin_dashboard' if is_admin else 'team_dashboard') }}"
+     class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Back
+  </a>
+  <h5 class="mb-0 fw-bold">
+    <i class="{{ icon }} me-2 text-{{ color }}"></i>{{ label }}
+  </h5>
+  {% if not is_report %}
+    <span class="badge bg-{{ color }} ms-1">{{ leads|length }} leads</span>
+  {% else %}
+    <span class="badge bg-{{ color }} ms-1">{{ report_rows|length }} entries</span>
+  {% endif %}
+  <a href="?format=csv" class="btn btn-sm btn-outline-success ms-auto">
+    <i class="bi bi-download me-1"></i>Export CSV
+  </a>
+</div>
+
+<!-- ── 30-Day Trend Chart ──────────────────────────────── -->
+<div class="card border-0 shadow-sm mb-3" style="border-radius:12px;">
+  <div class="card-body p-3">
+    <h6 class="text-muted mb-2"
+        style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">
+      <i class="bi bi-graph-up me-1 text-{{ color }}"></i>30-Day Trend
+    </h6>
+    {% if trend %}
+      <canvas id="trendChart" height="80"></canvas>
+    {% else %}
+      <div class="text-center text-muted py-3 small">
+        <i class="bi bi-bar-chart-line fs-3 d-block mb-1 opacity-25"></i>
+        No data in last 30 days
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Member Breakdown + Data List ───────────────────── -->
+<div class="row g-3">
+
+  <!-- Member Breakdown -->
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100" style="border-radius:12px;">
+      <div class="card-header bg-transparent border-0 pt-3 pb-0 px-3">
+        <h6 class="mb-0"
+            style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">
+          <i class="bi bi-people-fill me-1 text-{{ color }}"></i>Member Breakdown
+        </h6>
+      </div>
+      <div class="card-body p-3">
+        {% set total_cnt = breakdown | sum(attribute='cnt') %}
+        {% for row in breakdown %}
+        <div class="mb-2">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="small fw-semibold text-truncate" style="max-width:65%;">
+              <i class="bi bi-person-fill text-muted me-1"></i>{{ row.assigned_to or '—' }}
+            </span>
+            <span class="badge bg-{{ color }}-subtle text-{{ color }} border border-{{ color }}-subtle">
+              {{ row.cnt }}
+            </span>
+          </div>
+          {% if total_cnt %}
+          <div class="progress" style="height:4px;">
+            <div class="progress-bar bg-{{ color }}" style="width:{{ ((row.cnt / total_cnt) * 100)|int }}%;"></div>
+          </div>
+          {% endif %}
+        </div>
+        {% else %}
+        <p class="text-muted small mb-0 text-center py-3">No data</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Lead / Report Data List -->
+  <div class="col-md-8">
+    <div class="card border-0 shadow-sm" style="border-radius:12px;">
+      <div class="card-header bg-transparent border-0 pt-3 pb-0 px-3">
+        <h6 class="mb-0"
+            style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">
+          {% if not is_report %}
+          <i class="bi bi-list-ul me-1 text-{{ color }}"></i>Lead List
+          {% else %}
+          <i class="bi bi-table me-1 text-{{ color }}"></i>Report Data
+          {% endif %}
+        </h6>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive" style="max-height:420px;overflow-y:auto;">
+          <table class="table table-hover table-sm mb-0 align-middle">
+            <thead class="table-light" style="position:sticky;top:0;z-index:1;">
+              {% if not is_report %}
+              <tr>
+                <th class="ps-3">Name</th>
+                <th>Status</th>
+                {% if is_admin %}<th>Member</th>{% endif %}
+                <th>Payment</th>
+                <th>Added</th>
+                <th></th>
+              </tr>
+              {% else %}
+              <tr>
+                <th class="ps-3">Member</th>
+                <th>Date</th>
+                <th>{{ label }}</th>
+                <th>Remarks</th>
+              </tr>
+              {% endif %}
+            </thead>
+            <tbody>
+              {% if not is_report %}
+                {% for lead in leads %}
+                <tr>
+                  <td class="fw-semibold ps-3" style="max-width:130px;">
+                    <span class="d-block text-truncate" title="{{ lead.name }}">{{ lead.name }}</span>
+                  </td>
+                  <td>
+                    <span class="badge status-{{ lead.status|replace(' ','') }} small">{{ lead.status }}</span>
+                  </td>
+                  {% if is_admin %}
+                  <td class="text-muted small" style="max-width:90px;">
+                    <span class="d-block text-truncate">{{ lead.assigned_to or '—' }}</span>
+                  </td>
+                  {% endif %}
+                  <td>
+                    {% if lead.payment_done %}
+                      <span class="badge bg-success">₹{{ lead.payment_amount|int }}</span>
+                    {% else %}
+                      <span class="badge bg-light text-muted border">Pending</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-muted small">{{ lead.created_at[:10] }}</td>
+                  <td>
+                    <a href="{{ url_for('edit_lead', lead_id=lead.id) }}"
+                       class="btn btn-xs btn-outline-secondary px-1 py-0">
+                      <i class="bi bi-pencil-fill" style="font-size:0.7rem;"></i>
+                    </a>
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="{{ 6 if is_admin else 5 }}" class="text-center text-muted py-4">
+                    <i class="bi bi-inbox fs-3 d-block mb-1 opacity-25"></i>
+                    No leads found.
+                  </td>
+                </tr>
+                {% endfor %}
+
+              {% else %}
+                {% for r in report_rows %}
+                <tr>
+                  <td class="fw-semibold ps-3">{{ r.username }}</td>
+                  <td class="text-muted small">{{ r.report_date }}</td>
+                  <td><span class="badge bg-{{ color }}">{{ r.val }}</span></td>
+                  <td class="text-muted small" style="max-width:130px;">
+                    <span class="d-block text-truncate" title="{{ r.remarks or '' }}">
+                      {{ (r.remarks or '')[:40] }}{% if r.remarks and r.remarks|length > 40 %}…{% endif %}
+                    </span>
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="4" class="text-center text-muted py-4">
+                    <i class="bi bi-inbox fs-3 d-block mb-1 opacity-25"></i>
+                    No data found.
+                  </td>
+                </tr>
+                {% endfor %}
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{% if trend %}
+<script>
+(function () {
+  const trendData = {{ trend | tojson }};
+  const labels = trendData.map(r => r.d);
+  const data   = trendData.map(r => r.cnt);
+
+  const colorMap = {
+    primary: { bg: 'rgba(13,110,253,0.18)',   border: 'rgba(13,110,253,0.8)' },
+    success: { bg: 'rgba(25,135,84,0.18)',    border: 'rgba(25,135,84,0.8)' },
+    warning: { bg: 'rgba(255,193,7,0.25)',    border: 'rgba(255,193,7,1)' },
+    danger:  { bg: 'rgba(220,53,69,0.18)',    border: 'rgba(220,53,69,0.8)' },
+    info:    { bg: 'rgba(13,202,240,0.18)',   border: 'rgba(13,202,240,0.8)' },
+  };
+  const c = colorMap['{{ color }}'] || colorMap.primary;
+
+  new Chart(document.getElementById('trendChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: '{{ label }}',
+        data: data,
+        backgroundColor: c.bg,
+        borderColor: c.border,
+        borderWidth: 1.5,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } }
+      }
+    }
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -119,6 +119,39 @@ def admin_required(f):
 #  Helpers
 # ─────────────────────────────────────────────
 
+def _get_downline_usernames(db, username):
+    """Return [username] + all recursive downline usernames via upline_name chain."""
+    rows = db.execute("""
+        WITH RECURSIVE downline(uname) AS (
+            SELECT ?
+            UNION ALL
+            SELECT u.username FROM users u JOIN downline d ON u.upline_name = d.uname
+        )
+        SELECT uname FROM downline
+    """, (username,)).fetchall()
+    return [r['uname'] for r in rows]
+
+
+# Drill-down metric config
+DRILL_LEAD_METRICS = {
+    'total':     ('Total Leads',    'bi bi-people-fill',              'primary', None),
+    'converted': ('Converted',      'bi bi-check-circle-fill',        'success', "status='Converted'"),
+    'paid':      ('Payments ₹196',  'bi bi-credit-card-2-front-fill', 'info',    'payment_done=1'),
+    'day1':      ('Day 1 Done',     'bi bi-1-circle-fill',            'info',    'day1_done=1'),
+    'day2':      ('Day 2 Done',     'bi bi-2-circle-fill',            'warning', 'day2_done=1'),
+    'interview': ('Interview Done', 'bi bi-mic-fill',                 'danger',  'interview_done=1'),
+    'revenue':   ('Total Revenue',  'bi bi-currency-rupee',           'warning', 'payment_done=1'),
+}
+
+DRILL_REPORT_METRICS = {
+    'total_calling':    ('Total Calls',   'bi bi-telephone-fill',         'primary'),
+    'pdf_covered':      ('PDF Covered',   'bi bi-file-earmark-pdf-fill',  'danger'),
+    'calls_picked':     ('Calls Picked',  'bi bi-telephone-inbound-fill', 'success'),
+    'enrollments_done': ('Enrollments',   'bi bi-person-check-fill',      'success'),
+    'plan_2cc':         ('2CC Plan',      'bi bi-star-fill',              'warning'),
+}
+
+
 def _get_metrics(db, username=None):
     """All dashboard KPIs. Excludes pool leads (in_pool=1)."""
     if username:
@@ -3075,10 +3108,6 @@ def admin_live_session():
                            zoom_link=link, zoom_title=title, zoom_time=time_)
 
 
-if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=5001)
-
-
 # ─────────────────────────────────────────────
 #  Admin – All Members List + Individual Activity
 # ─────────────────────────────────────────────
@@ -3169,6 +3198,139 @@ def member_detail(username):
 
 
 
+# ─────────────────────────────────────────────
+#  Drill-Down Analytics
+# ─────────────────────────────────────────────
+
+@app.route('/drill-down/<metric>')
+@login_required
+def drilldown(metric):
+    db = get_db()
+    is_admin = session.get('role') == 'admin'
+
+    if metric not in DRILL_LEAD_METRICS and metric not in DRILL_REPORT_METRICS:
+        db.close()
+        return redirect(url_for('admin_dashboard' if is_admin else 'team_dashboard'))
+
+    # Scope: admin sees all, team sees self + downline
+    if is_admin:
+        network = None
+    else:
+        network = _get_downline_usernames(db, session['username'])
+
+    fmt = request.args.get('format', '')
+
+    # ── Lead metrics ─────────────────────────────────
+    if metric in DRILL_LEAD_METRICS:
+        label, icon, color, condition = DRILL_LEAD_METRICS[metric]
+
+        if network is not None:
+            ph = ','.join('?' * len(network))
+            base = f"in_pool=0 AND deleted_at='' AND assigned_to IN ({ph})"
+            base_params = list(network)
+        else:
+            base = "in_pool=0 AND deleted_at=''"
+            base_params = []
+
+        extra = f" AND {condition}" if condition else ''
+
+        leads_rows = db.execute(
+            f"SELECT id, name, phone, status, payment_done, payment_amount, revenue, "
+            f"created_at, updated_at, assigned_to "
+            f"FROM leads WHERE {base}{extra} ORDER BY created_at DESC LIMIT 500",
+            base_params
+        ).fetchall()
+
+        breakdown = db.execute(
+            f"SELECT assigned_to, COUNT(*) as cnt FROM leads WHERE {base}{extra} "
+            f"GROUP BY assigned_to ORDER BY cnt DESC",
+            base_params
+        ).fetchall()
+
+        trend_rows = db.execute(
+            f"SELECT date(created_at) as d, COUNT(*) as cnt FROM leads "
+            f"WHERE {base}{extra} AND date(created_at) >= date('now','-30 days') "
+            f"GROUP BY d ORDER BY d",
+            base_params
+        ).fetchall()
+        trend = [{'d': r['d'], 'cnt': r['cnt']} for r in trend_rows]
+
+        if fmt == 'csv':
+            db.close()
+            out = io.StringIO()
+            w = csv.writer(out)
+            w.writerow(['Name', 'Phone', 'Status', 'Payment Done', 'Amount', 'Assigned To', 'Added', 'Updated'])
+            for r in leads_rows:
+                w.writerow([r['name'], r['phone'], r['status'],
+                            'Yes' if r['payment_done'] else 'No',
+                            r['payment_amount'] or 0,
+                            r['assigned_to'], r['created_at'][:10], r['updated_at'][:10]])
+            return Response(out.getvalue(), mimetype='text/csv',
+                            headers={'Content-Disposition': f'attachment;filename=drill_{metric}.csv'})
+
+        db.close()
+        return render_template('drill_down.html',
+                               metric=metric, label=label, icon=icon, color=color,
+                               leads=leads_rows, report_rows=None,
+                               breakdown=breakdown, trend=trend,
+                               is_report=False, is_admin=is_admin)
+
+    # ── Report metrics ────────────────────────────────
+    else:
+        label, icon, color = DRILL_REPORT_METRICS[metric]
+        col = metric  # column name in daily_reports table
+
+        if network is not None:
+            ph = ','.join('?' * len(network))
+            where = f"username IN ({ph})"
+            where_params = list(network)
+        else:
+            where = '1=1'
+            where_params = []
+
+        report_rows = db.execute(
+            f"SELECT username, report_date, {col} as val, remarks "
+            f"FROM daily_reports WHERE {where} AND {col} > 0 "
+            f"ORDER BY report_date DESC, username LIMIT 500",
+            where_params
+        ).fetchall()
+
+        breakdown = db.execute(
+            f"SELECT username as assigned_to, SUM({col}) as cnt "
+            f"FROM daily_reports WHERE {where} GROUP BY username ORDER BY cnt DESC",
+            where_params
+        ).fetchall()
+
+        trend_rows = db.execute(
+            f"SELECT report_date as d, SUM({col}) as cnt FROM daily_reports "
+            f"WHERE {where} AND report_date >= date('now','-30 days') "
+            f"GROUP BY report_date ORDER BY report_date",
+            where_params
+        ).fetchall()
+        trend = [{'d': r['d'], 'cnt': r['cnt']} for r in trend_rows]
+
+        if fmt == 'csv':
+            db.close()
+            out = io.StringIO()
+            w = csv.writer(out)
+            w.writerow(['Member', 'Date', label, 'Remarks'])
+            for r in report_rows:
+                w.writerow([r['username'], r['report_date'], r['val'], r['remarks'] or ''])
+            return Response(out.getvalue(), mimetype='text/csv',
+                            headers={'Content-Disposition': f'attachment;filename=drill_{metric}.csv'})
+
+        db.close()
+        return render_template('drill_down.html',
+                               metric=metric, label=label, icon=icon, color=color,
+                               leads=None, report_rows=report_rows,
+                               breakdown=breakdown, trend=trend,
+                               is_report=True, is_admin=is_admin)
+
+
 @app.route('/health')
 def health():
     return {'status': 'ok'}, 200
+
+
+if __name__ == '__main__':
+    app.run(debug=False, host='0.0.0.0', port=5001)
