@@ -1,0 +1,960 @@
+{% extends "base.html" %}
+{% block title %}Help & Tutorial – Myle Community{% endblock %}
+{% block page_title %}Help & Tutorial{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── Help page ── */
+  .help-hero {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    border-radius: 16px;
+    padding: 28px 24px;
+    color: #fff;
+    margin-bottom: 24px;
+  }
+  .help-hero h1 { font-size: 1.6rem; font-weight: 800; margin: 0 0 6px; }
+  .help-hero p  { margin: 0; opacity: .85; font-size: .95rem; }
+
+  /* Section tabs */
+  .help-tab-btn {
+    border: none; background: transparent;
+    font-size: .82rem; font-weight: 600; padding: 6px 14px;
+    border-radius: 20px; color: #6b7280; transition: all .18s;
+    white-space: nowrap;
+  }
+  .help-tab-btn.active { background: #6366f1; color: #fff; }
+  .help-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+
+  /* Feature card */
+  .feat-card {
+    border-radius: 14px; border: 1px solid #e5e7eb;
+    background: #fff; margin-bottom: 16px; overflow: hidden;
+    transition: box-shadow .2s;
+  }
+  .feat-card:hover { box-shadow: 0 4px 20px rgba(99,102,241,.12); }
+  .feat-card-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px; cursor: pointer;
+    background: #fafafa; border-bottom: 1px solid #f3f4f6;
+  }
+  .feat-card-header:hover { background: #f3f4f6; }
+  .feat-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; flex-shrink: 0;
+  }
+  .feat-title  { font-weight: 700; font-size: .95rem; margin: 0; }
+  .feat-subtitle { font-size: .78rem; color: #6b7280; margin: 0; }
+  .feat-chevron { margin-left: auto; color: #9ca3af; transition: transform .2s; font-size: .85rem; }
+  .feat-card.open .feat-chevron { transform: rotate(180deg); }
+  .feat-body { padding: 18px; display: none; }
+  .feat-card.open .feat-body { display: block; }
+
+  /* Steps */
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 0; }
+  .steps li {
+    counter-increment: step; display: flex; gap: 12px;
+    align-items: flex-start; margin-bottom: 12px;
+  }
+  .steps li::before {
+    content: counter(step);
+    min-width: 24px; height: 24px; border-radius: 50%;
+    background: #6366f1; color: #fff;
+    font-size: .75rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .steps li p { margin: 0; font-size: .88rem; line-height: 1.5; }
+
+  /* Tips */
+  .tip-box {
+    background: #f0fdf4; border-left: 4px solid #16a34a;
+    border-radius: 0 8px 8px 0; padding: 10px 14px; margin-top: 12px;
+    font-size: .85rem;
+  }
+  .tip-box.warn { background: #fffbeb; border-color: #d97706; }
+  .tip-box.info { background: #eff6ff; border-color: #3b82f6; }
+
+  /* Status pills */
+  .status-pill {
+    display: inline-block; border-radius: 20px; padding: 2px 10px;
+    font-size: .72rem; font-weight: 700; color: #fff; margin: 2px 2px;
+  }
+  .funnel-row {
+    display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 8px 0;
+  }
+  .funnel-arrow { color: #9ca3af; font-size: .8rem; }
+
+  /* FAQ */
+  .faq-item { border-bottom: 1px solid #f3f4f6; padding: 14px 0; }
+  .faq-q { font-weight: 700; font-size: .9rem; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+  .faq-q i { color: #6366f1; }
+  .faq-a { font-size: .85rem; color: #374151; margin-top: 8px; display: none; line-height: 1.6; }
+  .faq-item.open .faq-a { display: block; }
+  .faq-item.open .faq-q-chevron { transform: rotate(180deg); }
+  .faq-q-chevron { margin-left: auto; color: #9ca3af; transition: transform .2s; }
+
+  /* dark mode */
+  [data-bs-theme="dark"] .feat-card { border-color: #374151; background: #1f2937; }
+  [data-bs-theme="dark"] .feat-card-header { background: #111827; border-color: #374151; }
+  [data-bs-theme="dark"] .feat-card-header:hover { background: #1f2937; }
+  [data-bs-theme="dark"] .help-hero { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
+  [data-bs-theme="dark"] .tip-box { background: #052e16; border-color: #16a34a; }
+  [data-bs-theme="dark"] .tip-box.warn { background: #1c1008; border-color: #d97706; }
+  [data-bs-theme="dark"] .tip-box.info { background: #0c1a2e; border-color: #3b82f6; }
+  [data-bs-theme="dark"] .help-tab-btn { color: #9ca3af; }
+  [data-bs-theme="dark"] .faq-item { border-color: #374151; }
+  [data-bs-theme="dark"] .faq-a { color: #d1d5db; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Hero -->
+<div class="help-hero">
+  <h1><i class="bi bi-mortarboard-fill me-2"></i>App Tutorial</h1>
+  <p>Myle Community Dashboard ka full guide — step-by-step, har feature ke saath.</p>
+</div>
+
+<!-- Quick Nav Pills -->
+<div class="help-tabs" id="helpTabs">
+  {% if session.get('role') != 'admin' %}
+  <button class="help-tab-btn active" onclick="showSection('team')"><i class="bi bi-person-fill me-1"></i>Team Features</button>
+  {% endif %}
+  {% if session.get('role') == 'admin' %}
+  <button class="help-tab-btn active" onclick="showSection('admin')"><i class="bi bi-shield-fill me-1"></i>Admin Features</button>
+  {% endif %}
+  <button class="help-tab-btn" onclick="showSection('leads')"><i class="bi bi-people-fill me-1"></i>Leads & Funnel</button>
+  <button class="help-tab-btn" onclick="showSection('wallet')"><i class="bi bi-wallet2 me-1"></i>Wallet</button>
+  <button class="help-tab-btn" onclick="showSection('faq')"><i class="bi bi-patch-question-fill me-1"></i>FAQ</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION: TEAM
+═══════════════════════════════════════════════════════ -->
+{% if session.get('role') != 'admin' %}
+<div id="sec-team">
+
+  <!-- Dashboard -->
+  <div class="feat-card" id="card-dashboard">
+    <div class="feat-card-header" onclick="toggleCard('card-dashboard')">
+      <div class="feat-icon" style="background:#ede9fe;color:#7c3aed;"><i class="bi bi-speedometer2"></i></div>
+      <div>
+        <p class="feat-title">Dashboard — Aapka Home</p>
+        <p class="feat-subtitle">Poora din ek jagah dikhta hai</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <p class="text-muted small mb-3">Dashboard pe aate hi aapko apna sara kaam ek jagah dikh jaata hai.</p>
+      <ul class="steps">
+        <li><p><strong>Today's Priority Card</strong> — Sabse upar report ka status hota hai. Agar aaj submit nahi kiya toh reminder aayega.</p></li>
+        <li><p><strong>Follow-Ups</strong> — Jinhe aaj follow-up karna hai unki list automatically dikhti hai (Retarget leads).</p></li>
+        <li><p><strong>Quick Actions</strong> — Add Lead, Claim Leads, Submit Report ke buttons seedhe yahan milte hain.</p></li>
+        <li><p><strong>KPI Cards</strong> — Total Leads, Revenue, Close Rate, Wallet Balance — chaar cards mein dikh jaata hai sab kuch.</p></li>
+        <li><p><strong>Status Breakdown Chart</strong> — Donut chart mein dekho kitne leads kis stage pe hain.</p></li>
+        <li><p><strong>Recent Leads</strong> — Aapke 5 latest leads neeche card view mein dikhte hain.</p></li>
+      </ul>
+      <div class="tip-box info">
+        <i class="bi bi-lightbulb-fill me-1"></i> <strong>Tip:</strong> Analytics section mobile pe collapse rehta hai. "Show Analytics" button dabao usse kholne ke liye.
+      </div>
+    </div>
+  </div>
+
+  <!-- My Leads -->
+  <div class="feat-card" id="card-leads">
+    <div class="feat-card-header" onclick="toggleCard('card-leads')">
+      <div class="feat-icon" style="background:#dbeafe;color:#2563eb;"><i class="bi bi-people-fill"></i></div>
+      <div>
+        <p class="feat-title">My Leads</p>
+        <p class="feat-subtitle">Apne leads manage karo</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <p class="text-muted small mb-3">Yahan sirf aapke assigned leads dikhenge. Admin ke leads alag hote hain.</p>
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>My Leads</strong> click karo.</p></li>
+        <li><p>Search bar mein naam ya phone se lead dhundo.</p></li>
+        <li><p>Status dropdown se <strong>status update</strong> karo — sirf ek click, save automatically ho jaata hai.</p></li>
+        <li><p>Lead ke naam pe click karo → <strong>Edit Lead</strong> page khulega — wahan notes, follow-up date, sab update hota hai.</p></li>
+        <li><p>Filter buttons use karo (New, Contacted, Converted, etc.) to quickly sort.</p></li>
+      </ul>
+      <div class="tip-box">
+        <i class="bi bi-check-circle-fill me-1"></i> <strong>Best Practice:</strong> Har lead ka status update karo aur notes mein conversation ka summary likho — isse admin bhi track kar sakta hai.
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Lead -->
+  <div class="feat-card" id="card-addlead">
+    <div class="feat-card-header" onclick="toggleCard('card-addlead')">
+      <div class="feat-icon" style="background:#dcfce7;color:#16a34a;"><i class="bi bi-person-plus-fill"></i></div>
+      <div>
+        <p class="feat-title">Add Lead</p>
+        <p class="feat-subtitle">Naya lead kaise add karen</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar ya top bar mein <strong>Add Lead</strong> click karo.</p></li>
+        <li><p><strong>Name</strong> aur <strong>Phone Number</strong> — yeh dono zaroori hain. Phone 10 digit ka hona chahiye.</p></li>
+        <li><p><strong>Source</strong> — Kahan se aaya lead? Instagram, Facebook, WhatsApp, Referral, etc.</p></li>
+        <li><p><strong>Status</strong> — Shuruaat mein "New Lead" rakho.</p></li>
+        <li><p><strong>Notes</strong> — Pehli baat ya background likho.</p></li>
+        <li><p>Submit karo. Lead turant aapki list mein aa jaayega.</p></li>
+      </ul>
+      <div class="tip-box warn">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i> Same phone number se duplicate lead nahi ban sakta — system block kar deta hai.
+      </div>
+    </div>
+  </div>
+
+  <!-- Lead Pool -->
+  <div class="feat-card" id="card-pool">
+    <div class="feat-card-header" onclick="toggleCard('card-pool')">
+      <div class="feat-icon" style="background:#fef9c3;color:#ca8a04;"><i class="bi bi-lightning-charge-fill"></i></div>
+      <div>
+        <p class="feat-title">Lead Pool — Leads Claim Karo</p>
+        <p class="feat-subtitle">Wallet se leads kharido</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <p class="text-muted small mb-3">Admin Lead Pool mein leads daalta hai. Aap wahan se claim karke apni list mein le aate ho.</p>
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>Lead Pool</strong> click karo.</p></li>
+        <li><p>Pool mein kitne leads available hain woh dikhega — price bhi (per lead).</p></li>
+        <li><p><strong>Claim Leads</strong> box mein kitne leads chahiye woh number daalo.</p></li>
+        <li><p>Total cost calculate ho jaata hai — confirm karo.</p></li>
+        <li><p>Aapke wallet se amount automatically deduct ho jaayega aur leads "My Leads" mein aa jaayenge.</p></li>
+      </ul>
+      <div class="tip-box info">
+        <i class="bi bi-info-circle-fill me-1"></i> Pool mein leads kam hain toh admin se recharge karne bolo — aur apna wallet bhi top-up rakhna zaroori hai.
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily Report -->
+  <div class="feat-card" id="card-report">
+    <div class="feat-card-header" onclick="toggleCard('card-report')">
+      <div class="feat-icon" style="background:#fce7f3;color:#db2777;"><i class="bi bi-clipboard2-check-fill"></i></div>
+      <div>
+        <p class="feat-title">Daily Report Submit Karna</p>
+        <p class="feat-subtitle">Roz ka KPI bhejna</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>Daily Report</strong> click karo.</p></li>
+        <li><p>Aaj kitne <strong>calls</strong> kiye, kitne <strong>meetings</strong>, kitne <strong>presentations</strong> diye — sab fill karo.</p></li>
+        <li><p>Koi bhi notes ya highlights likhna chahte ho toh <strong>Notes</strong> section mein likho.</p></li>
+        <li><p>Submit karo. Report admin ko dikh jaati hai.</p></li>
+      </ul>
+      <div class="tip-box">
+        <i class="bi bi-clock-fill me-1"></i> Report roz submit karna zaroori hai. Jo log submit nahi karte unhe admin dashboard pe "missing" mein dekha ja sakta hai.
+      </div>
+    </div>
+  </div>
+
+  <!-- Retarget -->
+  <div class="feat-card" id="card-retarget">
+    <div class="feat-card-header" onclick="toggleCard('card-retarget')">
+      <div class="feat-icon" style="background:#fee2e2;color:#dc2626;"><i class="bi bi-bullseye"></i></div>
+      <div>
+        <p class="feat-title">Retarget List</p>
+        <p class="feat-subtitle">Follow-up wale leads</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <p class="text-muted small mb-3">Retarget mein woh leads hote hain jinhe aaj ya baad mein follow-up karna hai.</p>
+      <ul class="steps">
+        <li><p>Lead edit karte time <strong>Follow-Up Date</strong> set karo aur status <strong>"Retarget"</strong> rakho.</p></li>
+        <li><p>Sidebar mein <strong>Retarget List</strong> click karo.</p></li>
+        <li><p>Aaj ke liye due leads sabse upar dikhenge — WhatsApp icon se directly contact karo.</p></li>
+        <li><p>Ek baar call/message karo toh lead edit karo aur status update karo ya nayi follow-up date set karo.</p></li>
+      </ul>
+      <div class="tip-box">
+        <i class="bi bi-check-circle-fill me-1"></i> Dashboard ke "Today's Priority" card mein bhi aaj ke retarget leads dikhte hain.
+      </div>
+    </div>
+  </div>
+
+  <!-- Wallet -->
+  <div class="feat-card" id="card-wallet-team">
+    <div class="feat-card-header" onclick="toggleCard('card-wallet-team')">
+      <div class="feat-icon" style="background:#ecfdf5;color:#059669;"><i class="bi bi-wallet2"></i></div>
+      <div>
+        <p class="feat-title">My Wallet</p>
+        <p class="feat-subtitle">Balance aur recharge</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>My Wallet</strong> click karo.</p></li>
+        <li><p>Current <strong>balance</strong>, total recharged, aur total spent dikhega.</p></li>
+        <li><p>Recharge karne ke liye admin ka <strong>UPI QR code</strong> yahan milega — scan karo aur payment karo.</p></li>
+        <li><p>Payment ke baad <strong>UTR number</strong> copy karo (bank app se milta hai).</p></li>
+        <li><p>"Request Recharge" form mein UTR daal ke submit karo.</p></li>
+        <li><p>Admin approve karega — tab balance credit ho jaayega.</p></li>
+      </ul>
+      <div class="tip-box warn">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i> Galat UTR mat daalna — admin verify karta hai. Fake request reject hogi.
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaderboard -->
+  <div class="feat-card" id="card-lb">
+    <div class="feat-card-header" onclick="toggleCard('card-lb')">
+      <div class="feat-icon" style="background:#fef3c7;color:#d97706;"><i class="bi bi-trophy-fill"></i></div>
+      <div>
+        <p class="feat-title">Leaderboard</p>
+        <p class="feat-subtitle">Team ka ranking</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <p class="text-muted small mb-3">Leaderboard pe sabka performance rank ke saath dikhta hai.</p>
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>Leaderboard</strong> click karo.</p></li>
+        <li><p>Table mein dekho: Total Leads, Converted, Revenue, Seat Holds, Fully Converted.</p></li>
+        <li><p>Aapki apni row highlight hoti hai — apni rank dekho.</p></li>
+      </ul>
+      <div class="tip-box info">
+        <i class="bi bi-trophy-fill me-1"></i> Ranking daily update hoti hai. Jitne zyada converts, utni high rank!
+      </div>
+    </div>
+  </div>
+
+  <!-- Notice Board -->
+  <div class="feat-card" id="card-notice">
+    <div class="feat-card-header" onclick="toggleCard('card-notice')">
+      <div class="feat-icon" style="background:#f3e8ff;color:#9333ea;"><i class="bi bi-megaphone-fill"></i></div>
+      <div>
+        <p class="feat-title">Notice Board</p>
+        <p class="feat-subtitle">Admin ke announcements</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>Notice Board</strong> click karo.</p></li>
+        <li><p>Admin ke sabhi announcements yahan dikhenge — latest sabse upar.</p></li>
+        <li><p>Important notices ko dhyan se padho — targets, meetings, updates yahan aate hain.</p></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Live Session -->
+  <div class="feat-card" id="card-live">
+    <div class="feat-card-header" onclick="toggleCard('card-live')">
+      <div class="feat-icon" style="background:#ffe4e6;color:#e11d48;"><i class="bi bi-camera-video-fill"></i></div>
+      <div>
+        <p class="feat-title">Live Session</p>
+        <p class="feat-subtitle">Training / Team calls</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>Live Session</strong> click karo.</p></li>
+        <li><p>Agar admin ne koi session schedule kiya hai toh link aur time yahan dikhega.</p></li>
+        <li><p>Join button dabao aur directly Zoom/Meet join karo.</p></li>
+      </ul>
+      <div class="tip-box info">
+        <i class="bi bi-camera-video-fill me-1"></i> Sessions miss mat karo — important training yahan hoti hai.
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile -->
+  <div class="feat-card" id="card-profile">
+    <div class="feat-card-header" onclick="toggleCard('card-profile')">
+      <div class="feat-icon" style="background:#e0f2fe;color:#0284c7;"><i class="bi bi-person-circle"></i></div>
+      <div>
+        <p class="feat-title">Profile & Settings</p>
+        <p class="feat-subtitle">Photo, password aur info</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar ke neeche apne naam pe click karo → Profile page khulega.</p></li>
+        <li><p><strong>Profile Photo</strong> upload karo — circle icon ke andar face clear dikhna chahiye.</p></li>
+        <li><p>Apna <strong>Full Name</strong>, <strong>Phone</strong>, aur <strong>Upline Name</strong> update karo.</p></li>
+        <li><p>Password change karne ke liye sidebar footer mein <strong>Password</strong> button hai.</p></li>
+      </ul>
+    </div>
+  </div>
+
+</div><!-- /#sec-team -->
+{% endif %}
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION: ADMIN
+═══════════════════════════════════════════════════════ -->
+{% if session.get('role') == 'admin' %}
+<div id="sec-admin">
+
+  <!-- Admin Dashboard -->
+  <div class="feat-card" id="card-adash">
+    <div class="feat-card-header" onclick="toggleCard('card-adash')">
+      <div class="feat-icon" style="background:#ede9fe;color:#7c3aed;"><i class="bi bi-speedometer2"></i></div>
+      <div>
+        <p class="feat-title">Admin Dashboard</p>
+        <p class="feat-subtitle">Poori team ka overview</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p><strong>KPI Cards</strong> — Total Leads, Revenue, Close Rate, Pool Count, Wallet Requests, Missing Reports, Seat Hold, Fully Converted.</p></li>
+        <li><p><strong>Status Breakdown Chart</strong> — Donut chart mein poori team ke leads ka breakdown dikhta hai.</p></li>
+        <li><p><strong>Funnel Cards</strong> — Har stage pe kitne leads hain — click karo toh us stage ka drill-down khulta hai.</p></li>
+        <li><p><strong>Member Performance</strong> — Har team member ke stats ek table mein.</p></li>
+        <li><p><strong>Missing Reports</strong> badge — Aaj jinne report submit nahi ki unka count dikhta hai.</p></li>
+      </ul>
+      <div class="tip-box info">
+        <i class="bi bi-lightbulb-fill me-1"></i> Funnel cards pe click karo → us specific stage ke saare leads list mein dekhne ke liye (Drill Down feature).
+      </div>
+    </div>
+  </div>
+
+  <!-- All Leads Admin -->
+  <div class="feat-card" id="card-allleads">
+    <div class="feat-card-header" onclick="toggleCard('card-allleads')">
+      <div class="feat-icon" style="background:#dbeafe;color:#2563eb;"><i class="bi bi-people-fill"></i></div>
+      <div>
+        <p class="feat-title">All Leads</p>
+        <p class="feat-subtitle">Puri team ke leads manage karo</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>All Leads</strong> click karo — poori team ke leads dikhenge.</p></li>
+        <li><p>Filter by: <strong>Member</strong> (assigned_to), <strong>Status</strong>, ya <strong>Search</strong>.</p></li>
+        <li><p>Kisi bhi lead ki status directly change karo dropdown se.</p></li>
+        <li><p>Lead name pe click karo → Edit Lead page — wahan lead kisi doosre member ko re-assign bhi kar sakte ho.</p></li>
+        <li><p>Delete karna ho toh lead edit page mein jaao — "Delete Lead" button se Recycle Bin mein jaata hai.</p></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Admin Lead Pool -->
+  <div class="feat-card" id="card-adminpool">
+    <div class="feat-card-header" onclick="toggleCard('card-adminpool')">
+      <div class="feat-icon" style="background:#fef9c3;color:#ca8a04;"><i class="bi bi-inbox-fill"></i></div>
+      <div>
+        <p class="feat-title">Lead Pool Management</p>
+        <p class="feat-subtitle">Pool mein leads daalo aur manage karo</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>Lead Pool</strong> click karo (admin version).</p></li>
+        <li><p><strong>CSV Import</strong> — Meta/Facebook Leads CSV upload karo. System automatically phone/name parse karta hai.</p></li>
+        <li><p><strong>Single Lead Add</strong> — Ek ek karke bhi pool mein daal sakte ho.</p></li>
+        <li><p><strong>Lead Price</strong> set karo — team members is price pe claim karenge.</p></li>
+        <li><p>Pool mein se koi lead remove karna ho toh trash icon dabao.</p></li>
+      </ul>
+      <div class="tip-box warn">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i> CSV 5MB se badi nahi honi chahiye. Format: Phone aur Name columns hone chahiye.
+      </div>
+    </div>
+  </div>
+
+  <!-- Approvals -->
+  <div class="feat-card" id="card-approvals">
+    <div class="feat-card-header" onclick="toggleCard('card-approvals')">
+      <div class="feat-icon" style="background:#dcfce7;color:#16a34a;"><i class="bi bi-person-check-fill"></i></div>
+      <div>
+        <p class="feat-title">User Approvals</p>
+        <p class="feat-subtitle">Naye members approve karo</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>Approvals</strong> click karo — orange badge dikhta hai pending count ka.</p></li>
+        <li><p>Har user ka naam, FBO ID, aur registration time dikhega.</p></li>
+        <li><p><strong>Approve</strong> — User login kar payega aur team mein aa jaayega.</p></li>
+        <li><p><strong>Reject</strong> — User ko access nahi milega. Note bhi likh sakte ho rejection reason ke liye.</p></li>
+        <li><p><strong>Delete</strong> — Pending ya rejected users ko permanently hata do (recycle nahi hota).</p></li>
+        <li><p><strong>Reset Password</strong> — Koi bhool jaaye toh admin reset kar sakta hai.</p></li>
+      </ul>
+      <div class="tip-box">
+        <i class="bi bi-bell-fill me-1"></i> Notifications on hain toh new registration ka push notification aata hai.
+      </div>
+    </div>
+  </div>
+
+  <!-- Activity Log -->
+  <div class="feat-card" id="card-activity">
+    <div class="feat-card-header" onclick="toggleCard('card-activity')">
+      <div class="feat-icon" style="background:#e0f2fe;color:#0284c7;"><i class="bi bi-activity"></i></div>
+      <div>
+        <p class="feat-title">Activity Log</p>
+        <p class="feat-subtitle">Team ka punch card — kaun kab online tha</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>Activity Log</strong> click karo.</p></li>
+        <li><p><strong>Last Seen</strong> cards — Har member ka sabse recent activity time.</p></li>
+        <li><p>Full log table: Time | Member | Event | Details — filter by member ya event type.</p></li>
+        <li><p>Tracked events: Login, Logout, Lead Update, Report Submit, Lead Claim.</p></li>
+      </ul>
+      <div class="tip-box info">
+        <i class="bi bi-eye-fill me-1"></i> Isse pata chalta hai kaun active hai, kaun ne aaj kuch kiya ya nahi.
+      </div>
+    </div>
+  </div>
+
+  <!-- Reports Admin -->
+  <div class="feat-card" id="card-reports-admin">
+    <div class="feat-card-header" onclick="toggleCard('card-reports-admin')">
+      <div class="feat-icon" style="background:#fce7f3;color:#db2777;"><i class="bi bi-clipboard2-data-fill"></i></div>
+      <div>
+        <p class="feat-title">Daily Reports Review</p>
+        <p class="feat-subtitle">Team ke KPI reports dekho</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>Reports</strong> click karo.</p></li>
+        <li><p>Date select karo — us din ki reports dikhegi.</p></li>
+        <li><p>Dekho kiski report aai, kiski missing hai.</p></li>
+        <li><p>Individual member ka calls, meetings, presentations count dekho.</p></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Wallet Admin -->
+  <div class="feat-card" id="card-wallet-admin">
+    <div class="feat-card-header" onclick="toggleCard('card-wallet-admin')">
+      <div class="feat-icon" style="background:#ecfdf5;color:#059669;"><i class="bi bi-wallet2"></i></div>
+      <div>
+        <p class="feat-title">Wallet Recharge Approvals</p>
+        <p class="feat-subtitle">Team ke recharge requests approve karo</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>Recharges</strong> click karo — green badge dikhta hai pending count ka.</p></li>
+        <li><p>Har request mein: Username, Amount, UTR number, Request time dikhta hai.</p></li>
+        <li><p>UTR verify karo apni bank app se — payment aayi hai toh <strong>Approve</strong> karo.</p></li>
+        <li><p>Galat UTR ya payment nahi aayi toh <strong>Reject</strong> karo — rejection note daalo.</p></li>
+        <li><p>Approve hote hi user ka wallet automatically credit ho jaata hai.</p></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Members -->
+  <div class="feat-card" id="card-members">
+    <div class="feat-card-header" onclick="toggleCard('card-members')">
+      <div class="feat-icon" style="background:#ffe4e6;color:#e11d48;"><i class="bi bi-people"></i></div>
+      <div>
+        <p class="feat-title">Team Members & All Members</p>
+        <p class="feat-subtitle">Member profiles aur performance</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p><strong>Members</strong> — Team ke active members ki list, har ek ke leads count ke saath.</p></li>
+        <li><p>Member pe click karo → uske saare leads aur detail dekho.</p></li>
+        <li><p><strong>All Members</strong> — Registered sabhi users (pending/rejected/approved) dikhte hain.</p></li>
+        <li><p>Wahan se FBO ID update, password reset, status change kar sakte ho.</p></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Budget Export -->
+  <div class="feat-card" id="card-budget">
+    <div class="feat-card-header" onclick="toggleCard('card-budget')">
+      <div class="feat-icon" style="background:#f0fdf4;color:#15803d;"><i class="bi bi-file-earmark-spreadsheet-fill"></i></div>
+      <div>
+        <p class="feat-title">Budget Export</p>
+        <p class="feat-subtitle">Financial data export karo</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>Budget Export</strong> click karo.</p></li>
+        <li><p>Date range select karo.</p></li>
+        <li><p>CSV download karo — wallet recharges aur lead revenue ka full breakdown milega.</p></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="feat-card" id="card-settings">
+    <div class="feat-card-header" onclick="toggleCard('card-settings')">
+      <div class="feat-icon" style="background:#f3f4f6;color:#374151;"><i class="bi bi-gear-fill"></i></div>
+      <div>
+        <p class="feat-title">System Settings</p>
+        <p class="feat-subtitle">UPI, Lead Price, Webhook configure karo</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>Settings</strong> click karo.</p></li>
+        <li><p><strong>UPI ID</strong> — Yahan set karo toh wallet page pe automatically QR generate hoga.</p></li>
+        <li><p><strong>Default Lead Price</strong> — Pool se claim karne ki default cost per lead.</p></li>
+        <li><p><strong>Meta Webhook Token</strong> — Facebook Lead Ads integration ke liye.</p></li>
+        <li><p>Changes save karo — immediately live ho jaate hain.</p></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Live Session Admin -->
+  <div class="feat-card" id="card-live-admin">
+    <div class="feat-card-header" onclick="toggleCard('card-live-admin')">
+      <div class="feat-icon" style="background:#ffe4e6;color:#e11d48;"><i class="bi bi-camera-video-fill"></i></div>
+      <div>
+        <p class="feat-title">Live Session (Admin)</p>
+        <p class="feat-subtitle">Training sessions schedule karo</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>Live Session</strong> click karo.</p></li>
+        <li><p>Zoom/Meet ka link daalo aur title/description set karo.</p></li>
+        <li><p>Session time set karo — team ko sidebar mein dikh jaayega.</p></li>
+        <li><p>Session khatam hone pe delete ya deactivate kar do.</p></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Recycle Bin -->
+  <div class="feat-card" id="card-recycle">
+    <div class="feat-card-header" onclick="toggleCard('card-recycle')">
+      <div class="feat-icon" style="background:#fef2f2;color:#dc2626;"><i class="bi bi-trash2-fill"></i></div>
+      <div>
+        <p class="feat-title">Recycle Bin</p>
+        <p class="feat-subtitle">Delete hue leads recover karo</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>Recycle Bin</strong> click karo.</p></li>
+        <li><p>Sabhi deleted leads yahan milenge — naam, phone, kaun ne delete kiya.</p></li>
+        <li><p><strong>Restore</strong> karo — lead wapas assigned member ki list mein aa jaayega.</p></li>
+        <li><p><strong>Permanent Delete</strong> — Seedha hata do (recover nahi hoga).</p></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Announcements Admin -->
+  <div class="feat-card" id="card-ann-admin">
+    <div class="feat-card-header" onclick="toggleCard('card-ann-admin')">
+      <div class="feat-icon" style="background:#f3e8ff;color:#9333ea;"><i class="bi bi-megaphone-fill"></i></div>
+      <div>
+        <p class="feat-title">Notice Board (Admin)</p>
+        <p class="feat-subtitle">Team ko announcements bhejo</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Sidebar mein <strong>Notice Board</strong> click karo.</p></li>
+        <li><p>New announcement box mein title aur message likho.</p></li>
+        <li><p>Post karo — team ko sidebar mein turant dikh jaayega.</p></li>
+        <li><p>Purani notices delete kar sakte ho.</p></li>
+      </ul>
+    </div>
+  </div>
+
+</div><!-- /#sec-admin -->
+{% endif %}
+
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION: LEADS & FUNNEL
+═══════════════════════════════════════════════════════ -->
+<div id="sec-leads" style="display:none;">
+
+  <div class="feat-card open" id="card-funnel">
+    <div class="feat-card-header" onclick="toggleCard('card-funnel')">
+      <div class="feat-icon" style="background:#ede9fe;color:#7c3aed;"><i class="bi bi-funnel-fill"></i></div>
+      <div>
+        <p class="feat-title">Lead Funnel — Status Journey</p>
+        <p class="feat-subtitle">Har lead ka stage-by-stage flow</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <p class="text-muted small mb-3">Ek lead start se end tak is tarah move karti hai:</p>
+
+      <p class="fw-bold small mb-1" style="color:#6366f1;">📌 Start</p>
+      <div class="funnel-row">
+        <span class="status-pill" style="background:#64748b;">New Lead</span>
+        <i class="bi bi-arrow-right funnel-arrow"></i>
+        <span class="status-pill" style="background:#3b82f6;">Contacted</span>
+        <i class="bi bi-arrow-right funnel-arrow"></i>
+        <span class="status-pill" style="background:#8b5cf6;">Invited</span>
+        <i class="bi bi-arrow-right funnel-arrow"></i>
+        <span class="status-pill" style="background:#ec4899;">Video Sent</span>
+        <i class="bi bi-arrow-right funnel-arrow"></i>
+        <span class="status-pill" style="background:#f59e0b;">Video Watched</span>
+      </div>
+
+      <p class="fw-bold small mt-3 mb-1" style="color:#16a34a;">💸 Payment Stage</p>
+      <div class="funnel-row">
+        <span class="status-pill" style="background:#16a34a;">Paid ₹196</span>
+        <i class="bi bi-arrow-right funnel-arrow"></i>
+        <span class="status-pill" style="background:#6366f1;">Mindset Lock</span>
+        <i class="bi bi-arrow-right funnel-arrow"></i>
+        <span class="status-pill" style="background:#0891b2;">Day 1</span>
+        <i class="bi bi-arrow-right funnel-arrow"></i>
+        <span class="status-pill" style="background:#0891b2;">Day 2</span>
+        <i class="bi bi-arrow-right funnel-arrow"></i>
+        <span class="status-pill" style="background:#d97706;">Interview</span>
+      </div>
+
+      <p class="fw-bold small mt-3 mb-1" style="color:#7c3aed;">🏆 Advanced Conversion</p>
+      <div class="funnel-row">
+        <span class="status-pill" style="background:#0891b2;">Track Selected</span>
+        <i class="bi bi-arrow-right funnel-arrow"></i>
+        <span class="status-pill" style="background:#7c3aed;">Seat Hold Confirmed</span>
+        <i class="bi bi-arrow-right funnel-arrow"></i>
+        <span class="status-pill" style="background:#15803d;">Fully Converted</span>
+      </div>
+
+      <p class="fw-bold small mt-3 mb-1" style="color:#dc2626;">❌ Exit States</p>
+      <div class="funnel-row">
+        <span class="status-pill" style="background:#dc2626;">Lost</span>
+        <span class="status-pill" style="background:#f97316;">Retarget</span>
+        <span class="status-pill" style="background:#22c55e;">Converted</span>
+      </div>
+
+      <div class="tip-box mt-3">
+        <i class="bi bi-info-circle-fill me-1"></i> <strong>Track System:</strong> Interview ke baad lead ka track choose karo: <br>
+        🐢 <strong>Slow Track</strong> — ₹8,000 (Seat Hold: ₹2,000) &nbsp;|&nbsp;
+        🚶 <strong>Medium Track</strong> — ₹18,000 (Seat Hold: ₹4,000) &nbsp;|&nbsp;
+        🚀 <strong>Fast Track</strong> — ₹38,000 (Seat Hold: ₹5,000)
+      </div>
+    </div>
+  </div>
+
+  <div class="feat-card" id="card-editlead">
+    <div class="feat-card-header" onclick="toggleCard('card-editlead')">
+      <div class="feat-icon" style="background:#dbeafe;color:#2563eb;"><i class="bi bi-pencil-square"></i></div>
+      <div>
+        <p class="feat-title">Lead Edit Karna — Step by Step</p>
+        <p class="feat-subtitle">Sab kuch update kaise karte hain</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p>Lead list se lead ke naam pe click karo → <strong>Edit Lead</strong> page khulega.</p></li>
+        <li><p><strong>Status</strong> dropdown se stage badlo — save button dabao.</p></li>
+        <li><p><strong>Notes</strong> — Har call ya meeting ke baad notes update karo.</p></li>
+        <li><p><strong>Follow-Up Date</strong> — Agle contact ka date set karo → Retarget list mein aa jaayega.</p></li>
+        <li><p>WhatsApp icon — directly lead ko message bhejo.</p></li>
+        <li><p><strong>Track & Advanced Payments</strong> section — Interview ke baad track choose karo, seat hold amount fill karo.</p></li>
+        <li><p>"Seat Hold Received" checkbox — tick karo toh status "Seat Hold Confirmed" ho jaata hai.</p></li>
+        <li><p>"Final Payment Received" checkbox — tick karo toh "Fully Converted" ho jaata hai aur pending amount zero ho jaata hai.</p></li>
+      </ul>
+    </div>
+  </div>
+
+</div><!-- /#sec-leads -->
+
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION: WALLET
+═══════════════════════════════════════════════════════ -->
+<div id="sec-wallet" style="display:none;">
+
+  <div class="feat-card open" id="card-wallet-flow">
+    <div class="feat-card-header" onclick="toggleCard('card-wallet-flow')">
+      <div class="feat-icon" style="background:#ecfdf5;color:#059669;"><i class="bi bi-wallet2"></i></div>
+      <div>
+        <p class="feat-title">Wallet System — Poora Flow</p>
+        <p class="feat-subtitle">Recharge se leads claim tak</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <p class="text-muted small mb-3">Wallet system teen simple steps mein kaam karta hai:</p>
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <div class="p-3 text-center rounded-3" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+            <div class="fs-2">💳</div>
+            <div class="fw-bold small mt-1">Step 1</div>
+            <div class="small text-muted">UPI se payment karo</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="p-3 text-center rounded-3" style="background:#eff6ff;border:1px solid #bfdbfe;">
+            <div class="fs-2">📤</div>
+            <div class="fw-bold small mt-1">Step 2</div>
+            <div class="small text-muted">UTR submit karo app mein</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="p-3 text-center rounded-3" style="background:#fef3c7;border:1px solid #fde68a;">
+            <div class="fs-2">✅</div>
+            <div class="fw-bold small mt-1">Step 3</div>
+            <div class="small text-muted">Admin approve kare → balance credit</div>
+          </div>
+        </div>
+      </div>
+
+      <ul class="steps">
+        <li><p>Wallet page pe jaao → admin ka <strong>UPI QR scan</strong> karo Google Pay / PhonePe / Paytm se.</p></li>
+        <li><p>Amount daalo aur pay karo.</p></li>
+        <li><p>Payment success hone ke baad bank app mein <strong>UTR / Reference Number</strong> copy karo (12-digit number).</p></li>
+        <li><p>App mein wapas aao → "Request Recharge" form → UTR aur amount daalo → Submit karo.</p></li>
+        <li><p>Admin notification pe aayega → verify karke approve karega.</p></li>
+        <li><p>Approve hone ke baad wallet balance update ho jaata hai.</p></li>
+        <li><p>Ab Lead Pool mein jaao aur claim karo!</p></li>
+      </ul>
+
+      <div class="tip-box warn mt-2">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i> UTR number sahi daalna zaroori hai — galat UTR se request reject hogi aur process delay hoga.
+      </div>
+    </div>
+  </div>
+
+  <div class="feat-card" id="card-utr">
+    <div class="feat-card-header" onclick="toggleCard('card-utr')">
+      <div class="feat-icon" style="background:#fef3c7;color:#d97706;"><i class="bi bi-search"></i></div>
+      <div>
+        <p class="feat-title">UTR Number Kahan Milega?</p>
+        <p class="feat-subtitle">Bank app se kaise nikalen</p>
+      </div>
+      <i class="bi bi-chevron-down feat-chevron"></i>
+    </div>
+    <div class="feat-body">
+      <ul class="steps">
+        <li><p><strong>Google Pay</strong> — Payment history → Transaction → "Transaction ID" copy karo.</p></li>
+        <li><p><strong>PhonePe</strong> — History → Transaction Details → "UPI Transaction ID".</p></li>
+        <li><p><strong>Paytm</strong> — Passbook → Transaction → "UPI Reference Number".</p></li>
+        <li><p><strong>Bank Account</strong> — Net banking ya SMS mein "UTR" ya "Ref No." milega.</p></li>
+      </ul>
+      <div class="tip-box info">
+        <i class="bi bi-lightbulb-fill me-1"></i> UTR usually 12 digit ka hota hai aur numbers ya letters ho sakte hain (e.g., 406912345678 ya KKBK2026XXXXX).
+      </div>
+    </div>
+  </div>
+
+</div><!-- /#sec-wallet -->
+
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION: FAQ
+═══════════════════════════════════════════════════════ -->
+<div id="sec-faq" style="display:none;">
+
+  <div class="card border-0 shadow-sm rounded-4 p-3">
+    <h6 class="fw-bold mb-3"><i class="bi bi-patch-question-fill text-primary me-2"></i>Frequently Asked Questions</h6>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><i class="bi bi-question-circle-fill"></i>Lead Pool se claim karne ke liye wallet mein kitna balance hona chahiye?<i class="bi bi-chevron-down faq-q-chevron"></i></div>
+      <div class="faq-a">Wallet balance = (number of leads) × (price per lead). Example: 5 leads × ₹50 = ₹250 balance chahiye. Lead Pool page pe current price aur pool count dikh jaata hai.</div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><i class="bi bi-question-circle-fill"></i>Main app close karta hoon toh lead status save hota hai?<i class="bi bi-chevron-down faq-q-chevron"></i></div>
+      <div class="faq-a">Haan! Status update hote hi server pe save ho jaata hai. App close karne se koi data nahi jaata. Status dropdown change karte hi auto-save hota hai (AJAX se, form submit nahi karna padta).</div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><i class="bi bi-question-circle-fill"></i>Password bhool gaya — kya karun?<i class="bi bi-chevron-down faq-q-chevron"></i></div>
+      <div class="faq-a">Login page pe "Forgot Password" link hai. Ya admin se kaho — woh Approvals page se password reset kar sakta hai.</div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><i class="bi bi-question-circle-fill"></i>App home screen pe add kaise karun (iPhone / Android)?<i class="bi bi-chevron-down faq-q-chevron"></i></div>
+      <div class="faq-a">
+        <strong>iPhone:</strong> Safari mein app kholo → Share button (square with arrow) → "Add to Home Screen" → Add karo.<br><br>
+        <strong>Android:</strong> Chrome mein app kholo → Menu (3 dots) → "Add to Home Screen" ya "Install App" → Install karo.<br><br>
+        Home screen pe Myle ka icon aa jaayega aur app fullscreen mode mein khulega — ekdum native app jaisi feel!
+      </div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><i class="bi bi-question-circle-fill"></i>Notifications kaise enable karun?<i class="bi bi-chevron-down faq-q-chevron"></i></div>
+      <div class="faq-a">Top navbar mein bell icon (🔕) pe click karo → browser permission poochega → Allow karo. Har naye announcement pe push notification aayega.</div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><i class="bi bi-question-circle-fill"></i>Lead galti se delete ho gayi — wapas kaise laaun?<i class="bi bi-chevron-down faq-q-chevron"></i></div>
+      <div class="faq-a">Admin se kaho — Sidebar mein "Recycle Bin" hai jahan se deleted leads restore ho sakti hain. Team members apne aap restore nahi kar sakte.</div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><i class="bi bi-question-circle-fill"></i>Duplicate lead add karne ki koshish karun toh kya hoga?<i class="bi bi-chevron-down faq-q-chevron"></i></div>
+      <div class="faq-a">System same phone number pe duplicate lead nahi banane deta. Error message aayega "Phone number already exists". Original lead dhundho aur update karo.</div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><i class="bi bi-question-circle-fill"></i>Dark Mode kaise on karun?<i class="bi bi-chevron-down faq-q-chevron"></i></div>
+      <div class="faq-a">Top navbar mein moon icon 🌙 pe click karo — dark mode on ho jaayega. Dobara click karo toh off.</div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><i class="bi bi-question-circle-fill"></i>Seat Hold aur Fully Converted mein kya fark hai?<i class="bi bi-chevron-down faq-q-chevron"></i></div>
+      <div class="faq-a">
+        <strong>Seat Hold Confirmed</strong> — Lead ne advance/token amount de di (e.g., ₹2,000 for Slow Track). Seat confirm hai lekin full payment baaki hai.<br><br>
+        <strong>Fully Converted</strong> — Lead ne poori payment de di. Woh formally Myle Community ka member ban gaya!
+      </div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><i class="bi bi-question-circle-fill"></i>Wallet recharge request submit ki lekin admin ne approve nahi kiya — kya karun?<i class="bi bi-chevron-down faq-q-chevron"></i></div>
+      <div class="faq-a">Admin ko directly inform karo WhatsApp pe ya personally. App mein notification aayi hogi unhe. Agar UTR sahi hai toh jaldi approve hoga. Wallet page pe request ka status dekh sakte ho.</div>
+    </div>
+
+  </div>
+</div><!-- /#sec-faq -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ── Section toggle ── */
+const sections = ['team', 'admin', 'leads', 'wallet', 'faq'];
+
+function showSection(name) {
+  sections.forEach(s => {
+    const el = document.getElementById('sec-' + s);
+    if (el) el.style.display = (s === name) ? '' : 'none';
+  });
+  document.querySelectorAll('.help-tab-btn').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ── Card accordion ── */
+function toggleCard(id) {
+  const card = document.getElementById(id);
+  card.classList.toggle('open');
+}
+
+/* ── FAQ accordion ── */
+function toggleFaq(item) {
+  item.classList.toggle('open');
+}
+
+/* Open first card in each section by default */
+document.querySelectorAll('.feat-card:first-of-type').forEach(c => c.classList.add('open'));
+</script>
+{% endblock %}

@@ -206,6 +206,14 @@
       </li>
       {% endif %}
 
+      <!-- ── Help ──────────────────────────────────────── -->
+      <li class="nav-item">
+        <a href="{{ url_for('help_page') }}"
+           class="nav-link text-white {% if request.endpoint == 'help_page' %}active{% endif %}">
+          <i class="bi bi-question-circle me-2"></i><span>Help & Tutorial</span>
+        </a>
+      </li>
+
     </ul>
 
     <hr />

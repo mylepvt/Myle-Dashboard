@@ -3006,6 +3006,12 @@ def change_password():
 #  Profile (with display picture)
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
+@app.route('/help')
+@login_required
+def help_page():
+    return render_template('help.html')
+
+
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
