@@ -67,7 +67,7 @@
         <select name="user" class="form-select form-select-sm">
           <option value="">All members</option>
           {% for m in team_members %}
-          <option value="{{ m }}" {% if filter_user == m %}selected{% endif %}>{{ m }}</option>
+          <option value="{{ m.username }}" {% if filter_user == m.username %}selected{% endif %}>{{ m.username }}</option>
           {% endfor %}
         </select>
       </div>

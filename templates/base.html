@@ -212,9 +212,15 @@
 
     <!-- User info in sidebar footer -->
     <a href="{{ url_for('profile') }}" class="sidebar-user-link d-flex align-items-center gap-2 px-1 text-white text-decoration-none mb-2">
-      {% if session.get('dp') %}
-        <img src="{{ session.get('dp') }}" alt="DP"
-             style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.4);">
+      {% if session.get('has_dp') or session.get('dp') %}
+        {# Profile image served via route to avoid 4 KB cookie overflow #}
+        <img src="{{ url_for('profile_dp') }}" alt="DP"
+             style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.4);"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <span class="d-flex align-items-center justify-content-center rounded-circle bg-white bg-opacity-10"
+              style="width:36px;height:36px;flex-shrink:0;display:none!important;">
+          <i class="bi bi-person-fill" style="font-size:1.1rem;"></i>
+        </span>
       {% else %}
         <span class="d-flex align-items-center justify-content-center rounded-circle bg-white bg-opacity-10"
               style="width:36px;height:36px;flex-shrink:0;">
@@ -506,6 +512,56 @@
     localStorage.setItem('myle-dark', isDark ? '0' : '1');
     applyDark(!isDark);
   });
+
+  /* ── CSRF Auto-inject ────────────────────────────────
+   * Automatically adds the CSRF token to every POST form
+   * and to fetch() calls so no template needs to be changed. */
+  (function () {
+    const _csrfToken = '{{ csrf_token }}';
+    if (!_csrfToken) return;
+
+    /* 1. Inject hidden field into all forms on the page */
+    function _injectForms() {
+      document.querySelectorAll('form').forEach(function (form) {
+        if (!form.querySelector('input[name="csrf_token"]')) {
+          const inp = document.createElement('input');
+          inp.type  = 'hidden';
+          inp.name  = 'csrf_token';
+          inp.value = _csrfToken;
+          form.appendChild(inp);
+        }
+      });
+    }
+    _injectForms();
+
+    /* 2. Patch fetch() so AJAX POST/PUT/DELETE requests also carry the token */
+    const _origFetch = window.fetch;
+    window.fetch = function (url, opts) {
+      opts = opts || {};
+      const method = (opts.method || 'GET').toUpperCase();
+      if (method !== 'GET' && method !== 'HEAD') {
+        opts.headers = opts.headers || {};
+        opts.headers['X-CSRF-Token'] = _csrfToken;
+      }
+      return _origFetch.call(this, url, opts);
+    };
+
+    /* 3. Also inject into dynamically added forms (e.g. modals) */
+    if (window.MutationObserver) {
+      new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+          m.addedNodes.forEach(function (node) {
+            if (node.nodeType === 1) {
+              if (node.tagName === 'FORM') _injectForms();
+              else if (node.querySelectorAll) {
+                if (node.querySelectorAll('form').length) _injectForms();
+              }
+            }
+          });
+        });
+      }).observe(document.body, { childList: true, subtree: true });
+    }
+  })();
 </script>
 {% block scripts %}{% endblock %}
 

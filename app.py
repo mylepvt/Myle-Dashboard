@@ -19,8 +19,9 @@ except ImportError:
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from functools import wraps
+from urllib.parse import quote as _url_quote
 from flask import (Flask, render_template, request, redirect, url_for,
-                   flash, session, Response, make_response)
+                   flash, session, Response, make_response, abort)
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_db, init_db, migrate_db, seed_users
 
@@ -56,10 +57,25 @@ except ImportError:
     SCHEDULER_AVAILABLE = False
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'myle_community_secret_2024_local')
+
+# ── Secret key & cookie security ─────────────────────────────
+_env_secret = os.environ.get('SECRET_KEY')
+if _env_secret:
+    app.secret_key = _env_secret
+else:
+    # Dev fallback: random per-boot key (sessions reset on restart).
+    # NEVER rely on this in production — set SECRET_KEY env var.
+    import sys as _sys
+    app.secret_key = secrets.token_hex(32)
+    print('[SECURITY WARNING] SECRET_KEY env var not set. '
+          'Generated a random boot key — all sessions will reset on restart. '
+          'Set SECRET_KEY in production!', file=_sys.stderr)
+
 app.permanent_session_lifetime = datetime.timedelta(days=3650)  # ~10 years = effectively forever
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
+# Only send session cookie over HTTPS in production (when SECRET_KEY env var is set)
+app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('SECRET_KEY'))
 
 STATUSES = ['New Lead', 'New', 'Contacted', 'Invited', 'Video Sent', 'Video Watched',
             'Paid ₹196', 'Mindset Lock',
@@ -313,7 +329,7 @@ def _generate_upi_qr_bytes(upi_id):
         return None
     if upi_id in _qr_cache:
         return _qr_cache[upi_id][0]
-    upi_string = f"upi://pay?pa={upi_id}&pn=Myle+Community&cu=INR"
+    upi_string = f"upi://pay?pa={_url_quote(upi_id)}&pn=Myle+Community&cu=INR"
     qr = qrcode.QRCode(version=1, box_size=8, border=4)
     qr.add_data(upi_string)
     qr.make(fit=True)
@@ -684,6 +700,42 @@ def inject_pending_count():
     return {'pending_count': 0, 'wallet_pending': 0}
 
 
+# ──────────────────────────────────────────────────────────────
+#  CSRF Protection
+# ──────────────────────────────────────────────────────────────
+
+# Routes that must be exempt from CSRF (external POSTs like webhooks)
+_CSRF_EXEMPT_PREFIXES = ('/meta/webhook',)
+
+@app.before_request
+def csrf_protect():
+    """Generate a CSRF token for the session and validate it on unsafe methods."""
+    # Always ensure a token exists in the session
+    if '_csrf_token' not in session:
+        session['_csrf_token'] = secrets.token_hex(32)
+
+    # Only validate on state-changing methods
+    if request.method in ('GET', 'HEAD', 'OPTIONS', 'TRACE'):
+        return
+
+    # Exempt external webhook endpoints (they use their own HMAC signature)
+    if any(request.path.startswith(p) for p in _CSRF_EXEMPT_PREFIXES):
+        return
+
+    submitted = (
+        request.form.get('csrf_token') or
+        request.headers.get('X-CSRF-Token')
+    )
+    if not submitted or not hmac.compare_digest(submitted, session.get('_csrf_token', '')):
+        abort(403, description='CSRF token missing or invalid. Please refresh and try again.')
+
+
+@app.context_processor
+def inject_csrf_token():
+    """Make csrf_token available to every template."""
+    return {'csrf_token': session.get('_csrf_token', '')}
+
+
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Register
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -792,7 +844,9 @@ def login():
             session.permanent = True
             session['username'] = user['username']
             session['role']     = user['role']
-            session['dp']       = user['display_picture'] if user['display_picture'] else ''
+            # Store only a boolean flag — full base64 in session overflows the 4 KB cookie limit.
+            # Profile image is served via /profile/dp route.
+            session['has_dp']   = bool(user['display_picture'])
             db = get_db()
             _log_activity(db, user['username'], 'login', f"Role: {user['role']}")
             db.close()
@@ -1412,9 +1466,10 @@ def edit_lead(lead_id):
             status = lead['status']
 
         if session.get('role') == 'admin':
-            assigned_to = request.form.get('assigned_to', lead['assigned_to']).strip()
+            # Guard against lead['assigned_to'] being None (unassigned leads)
+            assigned_to = (request.form.get('assigned_to') or lead['assigned_to'] or '').strip()
         else:
-            assigned_to = lead['assigned_to']
+            assigned_to = lead['assigned_to'] or ''
 
         db.execute("""
             UPDATE leads
@@ -1432,9 +1487,13 @@ def edit_lead(lead_id):
               track_selected_val, track_price_val, seat_hold_amount_val, pending_amount_val,
               lead_id))
         db.commit()
-        _log_activity(db, session['username'], 'lead_update',
-                      f"Lead #{lead_id} updated → status: {status}")
-        db.close()
+        try:
+            _log_activity(db, session['username'], 'lead_update',
+                          f"Lead #{lead_id} updated → status: {status}")
+        except Exception:
+            pass  # Non-fatal: commit already succeeded
+        finally:
+            db.close()
         flash(f'Lead "{name}" updated.', 'success')
         return redirect(url_for('leads'))
 
@@ -2288,6 +2347,16 @@ def import_lead_pool_csv():
         db.close()
         return redirect(url_for('admin_lead_pool'))
 
+    # Reject oversized uploads before reading into memory (5 MB hard limit)
+    _CSV_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
+    f.seek(0, 2)           # seek to end
+    _file_size = f.tell()
+    f.seek(0)              # rewind
+    if _file_size > _CSV_MAX_BYTES:
+        flash(f'CSV file too large ({_file_size // 1024} KB). Maximum allowed is 5 MB.', 'danger')
+        db.close()
+        return redirect(url_for('admin_lead_pool'))
+
     try:
         content = f.read().decode('utf-8-sig', errors='replace')
         reader  = csv.DictReader(io.StringIO(content))
@@ -2969,7 +3038,8 @@ def profile():
                         db.execute("UPDATE users SET display_picture=? WHERE username=?",
                                    (dp_b64, username))
                         db.commit()
-                        session['dp'] = dp_b64
+                        session['has_dp'] = True    # flag only — image served via /profile/dp
+                        session.pop('dp', None)     # clear any legacy base64 from old sessions
                         flash('Profile picture updated!', 'success')
             else:
                 flash('No file selected.', 'danger')
@@ -2977,7 +3047,8 @@ def profile():
         elif action == 'remove_dp':
             db.execute("UPDATE users SET display_picture='' WHERE username=?", (username,))
             db.commit()
-            session['dp'] = ''
+            session['has_dp'] = False
+            session.pop('dp', None)   # clear any legacy base64
             flash('Profile picture removed.', 'info')
 
         else:  # update_info
@@ -2996,6 +3067,38 @@ def profile():
     user = db.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
     db.close()
     return render_template('profile.html', user=user)
+
+
+@app.route('/profile/dp')
+@login_required
+def profile_dp():
+    """Serve the current user's display picture from the DB.
+    Using a route instead of storing base64 in the session cookie keeps
+    cookie size well under the 4 KB browser limit.
+    """
+    db  = get_db()
+    row = db.execute(
+        "SELECT display_picture FROM users WHERE username=?", (session['username'],)
+    ).fetchone()
+    db.close()
+    dp = row['display_picture'] if row else ''
+    if not dp:
+        abort(404)
+    # dp is stored as 'data:image/jpeg;base64,<b64>'
+    if ',' in dp:
+        header, b64data = dp.split(',', 1)
+        mime = header.replace('data:', '').replace(';base64', '') or 'image/jpeg'
+    else:
+        b64data = dp
+        mime = 'image/jpeg'
+    try:
+        img_bytes = base64.b64decode(b64data)
+    except Exception:
+        abort(404)
+    resp = make_response(img_bytes)
+    resp.headers['Content-Type'] = mime
+    resp.headers['Cache-Control'] = 'private, max-age=300'
+    return resp
 
 
 @app.route('/profile/change-username', methods=['POST'])
