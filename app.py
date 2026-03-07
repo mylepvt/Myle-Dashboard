@@ -470,6 +470,8 @@ def _push_to_users(db, usernames, title, body, url='/'):
                 resp = getattr(exc, 'response', None)
                 if resp is not None and getattr(resp, 'status_code', 0) in (404, 410):
                     dead_ids.append(sub['id'])
+                else:
+                    app.logger.error(f'[Push] Send failed: {exc}')
 
     if dead_ids:
         ph = ','.join('?' for _ in dead_ids)
@@ -568,8 +570,10 @@ def _send_welcome_email(user_email, username, login_url):
             server.starttls(context=context)
             server.login(smtp_user, smtp_password)
             server.sendmail(smtp_user, user_email, msg.as_string())
-    except Exception:
-        pass  # Don't break approval flow if email fails
+        return True
+    except Exception as e:
+        app.logger.error(f'[Email] Welcome email failed: {e}')
+        return False  # Don't break approval flow if email fails
 
 
 def _send_password_reset_email(user_email, username, reset_url):
@@ -620,7 +624,8 @@ def _send_password_reset_email(user_email, username, reset_url):
             server.login(smtp_user, smtp_password)
             server.sendmail(smtp_user, user_email, msg.as_string())
         return True
-    except Exception:
+    except Exception as e:
+        app.logger.error(f'[Email] Password reset email failed: {e}')
         return False
 
 
@@ -1873,6 +1878,286 @@ def admin_settings():
     return render_template('admin_settings.html', settings=settings)
 
 
+# ──────────────────────────────────────────────────────────────
+#  Admin – Test Email
+# ──────────────────────────────────────────────────────────────
+
+@app.route('/admin/settings/test-email', methods=['POST'])
+@admin_required
+def admin_test_email():
+    """Send a test email to verify SMTP configuration."""
+    db = get_db()
+    smtp_host     = _get_setting(db, 'smtp_host', '')
+    smtp_port     = int(_get_setting(db, 'smtp_port', '587') or 587)
+    smtp_user     = _get_setting(db, 'smtp_user', '')
+    smtp_password = _get_setting(db, 'smtp_password', '')
+    from_name     = _get_setting(db, 'smtp_from_name', 'Myle Community')
+    db.close()
+
+    test_to = request.form.get('test_email', '').strip()
+    if not test_to:
+        flash('Please enter a recipient email address.', 'danger')
+        return redirect(url_for('admin_settings'))
+    if not smtp_host or not smtp_user or not smtp_password:
+        flash('SMTP is not fully configured. Please fill in host, user, and password.', 'danger')
+        return redirect(url_for('admin_settings'))
+
+    html_body = f"""
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#f8f9fa;border-radius:12px;">
+      <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:8px;padding:20px;text-align:center;margin-bottom:24px;">
+        <h2 style="color:#fff;margin:0;">✅ SMTP Test</h2>
+      </div>
+      <p style="color:#333;">This is a test email from <strong>{from_name}</strong>.</p>
+      <p style="color:#555;">If you received this, your SMTP configuration is working correctly!</p>
+      <p style="color:#888;font-size:12px;">Sent via: {smtp_host}:{smtp_port} as {smtp_user}</p>
+    </div>
+    """
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = f'[{from_name}] SMTP Test Email'
+    msg['From']    = f'{from_name} <{smtp_user}>'
+    msg['To']      = test_to
+    msg.attach(MIMEText(html_body, 'html'))
+
+    try:
+        import ssl as _ssl
+        context = _ssl.create_default_context()
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.ehlo()
+            server.starttls(context=context)
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_user, test_to, msg.as_string())
+        flash(f'✅ Test email sent successfully to {test_to}!', 'success')
+    except Exception as e:
+        flash(f'❌ SMTP Error: {e}', 'danger')
+    return redirect(url_for('admin_settings'))
+
+
+# ──────────────────────────────────────────────────────────────
+#  Admin – Test Push Notification
+# ──────────────────────────────────────────────────────────────
+
+@app.route('/admin/settings/test-push', methods=['POST'])
+@admin_required
+def admin_test_push():
+    """Send a test push notification to the current admin user."""
+    if not PUSH_AVAILABLE:
+        flash('Push notifications are not available (pywebpush not installed).', 'danger')
+        return redirect(url_for('admin_settings'))
+    db = get_db()
+    username = session['username']
+    subs = db.execute(
+        "SELECT id FROM push_subscriptions WHERE username=?", (username,)
+    ).fetchall()
+    if not subs:
+        db.close()
+        flash('No push subscription found for your account. Please click the bell icon to enable notifications first.', 'warning')
+        return redirect(url_for('admin_settings'))
+    _push_to_users(db, username,
+                   title='✅ Push Test Successful!',
+                   body='Push notifications are working correctly on your Myle Dashboard.',
+                   url='/admin/settings')
+    db.commit()
+    db.close()
+    flash('Test push notification sent! Check your browser/device notifications.', 'success')
+    return redirect(url_for('admin_settings'))
+
+
+# ──────────────────────────────────────────────────────────────
+#  Admin – Edit Member (username / email) + Permanent Delete
+# ──────────────────────────────────────────────────────────────
+
+@app.route('/admin/members/<username>/edit', methods=['POST'])
+@admin_required
+def admin_edit_member(username):
+    """Change a member's username and/or email address."""
+    db = get_db()
+    member = db.execute("SELECT id, username, email FROM users WHERE username=?", (username,)).fetchone()
+    if not member:
+        db.close()
+        flash('Member not found.', 'danger')
+        return redirect(url_for('admin_members'))
+
+    new_username = request.form.get('new_username', '').strip().lower()
+    new_email    = request.form.get('new_email', '').strip().lower()
+
+    errors = []
+
+    if new_username and new_username != username:
+        # Check uniqueness
+        existing = db.execute("SELECT id FROM users WHERE username=? AND id!=?", (new_username, member['id'])).fetchone()
+        if existing:
+            errors.append(f'Username @{new_username} is already taken.')
+        elif len(new_username) < 3:
+            errors.append('Username must be at least 3 characters.')
+        else:
+            # Update all related tables
+            db.execute("UPDATE leads SET assigned_to=? WHERE assigned_to=?", (new_username, username))
+            db.execute("UPDATE leads SET added_by=? WHERE added_by=?", (new_username, username))
+            db.execute("UPDATE wallet_recharges SET username=? WHERE username=?", (new_username, username))
+            db.execute("UPDATE push_subscriptions SET username=? WHERE username=?", (new_username, username))
+            db.execute("UPDATE daily_reports SET username=? WHERE username=?", (new_username, username))
+            try:
+                db.execute("UPDATE lead_notes SET username=? WHERE username=?", (new_username, username))
+            except Exception:
+                pass
+            try:
+                db.execute("UPDATE activity_log SET username=? WHERE username=?", (new_username, username))
+            except Exception:
+                pass
+            db.execute("UPDATE users SET username=? WHERE id=?", (new_username, member['id']))
+            flash(f'Username changed from @{username} to @{new_username}.', 'success')
+            username = new_username  # use new username for redirect
+
+    if new_email:
+        # Check uniqueness
+        existing = db.execute("SELECT id FROM users WHERE LOWER(email)=? AND id!=?", (new_email, member['id'])).fetchone()
+        if existing:
+            errors.append(f'Email {new_email} is already in use by another account.')
+        else:
+            db.execute("UPDATE users SET email=? WHERE id=?", (new_email, member['id']))
+            flash(f'Email updated to {new_email}.', 'success')
+
+    for err in errors:
+        flash(err, 'danger')
+
+    db.commit()
+    db.close()
+    return redirect(url_for('member_detail', username=username))
+
+
+@app.route('/admin/members/<username>/delete', methods=['POST'])
+@admin_required
+def admin_delete_member(username):
+    """Permanently delete a member and all their data from the database."""
+    db = get_db()
+    member = db.execute("SELECT id, username FROM users WHERE username=? AND role='team'", (username,)).fetchone()
+    if not member:
+        db.close()
+        flash('Member not found or cannot delete admin accounts.', 'danger')
+        return redirect(url_for('admin_members'))
+
+    confirm = request.form.get('confirm_username', '').strip()
+    if confirm != username:
+        db.close()
+        flash('Confirmation username did not match. Member was NOT deleted.', 'danger')
+        return redirect(url_for('member_detail', username=username))
+
+    # Delete all member data
+    db.execute("DELETE FROM wallet_recharges WHERE username=?", (username,))
+    db.execute("DELETE FROM push_subscriptions WHERE username=?", (username,))
+    db.execute("DELETE FROM daily_reports WHERE username=?", (username,))
+    # Move their leads back to pool instead of deleting
+    db.execute("UPDATE leads SET assigned_to='', in_pool=1, claimed_at='' WHERE assigned_to=? AND in_pool=0", (username,))
+    try:
+        db.execute("DELETE FROM activity_log WHERE username=?", (username,))
+    except Exception:
+        pass
+    db.execute("DELETE FROM users WHERE id=?", (member['id'],))
+    db.commit()
+    db.close()
+    flash(f'Member @{username} has been permanently deleted. Their leads have been returned to the pool.', 'success')
+    return redirect(url_for('admin_members'))
+
+
+# ──────────────────────────────────────────────────────────────
+#  Admin – Budget Summary Export (CSV)
+# ──────────────────────────────────────────────────────────────
+
+@app.route('/admin/budget-export')
+@admin_required
+def admin_budget_export():
+    """Export wallet/lead budget summary for all members as CSV with optional date range."""
+    import csv, io as _io
+    # If no download param, show the filter page
+    if not request.args.get('download'):
+        db = get_db()
+        member_count = db.execute("SELECT COUNT(*) FROM users WHERE role='team' AND status='approved'").fetchone()[0]
+        db.close()
+        return render_template('budget_export.html', member_count=member_count)
+    db = get_db()
+
+    date_from = request.args.get('date_from', '')
+    date_to   = request.args.get('date_to', '')
+
+    # Build date filter for leads claimed in range
+    leads_filter = "in_pool=0 AND claimed_at!=''"
+    leads_params = []
+    recharge_filter = "status='approved'"
+    recharge_params = []
+
+    if date_from:
+        leads_filter    += " AND claimed_at >= ?"
+        leads_params.append(date_from)
+        recharge_filter += " AND processed_at >= ?"
+        recharge_params.append(date_from)
+    if date_to:
+        leads_filter    += " AND claimed_at <= ?"
+        leads_params.append(date_to + ' 23:59:59')
+        recharge_filter += " AND processed_at <= ?"
+        recharge_params.append(date_to + ' 23:59:59')
+
+    members = db.execute(
+        "SELECT username, email, fbo_id, phone FROM users WHERE role='team' AND status='approved' ORDER BY username"
+    ).fetchall()
+
+    output = _io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        'Username', 'Email', 'FBO ID', 'Phone',
+        'Total Recharged (₹)', 'Total Spent on Leads (₹)', 'Wallet Balance (₹)',
+        'Leads Claimed (count)', 'Admin Adjustments (₹)',
+        'Date From', 'Date To'
+    ])
+
+    for m in members:
+        uname = m['username']
+
+        # Total wallet recharged (approved, from users not admin adjustments)
+        total_recharged = db.execute(
+            f"SELECT COALESCE(SUM(amount),0) FROM wallet_recharges WHERE username=? AND {recharge_filter} AND utr_number!='ADMIN-ADJUST'",
+            [uname] + recharge_params
+        ).fetchone()[0] or 0.0
+
+        # Admin adjustments separately
+        admin_adj = db.execute(
+            f"SELECT COALESCE(SUM(amount),0) FROM wallet_recharges WHERE username=? AND status='approved' AND utr_number='ADMIN-ADJUST'",
+            [uname]
+        ).fetchone()[0] or 0.0
+
+        # Leads spent
+        total_spent = db.execute(
+            f"SELECT COALESCE(SUM(pool_price),0) FROM leads WHERE assigned_to=? AND {leads_filter}",
+            [uname] + leads_params
+        ).fetchone()[0] or 0.0
+
+        # Leads count
+        leads_count = db.execute(
+            f"SELECT COUNT(*) FROM leads WHERE assigned_to=? AND {leads_filter}",
+            [uname] + leads_params
+        ).fetchone()[0] or 0
+
+        # Current wallet balance (always full, not date-filtered)
+        wallet = _get_wallet(db, uname)
+        balance = wallet['balance']
+
+        writer.writerow([
+            uname, m['email'] or '', m['fbo_id'] or '', m['phone'] or '',
+            f"{total_recharged:.2f}", f"{total_spent:.2f}", f"{balance:.2f}",
+            leads_count, f"{admin_adj:.2f}",
+            date_from or 'All time', date_to or 'All time'
+        ])
+
+    db.close()
+    output.seek(0)
+    from flask import Response
+    filename = f"budget_summary_{date_from or 'all'}_{date_to or 'all'}.csv"
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )
+
+
 @app.route('/admin/upi-qr-preview')
 @admin_required
 def admin_upi_qr_preview():
@@ -2336,7 +2621,7 @@ def lead_pool():
     if pool_count == 0:
         can_claim = 0
     elif avg_price > 0:
-        can_claim = min(int(wallet_stats['balance'] / avg_price), pool_count)
+        can_claim = min(int(wallet_stats['balance'] // avg_price), pool_count)
     else:
         can_claim = pool_count
 
