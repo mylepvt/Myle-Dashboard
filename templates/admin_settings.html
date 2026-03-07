@@ -135,6 +135,35 @@
             <i class="bi bi-save me-2"></i>Save Settings
           </button>
         </form>
+
+        <!-- Test Email -->
+        <div class="border-top mt-3 pt-3">
+          <p class="small fw-semibold mb-2"><i class="bi bi-send me-1 text-info"></i>Test Email Configuration</p>
+          <form method="post" action="{{ url_for('admin_test_email') }}" class="d-flex gap-2">
+            <input type="email" name="test_email" class="form-control form-control-sm"
+                   placeholder="Send test to: your@email.com" required>
+            <button type="submit" class="btn btn-sm btn-outline-info text-nowrap">
+              <i class="bi bi-send"></i> Send Test
+            </button>
+          </form>
+          <div class="text-muted" style="font-size:0.72rem;margin-top:4px;">
+            Sends a test email to verify SMTP is working. Save settings first.
+          </div>
+        </div>
+
+        <!-- Test Push Notification -->
+        <div class="border-top mt-3 pt-3">
+          <p class="small fw-semibold mb-2"><i class="bi bi-bell me-1 text-warning"></i>Test Push Notifications</p>
+          <form method="post" action="{{ url_for('admin_test_push') }}">
+            <button type="submit" class="btn btn-sm btn-outline-warning">
+              <i class="bi bi-bell-fill"></i> Send Test Push to Me
+            </button>
+          </form>
+          <div class="text-muted" style="font-size:0.72rem;margin-top:4px;">
+            You must have the bell icon enabled (notifications allowed) in this browser first.
+            Check your browser console for push errors.
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -236,7 +236,7 @@
               <tr>
                 <td class="ps-3 fw-semibold">{{ l.name }}</td>
                 <td><span class="badge bg-secondary">{{ l.source }}</span></td>
-                <td class="text-danger fw-semibold">-₹{{ l.pool_price|int }}</td>
+                <td class="text-danger fw-semibold">-₹{{ '%g' % (l.pool_price or 0) }}</td>
                 <td class="small text-muted">{{ l.claimed_at[:10] }}</td>
               </tr>
               {% else %}

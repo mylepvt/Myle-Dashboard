@@ -53,9 +53,9 @@
         </div>
         {% if price_info and price_info.avg_p %}
           {% if price_info.min_p == price_info.max_p %}
-            <h1 class="fw-bold text-warning display-5 mb-0">₹{{ price_info.min_p|int }}</h1>
+            <h1 class="fw-bold text-warning display-5 mb-0">₹{{ '%g' % price_info.min_p }}</h1>
           {% else %}
-            <h2 class="fw-bold text-warning mb-0">₹{{ price_info.min_p|int }}–{{ price_info.max_p|int }}</h2>
+            <h2 class="fw-bold text-warning mb-0">₹{{ '%g' % price_info.min_p }}–{{ '%g' % price_info.max_p }}</h2>
           {% endif %}
         {% else %}
           <h1 class="fw-bold text-warning display-5 mb-0">—</h1>
@@ -124,9 +124,9 @@
           <div class="card bg-light border-0 p-3" id="costPreview">
             <div class="small text-muted">Approx. cost</div>
             <div class="fw-bold fs-5 text-danger" id="costAmount">
-              ₹{{ "%.0f"|format(price_info.avg_p) }}
+              ₹{{ '%g' % price_info.avg_p }}
             </div>
-            <div class="small text-muted">Avg ₹{{ "%.0f"|format(price_info.avg_p) }}/lead</div>
+            <div class="small text-muted">Avg ₹{{ '%g' % price_info.avg_p }}/lead</div>
           </div>
           {% endif %}
         </div>
@@ -213,7 +213,7 @@ const upiId      = "{{ upi_id | default('') }}";
 
 function updateUPILinks(amount) {
   if (!upiId) return;
-  const am = Math.round(amount);
+  const am = Math.round(amount);  // UPI requires whole numbers
   const base = `pa=${encodeURIComponent(upiId)}&pn=Myle+Community&am=${am}&cu=INR`;
   const pp = document.getElementById('upiPhonePe');
   const pt = document.getElementById('upiPaytm');
@@ -228,8 +228,8 @@ function updateUPILinks(amount) {
 if (countInput && costAmount) {
   countInput.addEventListener('input', function () {
     const n = parseInt(this.value) || 1;
-    const total = Math.round(n * avgPrice);
-    costAmount.textContent = '₹' + total;
+    const total = n * avgPrice;
+    costAmount.textContent = '₹' + total.toFixed(2).replace(/\.?0+$/, '');
     updateUPILinks(total);
   });
 }

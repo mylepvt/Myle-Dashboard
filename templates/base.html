@@ -118,6 +118,12 @@
         </a>
       </li>
       <li class="nav-item">
+        <a href="{{ url_for('admin_budget_export') }}"
+           class="nav-link text-white {% if request.endpoint == 'admin_budget_export' %}active{% endif %}">
+          <i class="bi bi-file-earmark-spreadsheet me-2"></i><span>Budget Export</span>
+        </a>
+      </li>
+      <li class="nav-item">
         <a href="{{ url_for('admin_activity') }}"
            class="nav-link text-white {% if request.endpoint == 'admin_activity' %}active{% endif %}">
           <i class="bi bi-activity me-2"></i><span>Activity Log</span>

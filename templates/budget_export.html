@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block title %}Budget Export{% endblock %}
+{% block page_title %}Budget Summary Export{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white border-0 pt-3">
+        <h5 class="mb-0 fw-bold">
+          <i class="bi bi-file-earmark-spreadsheet me-2 text-success"></i>Export Wallet & Lead Budget Summary
+        </h5>
+        <p class="text-muted small mb-0 mt-1">
+          Download a CSV report of all {{ member_count }} active members — their recharges, lead spend, and current wallet balance.
+        </p>
+      </div>
+      <div class="card-body">
+        <form method="get" action="{{ url_for('admin_budget_export') }}">
+          <input type="hidden" name="download" value="1">
+
+          <div class="row g-3 mb-4">
+            <div class="col-sm-6">
+              <label class="form-label fw-semibold small">From Date <span class="text-muted fw-normal">(optional)</span></label>
+              <input type="date" name="date_from" class="form-control">
+              <div class="form-text">Leave blank for all-time</div>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label fw-semibold small">To Date <span class="text-muted fw-normal">(optional)</span></label>
+              <input type="date" name="date_to" class="form-control">
+              <div class="form-text">Leave blank for all-time</div>
+            </div>
+          </div>
+
+          <div class="card bg-light border-0 mb-4">
+            <div class="card-body py-3">
+              <p class="fw-semibold small mb-2"><i class="bi bi-info-circle me-1 text-primary"></i>The CSV will include these columns:</p>
+              <div class="row g-1">
+                {% for col in ['Username', 'Email', 'FBO ID', 'Phone', 'Total Recharged (₹)', 'Total Spent on Leads (₹)', 'Wallet Balance (₹)', 'Leads Claimed (count)', 'Admin Adjustments (₹)', 'Date From', 'Date To'] %}
+                <div class="col-auto">
+                  <span class="badge bg-white text-dark border small fw-normal">{{ col }}</span>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <div class="alert alert-warning small py-2 mb-4">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            <strong>Note:</strong> "Wallet Balance" always shows the current full balance regardless of date filter.
+            Date filter applies to recharges and lead spend columns only.
+          </div>
+
+          <button type="submit" class="btn btn-success fw-semibold px-5">
+            <i class="bi bi-download me-2"></i>Download CSV
+          </button>
+          <a href="{{ url_for('admin_members') }}" class="btn btn-outline-secondary ms-2">
+            <i class="bi bi-arrow-left me-1"></i>Back to Members
+          </a>
+        </form>
+      </div>
+    </div>
+
+    <!-- Quick Export Shortcuts -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white border-0 pt-3 pb-2">
+        <span class="fw-semibold small"><i class="bi bi-lightning me-1 text-warning"></i>Quick Export Shortcuts</span>
+      </div>
+      <div class="card-body pt-2">
+        <div id="quickLinks" class="d-flex flex-wrap gap-2">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  const today = new Date();
+  function fmt(d) {
+    return d.toISOString().slice(0,10);
+  }
+  function link(label, from, to) {
+    const base = "{{ url_for('admin_budget_export') }}";
+    const params = new URLSearchParams({ download: '1' });
+    if (from) params.set('date_from', from);
+    if (to)   params.set('date_to', to);
+    return `<a href="${base}?${params}" class="btn btn-sm btn-outline-secondary">${label}</a>`;
+  }
+
+  // This month
+  const m1 = new Date(today.getFullYear(), today.getMonth(), 1);
+  // Last month
+  const lmStart = new Date(today.getFullYear(), today.getMonth()-1, 1);
+  const lmEnd   = new Date(today.getFullYear(), today.getMonth(), 0);
+  // This year
+  const y1 = new Date(today.getFullYear(), 0, 1);
+  // Last 30 days
+  const d30 = new Date(today); d30.setDate(d30.getDate()-30);
+  // Last 7 days
+  const d7  = new Date(today); d7.setDate(d7.getDate()-7);
+
+  const links = [
+    link('All Time', '', ''),
+    link('This Month', fmt(m1), fmt(today)),
+    link('Last Month', fmt(lmStart), fmt(lmEnd)),
+    link('This Year', fmt(y1), fmt(today)),
+    link('Last 30 Days', fmt(d30), fmt(today)),
+    link('Last 7 Days', fmt(d7), fmt(today)),
+  ];
+  document.getElementById('quickLinks').innerHTML = links.join('');
+})();
+</script>
+{% endblock %}
