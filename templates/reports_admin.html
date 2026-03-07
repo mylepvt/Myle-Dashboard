@@ -16,42 +16,62 @@
     </div>
   </div>
   <div class="col-6 col-md-2">
-    <div class="card kpi-card border-0 shadow-sm h-100">
+    <div class="card kpi-card border-0 shadow-sm h-100 position-relative" style="cursor:pointer;">
       <div class="card-body p-3">
-        <div class="text-muted small mb-1"><i class="bi bi-telephone-fill text-success me-1"></i>Total Calls</div>
+        <div class="d-flex align-items-center mb-1">
+          <span class="text-muted small"><i class="bi bi-telephone-fill text-success me-1"></i>Total Calls</span>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50" style="font-size:0.6rem;"></i>
+        </div>
         <h3 class="fw-bold mb-0">{{ totals.total_calling or 0 }}</h3>
+        <a href="{{ url_for('drilldown', metric='total_calling') }}" class="stretched-link"></a>
       </div>
     </div>
   </div>
   <div class="col-6 col-md-2">
-    <div class="card kpi-card border-0 shadow-sm h-100">
+    <div class="card kpi-card border-0 shadow-sm h-100 position-relative" style="cursor:pointer;">
       <div class="card-body p-3">
-        <div class="text-muted small mb-1"><i class="bi bi-file-pdf-fill text-danger me-1"></i>PDF Covered</div>
+        <div class="d-flex align-items-center mb-1">
+          <span class="text-muted small"><i class="bi bi-file-pdf-fill text-danger me-1"></i>PDF Covered</span>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50" style="font-size:0.6rem;"></i>
+        </div>
         <h3 class="fw-bold mb-0">{{ totals.pdf_covered or 0 }}</h3>
+        <a href="{{ url_for('drilldown', metric='pdf_covered') }}" class="stretched-link"></a>
       </div>
     </div>
   </div>
   <div class="col-6 col-md-2">
-    <div class="card kpi-card border-0 shadow-sm h-100">
+    <div class="card kpi-card border-0 shadow-sm h-100 position-relative" style="cursor:pointer;">
       <div class="card-body p-3">
-        <div class="text-muted small mb-1"><i class="bi bi-telephone-inbound-fill text-info me-1"></i>Calls Picked</div>
+        <div class="d-flex align-items-center mb-1">
+          <span class="text-muted small"><i class="bi bi-telephone-inbound-fill text-info me-1"></i>Calls Picked</span>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50" style="font-size:0.6rem;"></i>
+        </div>
         <h3 class="fw-bold mb-0">{{ totals.calls_picked or 0 }}</h3>
+        <a href="{{ url_for('drilldown', metric='calls_picked') }}" class="stretched-link"></a>
       </div>
     </div>
   </div>
   <div class="col-6 col-md-2">
-    <div class="card kpi-card border-0 shadow-sm h-100">
+    <div class="card kpi-card border-0 shadow-sm h-100 position-relative" style="cursor:pointer;">
       <div class="card-body p-3">
-        <div class="text-muted small mb-1"><i class="bi bi-person-check-fill text-warning me-1"></i>Enrolments</div>
+        <div class="d-flex align-items-center mb-1">
+          <span class="text-muted small"><i class="bi bi-person-check-fill text-warning me-1"></i>Enrolments</span>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50" style="font-size:0.6rem;"></i>
+        </div>
         <h3 class="fw-bold mb-0">{{ totals.enrollments_done or 0 }}</h3>
+        <a href="{{ url_for('drilldown', metric='enrollments_done') }}" class="stretched-link"></a>
       </div>
     </div>
   </div>
   <div class="col-6 col-md-2">
-    <div class="card kpi-card border-0 shadow-sm h-100">
+    <div class="card kpi-card border-0 shadow-sm h-100 position-relative" style="cursor:pointer;">
       <div class="card-body p-3">
-        <div class="text-muted small mb-1"><i class="bi bi-2-circle-fill text-purple me-1"></i>2CC Plan</div>
+        <div class="d-flex align-items-center mb-1">
+          <span class="text-muted small"><i class="bi bi-2-circle-fill text-purple me-1"></i>2CC Plan</span>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50" style="font-size:0.6rem;"></i>
+        </div>
         <h3 class="fw-bold mb-0">{{ totals.plan_2cc or 0 }}</h3>
+        <a href="{{ url_for('drilldown', metric='plan_2cc') }}" class="stretched-link"></a>
       </div>
     </div>
   </div>
