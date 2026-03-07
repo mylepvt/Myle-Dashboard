@@ -79,6 +79,7 @@
         </a>
       </li>
       {% endif %}
+      {% if session.get('role') == 'admin' %}
       <li class="nav-item">
         <a href="{{ url_for('recycle_bin') }}"
            class="nav-link text-white {% if request.endpoint == 'recycle_bin' %}active{% endif %}">
