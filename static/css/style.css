@@ -248,6 +248,19 @@ body {
   border-radius: 6px;
 }
 
+/* ── btn-group icon alignment (WhatsApp split button fix) ── */
+.btn-group > .btn,
+.btn-group > a.btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+/* Ensure Bootstrap Icons are vertically centered in any btn */
+.btn .bi, a.btn .bi {
+  vertical-align: -0.125em;
+  line-height: 0;
+}
+
 /* ── Buttons – smooth transitions ───────────────────────── */
 .btn {
   transition: all 0.18s ease;
