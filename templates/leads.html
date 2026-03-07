@@ -134,7 +134,7 @@
         </span>
       </div>
 
-      <!-- Row 4: Status + Call Result + actions -->
+      <!-- Row 4: Status + actions -->
       <div class="d-flex gap-2 align-items-center mb-2">
         <form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="flex-grow-1">
           <select name="status"
@@ -157,7 +157,22 @@
         </form>
         {% endif %}
       </div>
-      <!-- Row 5: Call Result Tag -->
+
+      <!-- Row 5: Assigned tag (admin) / Call Result (member) -->
+      {% if session.get('role') == 'admin' %}
+      <div class="d-flex align-items-center justify-content-between gap-2">
+        <span class="badge rounded-pill px-2 py-1"
+              style="background:#eef2ff;color:#4f46e5;font-size:0.75rem;font-weight:600;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          <i class="bi bi-person-fill me-1"></i>{{ lead.assigned_to or 'Unassigned' }}
+        </span>
+        {% if lead.call_result %}
+        <span class="badge rounded-pill px-2 py-1"
+              style="font-size:0.72rem;background:{% if lead.call_result == 'Interested' %}#d1fae5;color:#065f46{% elif lead.call_result in ['Call Not Picked','Phone Switched Off','Not Reachable','Wrong Number','Not Interested'] %}#fee2e2;color:#991b1b{% elif lead.call_result in ['Follow Up Later','Callback Requested'] %}#ffedd5;color:#92400e{% else %}#f3f4f6;color:#374151{% endif %};">
+          {{ lead.call_result }}
+        </span>
+        {% endif %}
+      </div>
+      {% else %}
       <div class="d-flex align-items-center gap-2">
         <i class="bi bi-telephone-fill text-muted" style="font-size:0.8rem;"></i>
         <select class="form-select form-select-sm call-result-select"
@@ -171,6 +186,7 @@
           {% endfor %}
         </select>
       </div>
+      {% endif %}
 
     </div>
   </div>
@@ -199,6 +215,7 @@
             <th>Name</th>
             <th>Phone</th>
             <th>Referred By</th>
+            {% if session.get('role') == 'admin' %}<th>Assigned To</th>{% endif %}
             <th>Status</th>
             <th class="text-center">D1</th>
             <th class="text-center">D2</th>
@@ -252,6 +269,14 @@
               </div>
             </td>
             <td>{{ lead.referred_by or '—' }}</td>
+            {% if session.get('role') == 'admin' %}
+            <td>
+              <span class="badge rounded-pill px-2 py-1"
+                    style="background:#eef2ff;color:#4f46e5;font-size:0.75rem;font-weight:600;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;">
+                <i class="bi bi-person-fill me-1"></i>{{ lead.assigned_to or '—' }}
+              </span>
+            </td>
+            {% endif %}
             <td>
               <form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="d-inline">
                 <select name="status"
@@ -317,10 +342,8 @@
 <div id="bulkBar" class="d-none position-fixed bottom-0 start-0 end-0 bg-dark text-white px-3 py-2 d-flex align-items-center gap-2 flex-wrap shadow-lg" style="z-index:1050;">
   <span id="bulkCount" class="fw-semibold me-2">0 selected</span>
 
-  <!-- Hidden form for bulk actions -->
   <form id="bulkForm" method="post" action="{{ url_for('bulk_action') }}" class="d-flex align-items-center gap-2 flex-wrap">
     <input type="hidden" name="bulk_action" id="bulkActionInput" value="">
-    <!-- lead_ids will be injected by JS -->
 
     <select id="bulkStatusSelect" class="form-select form-select-sm" style="width:auto;">
       <option value="">— Change status —</option>
@@ -355,7 +378,6 @@
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body pb-1">
-        <!-- Format tabs -->
         <ul class="nav nav-tabs mb-3" id="importLeadsTabs" role="tablist">
           <li class="nav-item" role="presentation">
             <button class="nav-link active" id="imp-csv-tab" data-bs-toggle="tab"
@@ -371,7 +393,6 @@
           </li>
         </ul>
 
-        <!-- CSV pane -->
         <div class="tab-content">
           <div class="tab-pane fade show active" id="impCsvPane" role="tabpanel">
             <form method="POST" action="{{ url_for('import_leads') }}" enctype="multipart/form-data">
@@ -397,7 +418,6 @@
             </form>
           </div>
 
-          <!-- PDF pane -->
           <div class="tab-pane fade" id="impPdfPane" role="tabpanel">
             <form method="POST" action="{{ url_for('import_leads') }}" enctype="multipart/form-data">
               <input type="hidden" name="import_type" value="pdf">
@@ -501,11 +521,6 @@
 
 {% block scripts %}
 <script>
-// ── Bulk select logic ──────────────────────────────────────
-// Mobile + desktop views both exist in DOM (hidden via CSS).
-// We scope selection by viewport: mobile uses .lead-check-mobile,
-// desktop uses .lead-check-desktop. On submit we deduplicate by value.
-
 const bulkBar         = document.getElementById('bulkBar');
 const bulkCountEl     = document.getElementById('bulkCount');
 const bulkForm        = document.getElementById('bulkForm');
@@ -518,7 +533,6 @@ function getActiveSelector() {
 }
 
 function getCheckedIds() {
-  // Collect unique IDs from whichever view is active
   const checked = document.querySelectorAll(getActiveSelector() + ':checked');
   return [...new Set([...checked].map(cb => cb.value))];
 }
@@ -557,10 +571,8 @@ function submitBulk(type) {
     if (!action) { showToast('Please choose a status or action first.', 'warning'); return; }
   }
 
-  // Remove any previously injected hidden inputs
   bulkForm.querySelectorAll('input[name="lead_ids"]').forEach(el => el.remove());
 
-  // Inject unique IDs
   ids.forEach(id => {
     const inp = document.createElement('input');
     inp.type  = 'hidden';
@@ -573,7 +585,6 @@ function submitBulk(type) {
   bulkForm.submit();
 }
 
-// Select all — desktop
 const selAllDesktop = document.getElementById('selectAllDesktop');
 if (selAllDesktop) {
   selAllDesktop.addEventListener('change', function() {
@@ -582,7 +593,6 @@ if (selAllDesktop) {
   });
 }
 
-// Select all — mobile
 const selAllMobile = document.getElementById('selectAllMobile');
 if (selAllMobile) {
   selAllMobile.addEventListener('change', function() {
@@ -591,7 +601,6 @@ if (selAllMobile) {
   });
 }
 
-// Individual checkboxes
 document.querySelectorAll('.lead-check').forEach(cb => {
   cb.addEventListener('change', updateBulkBar);
 });
@@ -613,7 +622,6 @@ document.addEventListener('change', function(e) {
   .then(r => r.json())
   .then(data => {
     if (data.ok) {
-      // Update color to reflect tag category
       if (tag === 'Interested') {
         sel.style.color = '#198754';
       } else if (['Call Not Picked','Phone Switched Off','Not Reachable','Wrong Number','Not Interested'].includes(tag)) {
