@@ -109,6 +109,12 @@
           {% if pending_count > 0 %}<span class="badge bg-warning text-dark">{{ pending_count }}</span>{% endif %}
         </a>
       </li>
+      <li class="nav-item">
+        <a href="{{ url_for('admin_members') }}"
+           class="nav-link text-white {% if request.endpoint in ['admin_members','member_detail'] %}active{% endif %}">
+          <i class="bi bi-people me-2"></i><span>All Members</span>
+        </a>
+      </li>
       {% endif %}
 
       <!-- ── Finance ───────────────────────────────────── -->

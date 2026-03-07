@@ -148,12 +148,14 @@
         <a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-sm btn-outline-primary px-3">
           <i class="bi bi-pencil-fill"></i>
         </a>
+        {% if session.get('role') == 'admin' %}
         <form method="post" action="{{ url_for('delete_lead', lead_id=lead.id) }}"
               onsubmit="return confirm('Delete {{ lead.name }}?')">
           <button type="submit" class="btn btn-sm btn-outline-danger px-3" data-noloading>
             <i class="bi bi-trash-fill"></i>
           </button>
         </form>
+        {% endif %}
       </div>
       <!-- Row 5: Call Result Tag -->
       <div class="d-flex align-items-center gap-2">
@@ -282,12 +284,14 @@
               <a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-xs btn-outline-primary me-1">
                 <i class="bi bi-pencil-fill"></i>
               </a>
+              {% if session.get('role') == 'admin' %}
               <form method="post" action="{{ url_for('delete_lead', lead_id=lead.id) }}" class="d-inline"
                     onsubmit="return confirm('Delete {{ lead.name }}?')">
                 <button type="submit" class="btn btn-xs btn-outline-danger" data-noloading>
                   <i class="bi bi-trash-fill"></i>
                 </button>
               </form>
+              {% endif %}
             </td>
           </tr>
           {% else %}
@@ -328,9 +332,11 @@
     <button type="button" class="btn btn-sm btn-warning" onclick="submitBulk('status')">
       <i class="bi bi-arrow-repeat me-1"></i>Apply
     </button>
+    {% if session.get('role') == 'admin' %}
     <button type="button" class="btn btn-sm btn-danger" onclick="submitBulk('delete')">
       <i class="bi bi-trash-fill me-1"></i>Delete
     </button>
+    {% endif %}
   </form>
 
   <button type="button" class="btn btn-sm btn-outline-light ms-auto" onclick="clearBulk()">

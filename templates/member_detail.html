@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% block title %}@{{ member.username }} – Activity{% endblock %}
+{% block page_title %}Member: @{{ member.username }}{% endblock %}
+
+{% block content %}
+
+<!-- Back + Status Badge -->
+<div class="d-flex align-items-center gap-3 mb-4">
+  <a href="{{ url_for('admin_members') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>All Members
+  </a>
+  {% if member.status == 'approved' %}
+    <span class="badge bg-success fs-6"><i class="bi bi-check-circle me-1"></i>Active</span>
+  {% elif member.status == 'pending' %}
+    <span class="badge bg-warning text-dark fs-6">Pending Approval</span>
+  {% else %}
+    <span class="badge bg-danger fs-6">Rejected</span>
+  {% endif %}
+  <a href="{{ url_for('admin_approvals') }}?filter=all" class="btn btn-sm btn-outline-primary ms-auto">
+    <i class="bi bi-shield-lock me-1"></i>Manage Account
+  </a>
+</div>
+
+<!-- Profile Header -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      {% if member.display_picture %}
+        <img src="{{ member.display_picture }}" class="rounded-circle" width="72" height="72"
+             style="object-fit:cover;">
+      {% else %}
+        <div class="rounded-circle d-flex align-items-center justify-content-center"
+             style="width:72px;height:72px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;font-size:1.75rem;font-weight:700;flex-shrink:0;">
+          {{ member.username[0]|upper }}
+        </div>
+      {% endif %}
+      <div>
+        <h4 class="mb-1 fw-bold">@{{ member.username }}</h4>
+        <div class="d-flex flex-wrap gap-3 small text-muted">
+          {% if member.fbo_id %}
+            <span><i class="bi bi-person-badge me-1"></i>FBO: {{ member.fbo_id }}</span>
+          {% endif %}
+          {% if member.upline_name %}
+            <span><i class="bi bi-diagram-3 me-1"></i>Upline: @{{ member.upline_name }}</span>
+          {% endif %}
+          {% if member.phone %}
+            <span><i class="bi bi-telephone me-1"></i>{{ member.phone }}</span>
+          {% endif %}
+          {% if member.email %}
+            <span><i class="bi bi-envelope me-1"></i>{{ member.email }}</span>
+          {% endif %}
+          <span><i class="bi bi-calendar me-1"></i>Joined {{ member.created_at[:10] }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fw-bold fs-3 text-primary">{{ metrics.total }}</div>
+      <div class="text-muted small">Total Leads</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fw-bold fs-3 text-success">{{ metrics.paid }}</div>
+      <div class="text-muted small">Paid ₹{{ payment_amount|int }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fw-bold fs-3 text-info">{{ metrics.converted }}</div>
+      <div class="text-muted small">Converted</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fw-bold fs-3 text-warning">₹{{ metrics.revenue|int }}</div>
+      <div class="text-muted small">Revenue</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fw-bold fs-3" style="color:#6366f1;">{{ metrics.day1 }}</div>
+      <div class="text-muted small">Day 1 Done</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fw-bold fs-3" style="color:#8b5cf6;">{{ metrics.day2 }}</div>
+      <div class="text-muted small">Day 2 Done</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fw-bold fs-3 text-secondary">{{ metrics.interviews }}</div>
+      <div class="text-muted small">Interviews</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fw-bold fs-3 {% if wallet.balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+        ₹{{ wallet.balance|int }}
+      </div>
+      <div class="text-muted small">Wallet Balance</div>
+    </div>
+  </div>
+</div>
+
+<!-- Conversion rates row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="small text-muted">Paid %</span>
+        <span class="fw-bold">{{ metrics.paid196_pct }}%</span>
+      </div>
+      <div class="progress" style="height:6px;">
+        <div class="progress-bar bg-success" style="width:{{ [metrics.paid196_pct,100]|min }}%"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="small text-muted">Close Rate</span>
+        <span class="fw-bold">{{ metrics.close_pct }}%</span>
+      </div>
+      <div class="progress" style="height:6px;">
+        <div class="progress-bar bg-primary" style="width:{{ [metrics.close_pct,100]|min }}%"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4">
+    <div class="card border-0 shadow-sm p-3">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="small text-muted">Rev / Lead</span>
+        <span class="fw-bold">₹{{ metrics.rev_per_lead }}</span>
+      </div>
+      <div class="progress" style="height:6px;">
+        <div class="progress-bar bg-warning" style="width:{{ [metrics.paid196_pct,100]|min }}%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Status Breakdown -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-transparent border-0 fw-semibold pt-3">
+    <i class="bi bi-bar-chart-line me-2 text-primary"></i>Lead Status Breakdown
+  </div>
+  <div class="card-body">
+    <div class="row g-2">
+      {% for s, count in status_data.items() %}
+      <div class="col-6 col-sm-4 col-md-3">
+        <div class="d-flex justify-content-between align-items-center p-2 rounded border small">
+          <span class="text-muted">{{ s }}</span>
+          <span class="badge bg-secondary-subtle text-secondary fw-bold">{{ count }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Recent Leads -->
+  <div class="col-12 col-lg-7">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-transparent border-0 fw-semibold pt-3 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-people me-2 text-primary"></i>Recent Leads (last 20)</span>
+        <a href="{{ url_for('leads') }}?q={{ member.username }}" class="btn btn-xs btn-outline-primary">View All</a>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0 small">
+            <thead class="table-light text-muted">
+              <tr>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Status</th>
+                <th class="text-center">Paid</th>
+                <th>Date</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for lead in recent_leads %}
+              <tr>
+                <td class="fw-semibold">{{ lead.name }}</td>
+                <td class="text-muted">{{ lead.phone }}</td>
+                <td><span class="badge status-{{ lead.status|replace(' ','') }}">{{ lead.status }}</span></td>
+                <td class="text-center">
+                  {% if lead.payment_done %}
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                  {% else %}
+                    <i class="bi bi-circle text-muted"></i>
+                  {% endif %}
+                </td>
+                <td class="text-muted">{{ lead.created_at[:10] }}</td>
+                <td>
+                  <a href="{{ url_for('edit_lead', lead_id=lead.id) }}"
+                     class="btn btn-xs btn-outline-secondary">
+                    <i class="bi bi-pencil"></i>
+                  </a>
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="6" class="text-center text-muted py-4">No leads yet.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reports + Downlines -->
+  <div class="col-12 col-lg-5">
+    <!-- Recent Reports -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-transparent border-0 fw-semibold pt-3">
+        <i class="bi bi-clipboard-data me-2 text-success"></i>Recent Daily Reports
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0 small">
+            <thead class="table-light text-muted">
+              <tr>
+                <th>Date</th>
+                <th class="text-center">Calls</th>
+                <th class="text-center">Picked</th>
+                <th class="text-center">Enrolled</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in recent_reports %}
+              <tr>
+                <td class="fw-semibold">{{ r.report_date }}</td>
+                <td class="text-center">{{ r.total_calling }}</td>
+                <td class="text-center">{{ r.calls_picked }}</td>
+                <td class="text-center">
+                  <span class="badge bg-success-subtle text-success">{{ r.enrollments_done }}</span>
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="4" class="text-center text-muted py-3">No reports submitted yet.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Downlines -->
+    {% if downlines %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent border-0 fw-semibold pt-3">
+        <i class="bi bi-diagram-3 me-2" style="color:#8b5cf6;"></i>Direct Downlines ({{ downlines|length }})
+      </div>
+      <div class="card-body">
+        <div class="d-flex flex-wrap gap-2">
+          {% for d in downlines %}
+          <a href="{{ url_for('member_detail', username=d.username) }}"
+             class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-person me-1"></i>@{{ d.username }}
+            {% if d.status == 'approved' %}
+              <span class="badge bg-success ms-1" style="font-size:0.65rem;">✓</span>
+            {% elif d.status == 'pending' %}
+              <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;">⏳</span>
+            {% endif %}
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
