@@ -399,42 +399,50 @@ def _extract_leads_from_pdf(file_stream):
 
 
 def _get_or_create_vapid_keys(db):
-    """Return (private_pem_str, public_b64url). Generates & stores on first call."""
+    """
+    Return (private_scalar_b64url, public_b64url).
+    Stores the raw 32-byte private key scalar as base64url — the format
+    pywebpush accepts unconditionally across all versions.
+    Any old PEM-based key is wiped and regenerated automatically.
+    """
     if not PUSH_AVAILABLE:
         return None, None
 
-    private_pem = _get_setting(db, 'vapid_private_pem', '')
-    public_b64  = _get_setting(db, 'vapid_public_key',  '')
+    private_scalar = _get_setting(db, 'vapid_private_pem', '')   # reuse same DB key name
+    public_b64     = _get_setting(db, 'vapid_public_key',  '')
 
-    if private_pem and public_b64:
-        # If stored key is PKCS8 format (incompatible with pywebpush), wipe and regenerate
-        if 'PRIVATE KEY' in private_pem and 'EC PRIVATE KEY' not in private_pem:
+    if private_scalar and public_b64:
+        # If it looks like a PEM block (old format), wipe and regenerate
+        if '-----' in private_scalar:
+            app.logger.warning('[Push] Old PEM VAPID key detected — regenerating as raw scalar.')
+            private_scalar = ''
+            public_b64     = ''
             _set_setting(db, 'vapid_private_pem', '')
-            _set_setting(db, 'vapid_public_key', '')
+            _set_setting(db, 'vapid_public_key',  '')
             db.commit()
-            private_pem = ''
-            public_b64  = ''
         else:
-            return private_pem, public_b64
+            return private_scalar, public_b64
 
-    # Generate new P-256 key pair
+    # Generate new P-256 key pair and store as raw base64url scalars
     private_key = ec.generate_private_key(ec.SECP256R1())
-    private_pem = private_key.private_bytes(
-        _crypto_serial.Encoding.PEM,
-        _crypto_serial.PrivateFormat.TraditionalOpenSSL,  # SEC1 format — required by pywebpush
-        _crypto_serial.NoEncryption()
-    ).decode()
 
+    # Private scalar: raw 32 bytes of the private key integer
+    private_numbers = private_key.private_numbers()
+    private_bytes_raw = private_numbers.private_value.to_bytes(32, 'big')
+    private_scalar = base64.urlsafe_b64encode(private_bytes_raw).rstrip(b'=').decode()
+
+    # Public key: uncompressed point (65 bytes), base64url-encoded
     pub_raw = private_key.public_key().public_bytes(
         _crypto_serial.Encoding.X962,
         _crypto_serial.PublicFormat.UncompressedPoint
     )
     public_b64 = base64.urlsafe_b64encode(pub_raw).rstrip(b'=').decode()
 
-    _set_setting(db, 'vapid_private_pem', private_pem)
+    _set_setting(db, 'vapid_private_pem', private_scalar)
     _set_setting(db, 'vapid_public_key',  public_b64)
     db.commit()
-    return private_pem, public_b64
+    app.logger.info('[Push] New VAPID key pair generated.')
+    return private_scalar, public_b64
 
 
 def _push_to_users(db, usernames, title, body, url='/'):
