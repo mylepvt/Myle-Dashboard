@@ -10,6 +10,12 @@ import datetime
 import smtplib
 import ssl
 import threading
+try:
+    import pytz
+    _IST = pytz.timezone('Asia/Kolkata')
+except ImportError:
+    pytz = None
+    _IST = None
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from functools import wraps
@@ -45,7 +51,6 @@ except ImportError:
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
     import atexit
-    import pytz
     SCHEDULER_AVAILABLE = True
 except ImportError:
     SCHEDULER_AVAILABLE = False
@@ -1997,6 +2002,29 @@ def admin_test_push():
     return redirect(url_for('admin_settings'))
 
 
+@app.route('/admin/settings/test-calling-reminder', methods=['POST'])
+@admin_required
+def admin_test_calling_reminder():
+    """Trigger the calling reminder job immediately for debugging."""
+    if not SCHEDULER_AVAILABLE:
+        flash('Scheduler (APScheduler) is not available — calling reminders cannot run.', 'danger')
+        return redirect(url_for('admin_settings'))
+    if not PUSH_AVAILABLE:
+        flash('Push notifications are not available (pywebpush not installed).', 'danger')
+        return redirect(url_for('admin_settings'))
+    try:
+        job_calling_reminder()
+        ist_now = datetime.datetime.now(_IST)
+        flash(
+            f'Calling reminder job executed at {ist_now.strftime("%H:%M")} IST. '
+            'If any users had this time set as their reminder, they received a notification.',
+            'success'
+        )
+    except Exception as ex:
+        flash(f'Calling reminder job error: {ex}', 'danger')
+    return redirect(url_for('admin_settings'))
+
+
 # ──────────────────────────────────────────────────────────────
 #  Admin – Edit Member (username / email) + Permanent Delete
 # ──────────────────────────────────────────────────────────────
@@ -3446,7 +3474,7 @@ def push_subscribe():
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 def _reminder_lock(db, key):
-    today = datetime.date.today().isoformat()
+    today = datetime.datetime.now(_IST).strftime('%Y-%m-%d')   # IST date
     lock_key = f'{key}_{today}'
     cur = db.execute(
         "INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, 'sent')",
@@ -3489,8 +3517,9 @@ def job_calling_reminder():
     Minutely job: push calling reminder to each user whose calling_reminder_time
     matches the current HH:MM (IST). Per-user per-day lock prevents duplicates.
     """
-    now_hhmm = datetime.datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%H:%M')
-    today    = datetime.date.today().isoformat()
+    ist_now  = datetime.datetime.now(_IST)
+    now_hhmm = ist_now.strftime('%H:%M')
+    today    = ist_now.strftime('%Y-%m-%d')   # IST date — must match IST time, not server UTC
     db = get_db()
     try:
         users = db.execute(
@@ -3505,7 +3534,7 @@ def job_calling_reminder():
             )
             db.commit()
             if cur.rowcount == 1:
-                app.logger.info(f'[Scheduler] Calling reminder 2192 @{u["username"]}')
+                app.logger.info(f'[Scheduler] Calling reminder sent @{u["username"]} at {now_hhmm} IST')
                 _push_to_users(db, u['username'],
                                '\U0001f4de Calling Reminder',
                                'Time to start your calls! Don\'t forget your daily report.',
