@@ -3505,6 +3505,7 @@ def job_calling_reminder():
             )
             db.commit()
             if cur.rowcount == 1:
+                app.logger.info(f'[Scheduler] Calling reminder 2192 @{u["username"]}')
                 _push_to_users(db, u['username'],
                                '\U0001f4de Calling Reminder',
                                'Time to start your calls! Don\'t forget your daily report.',
