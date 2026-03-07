@@ -57,7 +57,7 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 
 STATUSES = ['New Lead', 'New', 'Contacted', 'Invited', 'Video Sent', 'Video Watched',
-            'Paid ₹196', 'Day 1', 'Day 2', 'Interview', 'Converted', 'Lost', 'Retarget']
+            'Paid \u20b9196', 'Day 1', 'Day 2', 'Interview', 'Converted', 'Lost', 'Retarget']
 
 CALL_RESULT_TAGS = [
     '',
@@ -88,9 +88,9 @@ SOURCES  = ['WhatsApp', 'Facebook', 'Instagram', 'LinkedIn',
 PAYMENT_AMOUNT = 196.0
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Auth Decorators
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 def _check_session_valid():
     """Return True if the current session user is still active/approved in the DB."""
@@ -137,9 +137,9 @@ def admin_required(f):
     return decorated
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Helpers
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 def _get_downline_usernames(db, username):
     """Return [username] + all recursive downline usernames via upline_name chain."""
@@ -158,7 +158,7 @@ def _get_downline_usernames(db, username):
 DRILL_LEAD_METRICS = {
     'total':     ('Total Leads',    'bi bi-people-fill',              'primary', None),
     'converted': ('Converted',      'bi bi-check-circle-fill',        'success', "status='Converted'"),
-    'paid':      ('Payments ₹196',  'bi bi-credit-card-2-front-fill', 'info',    'payment_done=1'),
+    'paid':      ('Payments \u20b9196',  'bi bi-credit-card-2-front-fill', 'info',    'payment_done=1'),
     'day1':      ('Day 1 Done',     'bi bi-1-circle-fill',            'info',    'day1_done=1'),
     'day2':      ('Day 2 Done',     'bi bi-2-circle-fill',            'warning', 'day2_done=1'),
     'interview': ('Interview Done', 'bi bi-mic-fill',                 'danger',  'interview_done=1'),
@@ -305,7 +305,7 @@ def _extract_leads_from_pdf(file_stream):
     try:
         with pdfplumber.open(file_stream) as pdf:
             for page in pdf.pages:
-                # ── Try table extraction first ───────────────────────────
+                # \u2500\u2500 Try table extraction first \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
                 tables = page.extract_tables()
                 if tables:
                     for table in tables:
@@ -339,14 +339,14 @@ def _extract_leads_from_pdf(file_stream):
                                 leads.append({'name': name, 'phone': phone,
                                               'email': email, 'city': city})
                 else:
-                    # ── Fall back to line-by-line text scan ──────────────
+                    # \u2500\u2500 Fall back to line-by-line text scan \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
                     text = page.extract_text() or ''
                     for line in text.split('\n'):
                         m = _PHONE_RE.search(line)
                         if not m:
                             continue
                         phone = m.group(1)
-                        # strip phone (and +91 prefix) from line → remaining text = name
+                        # strip phone (and +91 prefix) from line \u2192 remaining text = name
                         name = _PHONE_RE.sub('', line).strip(' -|,;:\t')
                         leads.append({'name': name, 'phone': phone,
                                       'email': '', 'city': ''})
@@ -391,7 +391,7 @@ def _push_to_users(db, usernames, title, body, url='/'):
     """
     Send a Web Push notification to all subscriptions of the given usernames.
     Automatically removes dead (410/404) subscriptions.
-    Fails silently — never breaks the calling route.
+    Fails silently \u2014 never breaks the calling route.
     """
     if not PUSH_AVAILABLE:
         return
@@ -424,7 +424,7 @@ def _push_to_users(db, usernames, title, body, url='/'):
                     vapid_claims={'sub': 'mailto:admin@mylecommunity.com'}
                 )
             except Exception as exc:
-                # 410 Gone / 404 Not Found → subscription expired, clean up
+                # 410 Gone / 404 Not Found \u2192 subscription expired, clean up
                 resp = getattr(exc, 'response', None)
                 if resp is not None and getattr(resp, 'status_code', 0) in (404, 410):
                     dead_ids.append(sub['id'])
@@ -446,16 +446,7 @@ def _push_all_team(db, title, body, url='/'):
 def _get_network_usernames(db, username):
     """
     Return the list of usernames visible to `username`.
-
     Includes the user themselves + ALL recursive downlines (BFS tree walk).
-    A user is a downline of X if their `upline_name` field matches X's username
-    (direct or via chain).
-
-    Returns None for admins → caller should show everything.
-
-    Example chain:  A → B → C → D
-      B's network = {B, C, D}  (not A — uplines are excluded)
-      A's network = {A, B, C, D}
     """
     visible = {username}
     queue   = [username]
@@ -486,7 +477,7 @@ def _send_welcome_email(user_email, username, login_url):
     if not smtp_host or not smtp_user or not smtp_password or not user_email:
         return  # SMTP not configured, skip silently
 
-    subject = 'Welcome to Myle Community – Account Approved!'
+    subject = 'Welcome to Myle Community \u2013 Account Approved!'
 
     html_body = f"""
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e0e0e0;">
@@ -495,7 +486,7 @@ def _send_welcome_email(user_email, username, login_url):
         <p style="color:rgba(255,255,255,0.7);margin:8px 0 0;font-size:14px;">Team Dashboard</p>
       </div>
       <div style="padding:32px;">
-        <h3 style="color:#1a1a2e;margin-top:0;">Hi {username}, your account is approved! 🎉</h3>
+        <h3 style="color:#1a1a2e;margin-top:0;">Hi {username}, your account is approved! \U0001f389</h3>
         <p style="color:#555;line-height:1.6;">
           Great news! Your registration request for <strong>Myle Community</strong> has been approved by the admin.
           You can now log in and access your dashboard.
@@ -552,11 +543,11 @@ def _send_password_reset_email(user_email, username, reset_url):
     if not smtp_host or not smtp_user or not smtp_password or not user_email:
         return False  # SMTP not configured
 
-    subject   = 'Myle Community – Password Reset Request'
+    subject   = 'Myle Community \u2013 Password Reset Request'
     html_body = f"""
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:24px;background:#f8f9fa;border-radius:12px;">
       <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:8px;padding:20px;text-align:center;margin-bottom:24px;">
-        <h2 style="color:#fff;margin:0;">🔐 Password Reset</h2>
+        <h2 style="color:#fff;margin:0;">\U0001f510 Password Reset</h2>
       </div>
       <p style="color:#333;">Hello <strong>{username}</strong>,</p>
       <p style="color:#555;">We received a request to reset your Myle Community dashboard password.
@@ -591,9 +582,9 @@ def _send_password_reset_email(user_email, username, reset_url):
         return False
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Template Filters
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.template_filter('wa_phone')
 def wa_phone_filter(phone):
@@ -601,15 +592,15 @@ def wa_phone_filter(phone):
     import re
     digits = re.sub(r'[^\d]', '', str(phone))
     if len(digits) == 10 and digits[0] in '6789':
-        digits = '91' + digits          # Indian mobile – prepend country code
+        digits = '91' + digits          # Indian mobile \u2013 prepend country code
     elif digits.startswith('0') and len(digits) == 11:
-        digits = '91' + digits[1:]      # 0XXXXXXXXXX → 91XXXXXXXXXX
+        digits = '91' + digits[1:]      # 0XXXXXXXXXX \u2192 91XXXXXXXXXX
     return digits
 
 
-# ─────────────────────────────────────────────
-#  Context processor – inject counts for nav badges
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Context processor \u2013 inject counts for nav badges
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.context_processor
 def inject_pending_count():
@@ -625,9 +616,9 @@ def inject_pending_count():
     return {'pending_count': 0, 'wallet_pending': 0}
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Register
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -648,25 +639,21 @@ def register():
 
         db = get_db()
 
-        # Unique username check
         if db.execute("SELECT id FROM users WHERE username=?", (username,)).fetchone():
             db.close()
             flash('That username is already taken. Please choose another.', 'danger')
             return render_template('register.html')
 
-        # Unique FBO ID check
         if db.execute("SELECT id FROM users WHERE fbo_id=? AND fbo_id!=''", (fbo_id,)).fetchone():
             db.close()
             flash('That FBO ID is already registered. Each FBO ID must be unique.', 'danger')
             return render_template('register.html')
 
-        # Unique phone check
         if phone and db.execute("SELECT id FROM users WHERE phone=? AND phone!=''", (phone,)).fetchone():
             db.close()
             flash('That mobile number is already registered. Please use a different number.', 'danger')
             return render_template('register.html')
 
-        # Upline FBO ID lookup — find the user with that FBO ID
         upline_user = db.execute(
             "SELECT username FROM users WHERE fbo_id=?", (upline_fbo_id,)
         ).fetchone()
@@ -674,7 +661,7 @@ def register():
             db.close()
             flash(f'Upline FBO ID "{upline_fbo_id}" not found. Please ask your upline for their correct FBO ID.', 'danger')
             return render_template('register.html')
-        upline_name = upline_user['username']  # store username so network traversal works
+        upline_name = upline_user['username']
 
         db.execute(
             "INSERT INTO users (username, password, role, fbo_id, upline_name, phone, email, status) "
@@ -690,9 +677,9 @@ def register():
     return render_template('register.html')
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Login / Logout
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -735,7 +722,6 @@ def login():
                 return render_template('login.html')
 
             session.permanent = True
-
             session['username'] = user['username']
             session['role']     = user['role']
             session['dp']       = user['display_picture'] if user['display_picture'] else ''
@@ -749,9 +735,9 @@ def login():
     return render_template('login.html')
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Forgot / Reset Password
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
@@ -778,10 +764,8 @@ def forgot_password():
                 reset_url = url_for('reset_password', token=token, _external=True)
                 sent = _send_password_reset_email(user['email'], user['username'], reset_url)
                 if not sent:
-                    # SMTP not configured — show link directly (admin use)
                     flash(f'SMTP not configured. Reset link (share manually): {reset_url}', 'warning')
             db.close()
-        # Always show success to avoid email enumeration
         email_sent = True
 
     return render_template('forgot_password.html', email_sent=email_sent)
@@ -803,7 +787,6 @@ def reset_password(token):
         flash('This password reset link is invalid or has already been used.', 'danger')
         return redirect(url_for('login'))
 
-    # Check expiry
     expires_at = datetime.datetime.strptime(row['expires_at'], '%Y-%m-%d %H:%M:%S')
     if datetime.datetime.now() > expires_at:
         db.close()
@@ -843,9 +826,9 @@ def logout():
     return redirect(url_for('login'))
 
 
-# ─────────────────────────────────────────────
-#  Admin – Approvals
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Admin \u2013 Approvals
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/admin/approvals')
 @admin_required
@@ -874,7 +857,6 @@ def approve_user(user_id):
         db.execute("UPDATE users SET status='approved' WHERE id=?", (user_id,))
         db.commit()
         flash(f'"{user["username"]}" has been approved and can now log in.', 'success')
-        # Send welcome email in background thread (SMTP can take 3-10s, don't block worker)
         login_url = request.host_url.rstrip('/') + url_for('login')
         threading.Thread(target=_send_welcome_email,
                          args=(user['email'], user['username'], login_url),
@@ -896,9 +878,9 @@ def reject_user(user_id):
     return redirect(url_for('admin_approvals', filter=request.form.get('current_filter', 'all')))
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  PWA support routes
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/sw.js')
 def service_worker():
@@ -917,9 +899,9 @@ def pwa_manifest():
     }
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Root redirect
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/')
 @login_required
@@ -929,9 +911,9 @@ def index():
     return redirect(url_for('team_dashboard'))
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Admin Dashboard
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/admin')
 @admin_required
@@ -943,7 +925,6 @@ def admin_dashboard():
         "SELECT * FROM leads WHERE in_pool=0 ORDER BY created_at DESC LIMIT 5"
     ).fetchall()
 
-    # Single query instead of 7 (one per status)
     _sc = db.execute(
         "SELECT status, COUNT(*) as c FROM leads WHERE in_pool=0 AND deleted_at='' GROUP BY status"
     ).fetchall()
@@ -963,7 +944,6 @@ def admin_dashboard():
     """).fetchall()
 
     members = db.execute("SELECT * FROM team_members ORDER BY name").fetchall()
-    # Single GROUP BY query instead of N per-member queries
     _stats_rows = db.execute("""
         SELECT assigned_to,
             COUNT(*) as total,
@@ -994,7 +974,6 @@ def admin_dashboard():
     missing_reports = [u['username'] for u in approved_team
                        if u['username'] not in submitted_set]
 
-    # Single query instead of one per reporter
     _verif_rows = db.execute("""
         SELECT assigned_to, COUNT(*) as cnt FROM leads
         WHERE payment_done=1 AND date(updated_at)=? AND in_pool=0
@@ -1002,12 +981,10 @@ def admin_dashboard():
     """, (today,)).fetchall()
     report_verification = {r['assigned_to']: r['cnt'] for r in _verif_rows}
 
-    # Wallet pending count (also in context processor but useful for template)
     wallet_pending_count = db.execute(
         "SELECT COUNT(*) FROM wallet_recharges WHERE status='pending'"
     ).fetchone()[0]
 
-    # Pool summary for admin dashboard
     pool_count = db.execute("SELECT COUNT(*) FROM leads WHERE in_pool=1").fetchone()[0]
 
     db.close()
@@ -1029,9 +1006,9 @@ def admin_dashboard():
     return resp
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Team Dashboard  (scoped to logged-in user)
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/dashboard')
 @login_required
@@ -1046,7 +1023,6 @@ def team_dashboard():
         (username,)
     ).fetchall()
 
-    # Single query instead of 7
     _sc = db.execute(
         "SELECT status, COUNT(*) as c FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' GROUP BY status",
         (username,)
@@ -1085,7 +1061,6 @@ def team_dashboard():
     zoom_title = _get_setting(db, 'zoom_title', "Today's Live Session")
     zoom_time  = _get_setting(db, 'zoom_time', '2:00 PM')
 
-    # Daily earnings (₹196 payments done today)
     today_paid = db.execute("""
         SELECT COUNT(*) FROM leads
         WHERE assigned_to=? AND payment_done=1 AND in_pool=0
@@ -1093,7 +1068,6 @@ def team_dashboard():
     """, (username, today)).fetchone()[0] or 0
     today_earnings = today_paid * PAYMENT_AMOUNT
 
-    # Follow-up reminders (due today or overdue)
     followups = db.execute("""
         SELECT id, name, phone, follow_up_date FROM leads
         WHERE assigned_to=? AND in_pool=0
@@ -1103,7 +1077,6 @@ def team_dashboard():
         ORDER BY follow_up_date ASC LIMIT 10
     """, (username, today)).fetchall()
 
-    # Announcements (pinned first, latest 5)
     notices = db.execute(
         "SELECT * FROM announcements ORDER BY pin DESC, created_at DESC LIMIT 5"
     ).fetchall()
@@ -1137,9 +1110,9 @@ def team_dashboard():
     return resp
 
 
-# ─────────────────────────────────────────────
-#  Leads – List
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Leads \u2013 List
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/leads')
 @login_required
@@ -1176,9 +1149,9 @@ def leads():
                            team=team)
 
 
-# ─────────────────────────────────────────────
-#  Leads – Add
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Leads \u2013 Add
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/leads/add', methods=['GET', 'POST'])
 @login_required
@@ -1216,7 +1189,6 @@ def add_lead():
                                    statuses=STATUSES, sources=SOURCES, team=team,
                                    call_result_tags=CALL_RESULT_TAGS)
 
-        # Req 8: Phone duplicate check
         dup = db.execute(
             "SELECT name FROM leads WHERE phone=? AND in_pool=0 AND deleted_at=''", (phone,)
         ).fetchone()
@@ -1250,9 +1222,9 @@ def add_lead():
                            call_result_tags=CALL_RESULT_TAGS)
 
 
-# ─────────────────────────────────────────────
-#  Leads – Edit / Update
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Leads \u2013 Edit / Update
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/leads/<int:lead_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -1304,7 +1276,6 @@ def edit_lead(lead_id):
                                    lead_notes=lead_notes_rows,
                                    call_result_tags=CALL_RESULT_TAGS)
 
-        # Req 8: Phone duplicate check (exclude current lead)
         dup = db.execute(
             "SELECT name FROM leads WHERE phone=? AND id!=? AND in_pool=0 AND deleted_at=''",
             (phone, lead_id)
@@ -1361,9 +1332,9 @@ def edit_lead(lead_id):
                            call_result_tags=CALL_RESULT_TAGS)
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Retarget List
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/retarget')
 @login_required
@@ -1386,9 +1357,9 @@ def retarget():
                            statuses=STATUSES)
 
 
-# ─────────────────────────────────────────────
-#  Leads – Quick status toggle
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Leads \u2013 Quick status toggle
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/leads/<int:lead_id>/status', methods=['POST'])
 @login_required
@@ -1430,9 +1401,9 @@ def update_status(lead_id):
     return redirect(request.referrer or url_for('leads'))
 
 
-# ─────────────────────────────────────────────
-#  Leads – Quick call-result update (AJAX)
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Leads \u2013 Quick call-result update (AJAX)
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/leads/<int:lead_id>/call-result', methods=['POST'])
 @login_required
@@ -1458,9 +1429,9 @@ def update_call_result(lead_id):
     return {'ok': True, 'call_result': tag}
 
 
-# ─────────────────────────────────────────────
-#  Leads – Delete
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Leads \u2013 Delete
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/leads/<int:lead_id>/delete', methods=['POST'])
 @login_required
@@ -1549,9 +1520,9 @@ def permanent_delete_lead(lead_id):
     return redirect(url_for('recycle_bin'))
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Team  (Admin only)
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/team')
 @admin_required
@@ -1610,9 +1581,9 @@ def delete_team_member(member_id):
     return redirect(url_for('team'))
 
 
-# ─────────────────────────────────────────────
-#  Daily Reports – Submit (team member)
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Daily Reports \u2013 Submit (team member)
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/reports/submit', methods=['GET', 'POST'])
 @login_required
@@ -1682,9 +1653,9 @@ def report_submit():
                            username=username)
 
 
-# ─────────────────────────────────────────────
-#  Daily Reports – Admin View
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Daily Reports \u2013 Admin View
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/reports')
 @admin_required
@@ -1755,9 +1726,9 @@ def reports_admin():
                            today=today)
 
 
-# ─────────────────────────────────────────────
-#  Admin – Settings
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Admin \u2013 Settings
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/admin/settings', methods=['GET', 'POST'])
 @admin_required
@@ -1772,10 +1743,9 @@ def admin_settings():
         smtp_port       = request.form.get('smtp_port', '587').strip()
         smtp_user       = request.form.get('smtp_user', '').strip()
         smtp_from_name  = request.form.get('smtp_from_name', 'Myle Community').strip()
-        # Only update password if provided (don't overwrite with blank)
         smtp_password   = request.form.get('smtp_password', '').strip()
 
-        _qr_cache.clear()   # invalidate QR cache when UPI ID may change
+        _qr_cache.clear()
         _set_setting(db, 'upi_id', upi_id)
         _set_setting(db, 'default_lead_price', lead_price)
         _set_setting(db, 'meta_webhook_token', webhook_token)
@@ -1819,9 +1789,9 @@ def admin_upi_qr_preview():
     return Response(img_bytes, mimetype='image/png')
 
 
-# ─────────────────────────────────────────────
-#  Admin – Lead Pool Management
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Admin \u2013 Lead Pool Management
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/admin/lead-pool')
 @admin_required
@@ -1876,13 +1846,12 @@ def import_lead_pool_csv():
     try:
         content = f.read().decode('utf-8-sig', errors='replace')
         reader  = csv.DictReader(io.StringIO(content))
-        rows_list = list(reader)  # read all at once; raises if malformed
+        rows_list = list(reader)
     except Exception as e:
         flash(f'Could not parse CSV: {e}', 'danger')
         db.close()
         return redirect(url_for('admin_lead_pool'))
 
-    # Pre-fetch all existing pool phones → O(1) duplicate lookup per row
     existing_phones = {
         r[0] for r in db.execute(
             "SELECT phone FROM leads WHERE in_pool=1"
@@ -1893,9 +1862,6 @@ def import_lead_pool_csv():
     skipped  = 0
 
     for row in rows_list:
-        # Support common Meta Lead Ads export column names
-        # Also handles user's custom Meta form: Submit Time, Full Name, Age, Gender,
-        # Phone Number (Calling Number), Your City Name, Ad Name
         name  = (row.get('Full Name') or row.get('full_name') or
                  row.get('name') or row.get('Name') or '').strip()
         phone = (row.get('Phone Number (Calling Number)') or
@@ -1904,7 +1870,6 @@ def import_lead_pool_csv():
         email = (row.get('email') or row.get('Email') or
                  row.get('email_address') or '').strip()
 
-        # Extra Meta fields stored in notes
         age         = (row.get('Age') or row.get('age') or '').strip()
         gender      = (row.get('Gender') or row.get('gender') or '').strip()
         city        = (row.get('Your City Name') or row.get('city') or
@@ -1912,10 +1877,8 @@ def import_lead_pool_csv():
         ad_name     = (row.get('Ad Name') or row.get('ad_name') or '').strip()
         submit_time = (row.get('Submit Time') or row.get('submit_time') or '').strip()
 
-        # Build source from Ad Name if available
         lead_source = ad_name if ad_name else source_tag
 
-        # Build notes string from extra fields (city now in its own column)
         extra_parts = []
         if age:         extra_parts.append(f'Age: {age}')
         if gender:      extra_parts.append(f'Gender: {gender}')
@@ -1925,17 +1888,14 @@ def import_lead_pool_csv():
         if not name and not phone:
             skipped += 1
             continue
-
         if not name:
             name = phone
         if not phone:
             phone = 'N/A'
-
-        # Skip duplicates already in pool (set lookup, no extra query)
         if phone in existing_phones:
             skipped += 1
             continue
-        existing_phones.add(phone)  # prevent intra-file duplicates too
+        existing_phones.add(phone)
 
         db.execute("""
             INSERT INTO leads
@@ -1994,7 +1954,6 @@ def import_lead_pool_pdf():
             name = phone
         if not phone:
             phone = 'N/A'
-
         if phone in existing_phones:
             skipped += 1
             continue
@@ -2053,9 +2012,9 @@ def remove_from_pool(lead_id):
     return redirect(url_for('admin_lead_pool'))
 
 
-# ─────────────────────────────────────────────
-#  Admin – Wallet Recharge Requests
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Admin \u2013 Wallet Recharge Requests
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/admin/wallet-requests')
 @admin_required
@@ -2100,15 +2059,14 @@ def approve_recharge(req_id):
             (req_id,)
         )
         db.commit()
-        flash(f'Recharge of ₹{recharge["amount"]:.0f} for @{recharge["username"]} approved!', 'success')
-        # Push in background (external HTTP call, don't block the worker)
+        flash(f'Recharge of \u20b9{recharge["amount"]:.0f} for @{recharge["username"]} approved!', 'success')
         _username = recharge['username']
         _amount   = recharge['amount']
         def _bg_push_recharge(u, amt):
             _db = get_db()
             try:
-                _push_to_users(_db, u, '✅ Wallet Recharged!',
-                               f'₹{amt:.0f} has been added to your wallet.',
+                _push_to_users(_db, u, '\u2705 Wallet Recharged!',
+                               f'\u20b9{amt:.0f} has been added to your wallet.',
                                '/wallet')
             finally:
                 _db.close()
@@ -2137,9 +2095,43 @@ def reject_recharge(req_id):
     return redirect(url_for('admin_wallet_requests', status='pending'))
 
 
-# ─────────────────────────────────────────────
-#  Team – Wallet
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Admin \u2013 Manual Wallet Adjustment
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+@app.route('/admin/members/<username>/wallet-adjust', methods=['POST'])
+@admin_required
+def admin_wallet_adjust(username):
+    amount = request.form.get('amount', '').strip()
+    note   = request.form.get('note', '').strip() or 'Manual adjustment by admin'
+    try:
+        amount = float(amount)
+        if amount == 0:
+            flash('Amount cannot be zero.', 'warning')
+            return redirect(url_for('member_detail', username=username))
+    except ValueError:
+        flash('Invalid amount.', 'danger')
+        return redirect(url_for('member_detail', username=username))
+
+    db = get_db()
+    db.execute(
+        "INSERT INTO wallet_recharges (username, amount, utr_number, status, "
+        "requested_at, processed_at, admin_note) "
+        "VALUES (?, ?, 'ADMIN-ADJUST', 'approved', "
+        "datetime('now','localtime'), datetime('now','localtime'), ?)",
+        (username, amount, note)
+    )
+    db.commit()
+    db.close()
+
+    action = 'credited to' if amount > 0 else 'debited from'
+    flash(f'\u20b9{abs(amount):.0f} {action} @{username}\'s wallet. Note: {note}', 'success')
+    return redirect(url_for('member_detail', username=username))
+
+
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Team \u2013 Wallet
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/wallet')
 @login_required
@@ -2217,14 +2209,14 @@ def request_recharge():
     )
     db.commit()
     db.close()
-    flash(f'Recharge request of ₹{amount:.0f} submitted! UTR: {utr}. '
+    flash(f'Recharge request of \u20b9{amount:.0f} submitted! UTR: {utr}. '
           f'Admin will credit your wallet within 24 hours.', 'success')
     return redirect(url_for('wallet'))
 
 
-# ─────────────────────────────────────────────
-#  Team – Lead Pool (Claim Leads)
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Team \u2013 Lead Pool (Claim Leads)
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/lead-pool')
 @login_required
@@ -2249,7 +2241,7 @@ def lead_pool():
     elif avg_price > 0:
         can_claim = min(int(wallet_stats['balance'] / avg_price), pool_count)
     else:
-        can_claim = pool_count  # free leads — can claim all available
+        can_claim = pool_count
 
     my_claims = db.execute(
         "SELECT COUNT(*) FROM leads WHERE assigned_to=? AND claimed_at!=''",
@@ -2273,7 +2265,6 @@ def lead_pool():
 def set_calling_reminder():
     """Team member sets their personal calling reminder time (HH:MM or blank to clear)."""
     time_val = request.form.get('reminder_time', '').strip()
-    # Validate HH:MM or empty
     import re
     if time_val and not re.match(r'^\d{2}:\d{2}$', time_val):
         flash('Invalid time format.', 'danger')
@@ -2305,8 +2296,6 @@ def claim_leads():
         count = 1
 
     try:
-        # BEGIN IMMEDIATE locks the DB so no other writer can proceed concurrently,
-        # preventing two users from claiming the same leads or over-spending wallet.
         db.execute("BEGIN IMMEDIATE")
 
         wallet_stats = _get_wallet(db, username)
@@ -2327,7 +2316,7 @@ def claim_leads():
         if total_cost > wallet_stats['balance']:
             db.execute("ROLLBACK")
             db.close()
-            flash(f'Insufficient balance! Need ₹{total_cost:.0f} but you have ₹{wallet_stats["balance"]:.0f}. '
+            flash(f'Insufficient balance! Need \u20b9{total_cost:.0f} but you have \u20b9{wallet_stats["balance"]:.0f}. '
                   f'Please recharge your wallet.', 'danger')
             return redirect(url_for('lead_pool'))
 
@@ -2341,7 +2330,7 @@ def claim_leads():
 
         db.commit()
         db.close()
-        flash(f'Successfully claimed {len(available)} leads for ₹{total_cost:.0f}! '
+        flash(f'Successfully claimed {len(available)} leads for \u20b9{total_cost:.0f}! '
               f'Check "My Leads" to view them.', 'success')
         return redirect(url_for('leads'))
 
@@ -2355,9 +2344,9 @@ def claim_leads():
         return redirect(url_for('lead_pool'))
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Meta Webhook
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/meta/webhook', methods=['GET'])
 def meta_webhook_verify():
@@ -2380,7 +2369,6 @@ def meta_webhook_receive():
     """Receive Meta Lead Ads leads via webhook."""
     db = get_db()
 
-    # Verify X-Hub-Signature-256 if app_secret is configured
     app_secret = _get_setting(db, 'meta_app_secret', '')
     if app_secret:
         sig_header = request.headers.get('X-Hub-Signature-256', '')
@@ -2439,16 +2427,16 @@ def meta_webhook_receive():
                       f'meta_id:{leadgen_id}' if leadgen_id else ''))
                 imported += 1
             except Exception:
-                continue  # skip malformed entries; never crash the webhook
+                continue
 
     db.commit()
     db.close()
     return 'OK', 200
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Change Password
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/change-password', methods=['GET', 'POST'])
 @login_required
@@ -2495,9 +2483,9 @@ def change_password():
     return render_template('change_password.html')
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Profile (with display picture)
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required
@@ -2520,7 +2508,6 @@ def profile():
                     if len(img_data) > 2 * 1024 * 1024:
                         flash('Image too large. Max 2 MB.', 'danger')
                     else:
-                        # Resize to 200×200 using Pillow if available
                         try:
                             from PIL import Image
                             import io as _io
@@ -2565,9 +2552,9 @@ def profile():
     return render_template('profile.html', user=user)
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  CSV Export
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/leads/export')
 @login_required
@@ -2603,21 +2590,17 @@ def export_leads():
                     headers={'Content-Disposition': f'attachment; filename={fname}'})
 
 
-# ─────────────────────────────────────────────
-#  Leads – Bulk Import (CSV / PDF)
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Leads \u2013 Bulk Import (CSV / PDF)
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/leads/import', methods=['POST'])
 @login_required
 def import_leads():
-    """
-    Bulk import leads from CSV or PDF into the current user's leads.
-    Admins can optionally assign to another user via form field 'assigned_to'.
-    """
     db          = get_db()
     username    = session['username']
     is_admin    = session.get('role') == 'admin'
-    file_type   = request.form.get('import_type', 'csv')  # 'csv' or 'pdf'
+    file_type   = request.form.get('import_type', 'csv')
     source_tag  = request.form.get('source_tag', 'Import').strip() or 'Import'
 
     if is_admin:
@@ -2626,7 +2609,6 @@ def import_leads():
         assigned_to = username
 
     rows_list = []
-    err       = None
 
     if file_type == 'pdf':
         f = request.files.get('import_file')
@@ -2677,7 +2659,6 @@ def import_leads():
             rows_list.append({'name': name, 'phone': phone,
                               'email': email, 'city': city, 'source': src})
 
-    # Pre-fetch existing phones (non-pool, non-deleted) for dedup
     existing_phones = {
         r[0] for r in db.execute(
             "SELECT phone FROM leads WHERE in_pool=0 AND deleted_at=''"
@@ -2699,7 +2680,6 @@ def import_leads():
             name = phone
         if not phone:
             phone = 'N/A'
-
         if phone in existing_phones:
             skipped += 1
             continue
@@ -2719,9 +2699,9 @@ def import_leads():
     return redirect(url_for('leads'))
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Announcements (Notice Board)
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/announcements', methods=['GET'])
 @login_required
@@ -2748,9 +2728,8 @@ def post_announcement():
         (msg, session['username'], pin)
     )
     db.commit()
-    # Push to all team members
-    preview = msg[:80] + ('…' if len(msg) > 80 else '')
-    _push_all_team(db, '📢 New Announcement', preview, url_for('announcements'))
+    preview = msg[:80] + ('\u2026' if len(msg) > 80 else '')
+    _push_all_team(db, '\U0001f4e2 New Announcement', preview, url_for('announcements'))
     db.close()
     flash('Announcement posted!', 'success')
     return redirect(url_for('announcements'))
@@ -2780,9 +2759,9 @@ def toggle_pin(ann_id):
     return redirect(url_for('announcements'))
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Leaderboard
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/leaderboard')
 @login_required
@@ -2809,10 +2788,8 @@ def leaderboard():
     """
 
     if session.get('role') == 'admin':
-        # Admin sees the full leaderboard
         rows = db.execute(LEADER_SQL.format(extra='')).fetchall()
     else:
-        # Non-admin: only show own network (self + all recursive downlines)
         network = _get_network_usernames(db, username)
         if network:
             placeholders = ','.join('?' for _ in network)
@@ -2828,9 +2805,9 @@ def leaderboard():
                            current_user=username)
 
 
-# ─────────────────────────────────────────────
-#  Admin – Reset any user's password
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Admin \u2013 Reset any user's password
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/admin/users/<int:user_id>/reset-password', methods=['POST'])
 @admin_required
@@ -2850,9 +2827,9 @@ def admin_reset_password(user_id):
     return redirect(url_for('admin_approvals'))
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Lead Notes / Timeline
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/leads/<int:lead_id>/notes', methods=['POST'])
 @login_required
@@ -2863,7 +2840,6 @@ def add_lead_note(lead_id):
         return redirect(url_for('edit_lead', lead_id=lead_id))
 
     db = get_db()
-    # Verify access
     if session.get('role') != 'admin':
         lead = db.execute(
             "SELECT id FROM leads WHERE id=? AND assigned_to=? AND in_pool=0",
@@ -2896,9 +2872,9 @@ def delete_lead_note(lead_id, note_id):
     return redirect(url_for('edit_lead', lead_id=lead_id))
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Bulk Actions on Leads
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/leads/bulk-action', methods=['POST'])
 @login_required
@@ -2909,11 +2885,9 @@ def bulk_action():
         flash('No leads selected.', 'warning')
         return redirect(url_for('leads'))
 
-    # Deduplicate — mobile + desktop both render checkboxes in DOM
     lead_ids = list(set(int(i) for i in lead_ids if i.isdigit()))
     db       = get_db()
 
-    # Build safe WHERE clause limiting to user's own leads (unless admin)
     if session.get('role') == 'admin':
         placeholders = ','.join('?' for _ in lead_ids)
         where  = f"id IN ({placeholders}) AND in_pool=0"
@@ -2948,15 +2922,15 @@ def bulk_action():
             [PAYMENT_AMOUNT] + params
         )
         db.commit()
-        flash(f'Marked {len(lead_ids)} leads as paid (₹{PAYMENT_AMOUNT:.0f} each).', 'success')
+        flash(f'Marked {len(lead_ids)} leads as paid (\u20b9{PAYMENT_AMOUNT:.0f} each).', 'success')
 
     db.close()
     return redirect(url_for('leads'))
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Push Notification API
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/push/vapid-key')
 @login_required
@@ -2995,15 +2969,11 @@ def push_subscribe():
     return {'ok': True}
 
 
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Scheduled Reminder Jobs
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 def _reminder_lock(db, key):
-    """
-    Atomic lock using INSERT OR IGNORE. Returns True if this process
-    is the first to claim the lock for today (safe across gunicorn workers).
-    """
     today = datetime.date.today().isoformat()
     lock_key = f'{key}_{today}'
     cur = db.execute(
@@ -3011,7 +2981,7 @@ def _reminder_lock(db, key):
         (lock_key,)
     )
     db.commit()
-    return cur.rowcount == 1  # True = we won the lock
+    return cur.rowcount == 1
 
 
 def job_followup_reminders():
@@ -3034,7 +3004,7 @@ def job_followup_reminders():
         for row in rows:
             cnt = row['cnt']
             _push_to_users(db, row['assigned_to'],
-                           '📅 Follow-up Reminder',
+                           '\U0001f4c5 Follow-up Reminder',
                            f'{cnt} lead{"s" if cnt > 1 else ""} due for follow-up today!',
                            '/dashboard')
         db.commit()
@@ -3064,7 +3034,7 @@ def job_calling_reminder():
             db.commit()
             if cur.rowcount == 1:
                 _push_to_users(db, u['username'],
-                               '📞 Calling Reminder',
+                               '\U0001f4de Calling Reminder',
                                'Time to start your calls! Don\'t forget your daily report.',
                                '/reports/submit')
                 db.commit()
@@ -3072,15 +3042,15 @@ def job_calling_reminder():
         db.close()
 
 
-# ─────────────────────────────────────────────
-#  Boot – runs on every startup
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Boot \u2013 runs on every startup
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 init_db()
 migrate_db()
 seed_users()
 
-# Start scheduler — guard against Flask reloader double-start
+# Start scheduler \u2014 guard against Flask reloader double-start
 if SCHEDULER_AVAILABLE and not os.environ.get('SCHEDULER_STARTED'):
     os.environ['SCHEDULER_STARTED'] = '1'
     _scheduler = BackgroundScheduler(timezone='Asia/Kolkata')
@@ -3091,9 +3061,10 @@ if SCHEDULER_AVAILABLE and not os.environ.get('SCHEDULER_STARTED'):
     _scheduler.start()
     atexit.register(lambda: _scheduler.shutdown(wait=False))
 
-# ─────────────────────────────────────────────
+
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Live Session
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/live-session')
 @login_required
@@ -3130,9 +3101,9 @@ def admin_live_session():
                            zoom_link=link, zoom_title=title, zoom_time=time_)
 
 
-# ─────────────────────────────────────────────
-#  Admin – All Members List + Individual Activity
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Admin \u2013 All Members List + Individual Activity
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/admin/members')
 @admin_required
@@ -3142,7 +3113,6 @@ def admin_members():
         "SELECT * FROM users WHERE role='team' ORDER BY status, created_at DESC"
     ).fetchall()
 
-    # Quick stats per member in one query
     _rows = db.execute("""
         SELECT assigned_to,
             COUNT(*) as total_leads,
@@ -3153,7 +3123,6 @@ def admin_members():
     """).fetchall()
     stats_map = {r['assigned_to']: r for r in _rows}
 
-    # Report count per member
     _rep_rows = db.execute(
         "SELECT username, COUNT(*) as report_count FROM daily_reports GROUP BY username"
     ).fetchall()
@@ -3189,7 +3158,6 @@ def member_detail(username):
         (username,)
     ).fetchall()
 
-    # Status breakdown
     _sc = db.execute(
         "SELECT status, COUNT(*) as c FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' GROUP BY status",
         (username,)
@@ -3199,7 +3167,6 @@ def member_detail(username):
         if row['status'] in status_data:
             status_data[row['status']] = row['c']
 
-    # Downline
     downlines = db.execute(
         "SELECT username, status FROM users WHERE upline_name=? ORDER BY username",
         (username,)
@@ -3218,11 +3185,9 @@ def member_detail(username):
                            payment_amount=PAYMENT_AMOUNT)
 
 
-
-
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Drill-Down Analytics
-# ─────────────────────────────────────────────
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route('/drill-down/<metric>')
 @login_required
@@ -3234,7 +3199,6 @@ def drilldown(metric):
         db.close()
         return redirect(url_for('admin_dashboard' if is_admin else 'team_dashboard'))
 
-    # Scope: admin sees all, team sees self + downline
     if is_admin:
         network = None
     else:
@@ -3242,7 +3206,7 @@ def drilldown(metric):
 
     fmt = request.args.get('format', '')
 
-    # ── Lead metrics ─────────────────────────────────
+    # \u2500\u2500 Lead metrics \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
     if metric in DRILL_LEAD_METRICS:
         label, icon, color, condition = DRILL_LEAD_METRICS[metric]
 
@@ -3297,10 +3261,10 @@ def drilldown(metric):
                                breakdown=breakdown, trend=trend,
                                is_report=False, is_admin=is_admin)
 
-    # ── Report metrics ────────────────────────────────
+    # \u2500\u2500 Report metrics \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
     else:
         label, icon, color = DRILL_REPORT_METRICS[metric]
-        col = metric  # column name in daily_reports table
+        col = metric
 
         if network is not None:
             ph = ','.join('?' * len(network))
