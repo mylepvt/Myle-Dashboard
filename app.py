@@ -92,11 +92,30 @@ PAYMENT_AMOUNT = 196.0
 #  Auth Decorators
 # ─────────────────────────────────────────────
 
+def _check_session_valid():
+    """Return True if the current session user is still active/approved in the DB."""
+    username = session.get('username')
+    if not username:
+        return False
+    db = get_db()
+    row = db.execute(
+        "SELECT status FROM users WHERE username=?", (username,)
+    ).fetchone()
+    db.close()
+    if not row or row['status'] != 'approved':
+        session.clear()
+        return False
+    return True
+
+
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if 'username' not in session:
             flash('Please log in to continue.', 'warning')
+            return redirect(url_for('login'))
+        if not _check_session_valid():
+            flash('Your account is no longer active. Please contact an admin.', 'danger')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated
@@ -107,6 +126,9 @@ def admin_required(f):
     def decorated(*args, **kwargs):
         if 'username' not in session:
             flash('Please log in to continue.', 'warning')
+            return redirect(url_for('login'))
+        if not _check_session_valid():
+            flash('Your account is no longer active. Please contact an admin.', 'danger')
             return redirect(url_for('login'))
         if session.get('role') != 'admin':
             flash('Admin access required.', 'danger')
