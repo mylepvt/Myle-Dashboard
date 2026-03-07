@@ -239,13 +239,13 @@
     <div class="card kpi-card border-0 shadow-sm h-100 position-relative">
       <div class="card-body">
         <div class="d-flex align-items-center mb-2">
-          <div class="kpi-icon me-3" style="background:#ede9fe;color:#7c3aed;">
-            <i class="bi bi-shield-check-fill"></i>
+          <div class="kpi-icon bg-purple-subtle text-purple me-3">
+            <i class="bi bi-shield-fill"></i>
           </div>
           <span class="text-muted small">Seat Hold</span>
           <i class="bi bi-chevron-right ms-auto text-muted opacity-50 small"></i>
         </div>
-        <h3 class="fw-bold mb-0" style="color:#7c3aed;">{{ metrics.seat_hold }}</h3>
+        <h3 class="fw-bold mb-0 text-purple">{{ metrics.seat_hold }}</h3>
         <div class="label-xs text-muted mt-1">₹{{ "%.0f"|format(metrics.seat_rev or 0) }} collected</div>
         <a href="{{ url_for('drilldown', metric='seat_hold') }}" class="stretched-link"></a>
       </div>
@@ -256,14 +256,14 @@
     <div class="card kpi-card border-0 shadow-sm h-100 position-relative">
       <div class="card-body">
         <div class="d-flex align-items-center mb-2">
-          <div class="kpi-icon me-3" style="background:#dcfce7;color:#15803d;">
+          <div class="kpi-icon bg-success-subtle text-success me-3">
             <i class="bi bi-trophy-fill"></i>
           </div>
-          <span class="text-muted small">Fully Converted</span>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50 small"></i>
+          <span class="text-muted small text-truncate">Fully Conv.</span>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50 small flex-shrink-0"></i>
         </div>
-        <h3 class="fw-bold mb-0" style="color:#15803d;">{{ metrics.fully_conv }}</h3>
-        <div class="label-xs text-muted mt-1">₹{{ "%.0f"|format(metrics.final_rev or 0) }} total track rev</div>
+        <h3 class="fw-bold mb-0 text-success">{{ metrics.fully_conv }}</h3>
+        <div class="label-xs text-muted mt-1">₹{{ "%.0f"|format(metrics.final_rev or 0) }} track rev</div>
         <a href="{{ url_for('drilldown', metric='fully_converted') }}" class="stretched-link"></a>
       </div>
     </div>

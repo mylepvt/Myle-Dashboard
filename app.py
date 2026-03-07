@@ -3365,14 +3365,19 @@ def admin_activity():
         params + [per_pg, offset]
     ).fetchall()
 
-    # Last seen per team member
+    # Last seen per team member — all approved team members, even those without activity
     last_seen_rows = db.execute("""
-        SELECT a.username, MAX(a.created_at) as last_at, u.status
-        FROM activity_log a
-        LEFT JOIN users u ON u.username = a.username
-        WHERE u.role = 'team' OR u.role IS NULL
-        GROUP BY a.username
-        ORDER BY last_at DESC
+        SELECT u.username, u.display_picture,
+               a.event_type, a.created_at
+        FROM users u
+        LEFT JOIN activity_log a
+            ON a.username = u.username
+            AND a.created_at = (
+                SELECT MAX(a2.created_at) FROM activity_log a2
+                WHERE a2.username = u.username
+            )
+        WHERE u.role = 'team' AND u.status = 'approved'
+        ORDER BY a.created_at DESC
     """).fetchall()
 
     team_members = db.execute(
