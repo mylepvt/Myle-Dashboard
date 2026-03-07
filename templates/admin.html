@@ -7,7 +7,7 @@
 
 <!-- ── Pending Approvals Alert ───────────────────────────── -->
 {% if pending_users %}
-<div class="card border-0 shadow-sm mb-4" style="border-left: 4px solid #ffc107 !important;">
+<div class="card border-0 shadow-sm mb-4 card-accent-warning">
   <div class="card-header bg-warning-subtle d-flex justify-content-between align-items-center">
     <h6 class="mb-0 text-warning-emphasis">
       <i class="bi bi-hourglass-split me-2"></i>
@@ -69,8 +69,8 @@
 {% endif %}
 
 <!-- ── Today's Reports Widget ────────────────────────────── -->
-<div class="card border-0 shadow-sm mb-4" style="border-left: 4px solid #0d6efd !important;">
-  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+<div class="card border-0 shadow-sm mb-4 card-accent-primary">
+  <div class="card-header d-flex justify-content-between align-items-center">
     <h6 class="mb-0">
       <i class="bi bi-clipboard2-data-fill me-2 text-primary"></i>
       Today's Daily Reports
@@ -84,18 +84,6 @@
     </a>
   </div>
   <div class="card-body">
-    {% if missing_reports %}
-    <div class="mb-3">
-      <div class="small fw-semibold text-danger mb-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>Not submitted yet:</div>
-      <div class="d-flex flex-wrap gap-2">
-        {% for u in missing_reports %}
-        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2">
-          <i class="bi bi-person-fill me-1"></i>{{ u }}
-        </span>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
     {% if today_reports %}
     <div class="small fw-semibold text-success mb-2"><i class="bi bi-check-circle-fill me-1"></i>Submitted today:</div>
     <div class="table-responsive">
@@ -110,10 +98,17 @@
               <a href="{{ url_for('drilldown', metric='pdf_covered') }}" class="text-decoration-none text-dark">PDF</a>
             </th>
             <th class="text-center">
-              <a href="{{ url_for('drilldown', metric='enrollments_done') }}" class="text-decoration-none text-dark">Enrolled</a><br>
-              <small class="fw-normal text-muted">Reported</small>
+              <div class="d-flex flex-column gap-0 align-items-center">
+                <a href="{{ url_for('drilldown', metric='enrollments_done') }}" class="text-decoration-none text-dark">Enrolled</a>
+                <span class="text-muted fw-normal label-xs">Reported</span>
+              </div>
             </th>
-            <th class="text-center">₹196 Actual<br><small class="fw-normal text-muted">In System</small></th>
+            <th class="text-center">
+              <div class="d-flex flex-column gap-0 align-items-center">
+                <span>₹196 Actual</span>
+                <span class="text-muted fw-normal label-xs">In System</span>
+              </div>
+            </th>
             <th class="text-center">
               <a href="{{ url_for('drilldown', metric='plan_2cc') }}" class="text-decoration-none text-dark">2CC</a>
             </th>
@@ -170,7 +165,7 @@
 <div class="row g-3 mb-4">
 
   <div class="col-6 col-md-3">
-    <div class="card kpi-card border-0 shadow-sm h-100 position-relative" style="cursor:pointer;">
+    <div class="card kpi-card border-0 shadow-sm h-100 position-relative">
       <div class="card-body">
         <div class="d-flex align-items-center mb-2">
           <div class="kpi-icon bg-primary-subtle text-primary me-3">
@@ -186,7 +181,7 @@
   </div>
 
   <div class="col-6 col-md-3">
-    <div class="card kpi-card border-0 shadow-sm h-100 position-relative" style="cursor:pointer;">
+    <div class="card kpi-card border-0 shadow-sm h-100 position-relative">
       <div class="card-body">
         <div class="d-flex align-items-center mb-2">
           <div class="kpi-icon bg-success-subtle text-success me-3">
@@ -204,7 +199,7 @@
   </div>
 
   <div class="col-6 col-md-3">
-    <div class="card kpi-card border-0 shadow-sm h-100 position-relative" style="cursor:pointer;">
+    <div class="card kpi-card border-0 shadow-sm h-100 position-relative">
       <div class="card-body">
         <div class="d-flex align-items-center mb-2">
           <div class="kpi-icon bg-warning-subtle text-warning me-3">
@@ -220,7 +215,7 @@
   </div>
 
   <div class="col-6 col-md-3">
-    <div class="card kpi-card border-0 shadow-sm h-100 position-relative" style="cursor:pointer;">
+    <div class="card kpi-card border-0 shadow-sm h-100 position-relative">
       <div class="card-body">
         <div class="d-flex align-items-center mb-2">
           <div class="kpi-icon bg-info-subtle text-info me-3">
@@ -231,6 +226,45 @@
         </div>
         <h3 class="fw-bold mb-0">{{ metrics.paid }}</h3>
         <a href="{{ url_for('drilldown', metric='paid') }}" class="stretched-link"></a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Extended Funnel KPI Cards ────────────────────────── -->
+<div class="row g-3 mb-4">
+
+  <div class="col-6 col-md-3">
+    <div class="card kpi-card border-0 shadow-sm h-100 position-relative">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <div class="kpi-icon me-3" style="background:#ede9fe;color:#7c3aed;">
+            <i class="bi bi-shield-check-fill"></i>
+          </div>
+          <span class="text-muted small">Seat Hold</span>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50 small"></i>
+        </div>
+        <h3 class="fw-bold mb-0" style="color:#7c3aed;">{{ metrics.seat_hold }}</h3>
+        <div class="label-xs text-muted mt-1">₹{{ "%.0f"|format(metrics.seat_rev or 0) }} collected</div>
+        <a href="{{ url_for('drilldown', metric='seat_hold') }}" class="stretched-link"></a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="card kpi-card border-0 shadow-sm h-100 position-relative">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <div class="kpi-icon me-3" style="background:#dcfce7;color:#15803d;">
+            <i class="bi bi-trophy-fill"></i>
+          </div>
+          <span class="text-muted small">Fully Converted</span>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50 small"></i>
+        </div>
+        <h3 class="fw-bold mb-0" style="color:#15803d;">{{ metrics.fully_conv }}</h3>
+        <div class="label-xs text-muted mt-1">₹{{ "%.0f"|format(metrics.final_rev or 0) }} total track rev</div>
+        <a href="{{ url_for('drilldown', metric='fully_converted') }}" class="stretched-link"></a>
       </div>
     </div>
   </div>

@@ -46,12 +46,29 @@
         <div class="text-muted small">
           {{ row.total }} leads · {{ row.converted }} converted · {{ row.paid_pct or 0 }}% paid rate
         </div>
+        {% if (row.seat_holds or 0) > 0 or (row.fully_conv or 0) > 0 %}
+        <div class="label-xs mt-1">
+          {% if (row.seat_holds or 0) > 0 %}
+            <span class="badge" style="background:#7c3aed;font-size:0.58rem;">
+              <i class="bi bi-shield-check-fill me-1"></i>{{ row.seat_holds }} seat hold
+            </span>
+          {% endif %}
+          {% if (row.fully_conv or 0) > 0 %}
+            <span class="badge bg-success ms-1" style="font-size:0.58rem;">
+              <i class="bi bi-trophy-fill me-1"></i>{{ row.fully_conv }} fully converted
+            </span>
+          {% endif %}
+        </div>
+        {% endif %}
       </div>
 
       <!-- KPIs -->
       <div class="text-end d-none d-md-block">
         <div class="fw-bold text-success">₹{{ "%.0f"|format(row.revenue or 0) }}</div>
         <div class="text-muted small">{{ row.paid }} paid</div>
+        {% if (row.seat_rev or 0) > 0 %}
+        <div class="label-xs" style="color:#7c3aed;">₹{{ "%.0f"|format(row.seat_rev or 0) }} seat rev</div>
+        {% endif %}
       </div>
 
       <!-- Progress bar -->

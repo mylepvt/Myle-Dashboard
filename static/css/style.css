@@ -1,3 +1,18 @@
+/* ── Design Tokens ───────────────────────────────────────── */
+:root {
+  --radius-card:      12px;
+  --fs-label-xs:      0.65rem;   /* timestamps, footnotes        */
+  --fs-label-sm:      0.75rem;   /* sub-labels, badge text       */
+  --fs-label-md:      0.82rem;   /* table cells, card sub-text   */
+  --fs-section-title: 0.75rem;   /* card section headings        */
+  --progress-h-xs:    3px;
+  --progress-h-sm:    5px;
+  --progress-h-md:    8px;
+  --color-wa:         #25D366;
+  --color-wa-dark:    #1ea34b;
+  --shadow-card:      0 1px 4px rgba(0,0,0,0.07);
+}
+
 /* ── Layout ─────────────────────────────────────────────── */
 body {
   background: #f4f6fb;
@@ -136,7 +151,7 @@ body {
   justify-content: center;
   color: rgba(255,255,255,0.5);
   text-decoration: none;
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   gap: 2px;
   transition: color 0.15s ease, background 0.15s ease;
   position: relative;
@@ -189,13 +204,18 @@ body {
 
 /* ── KPI Cards ──────────────────────────────────────────── */
 .kpi-card {
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   transition: transform 0.18s ease, box-shadow 0.18s ease;
+  cursor: pointer;
 }
 
 .kpi-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
+}
+
+.kpi-card .card-body {
+  padding: 1rem;
 }
 
 .kpi-icon {
@@ -211,13 +231,108 @@ body {
 
 /* ── Rate / Computed Metric Cards ──────────────────────── */
 .rate-card {
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .rate-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
+}
+
+/* ── Typography Scale ───────────────────────────────────── */
+.label-xs  { font-size: var(--fs-label-xs) !important; }
+.label-sm  { font-size: var(--fs-label-sm) !important; }
+.label-md  { font-size: var(--fs-label-md) !important; }
+
+/* ── Card Section Title ─────────────────────────────────── */
+.card-section-title {
+  font-size: var(--fs-section-title);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6c757d;
+  margin-bottom: 0.5rem;
+}
+[data-theme="dark"] .card-section-title { color: #64748b; }
+
+/* ── Progress Height Modifiers ──────────────────────────── */
+.progress-xs { height: var(--progress-h-xs); }
+.progress-sm { height: var(--progress-h-sm); }
+.progress-md { height: var(--progress-h-md); }
+
+/* ── WhatsApp Buttons ───────────────────────────────────── */
+.btn-wa {
+  background: var(--color-wa);
+  color: #fff;
+  border-radius: 4px 0 0 4px;
+  line-height: 1.4;
+}
+.btn-wa:hover, .btn-wa:focus { background: #1ebe5d; color: #fff; }
+
+.btn-wa-split {
+  background: var(--color-wa-dark);
+  color: #fff;
+  border-radius: 0 4px 4px 0;
+  border-left: 1px solid rgba(255,255,255,0.3);
+  line-height: 1.4;
+}
+.btn-wa-split:hover, .btn-wa-split:focus { background: #178a3e; color: #fff; }
+
+/* ── Card Accent Borders ────────────────────────────────── */
+.card-accent-warning { border-left: 4px solid #ffc107; }
+.card-accent-primary { border-left: 4px solid #0d6efd; }
+.card-accent-success { border-left: 4px solid #198754; }
+.card-accent-danger  { border-left: 4px solid #dc3545; }
+
+/* ── Dark Gradient Hero Card ────────────────────────────── */
+.card-dark-hero {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+[data-theme="dark"] .card-dark-hero {
+  background: linear-gradient(135deg, #0f1117 0%, #1a1d27 100%);
+  border: 1px solid #2d3148 !important;
+}
+
+/* ── Stat Link (inline clickable stat) ──────────────────── */
+.stat-link {
+  border-radius: 6px;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  transition: background 0.15s ease;
+  display: inline-block;
+  text-decoration: none;
+  color: inherit;
+}
+.stat-link:hover { background: rgba(0,0,0,0.05); color: inherit; }
+[data-theme="dark"] .stat-link:hover { background: rgba(255,255,255,0.06); }
+
+/* ── Sidebar User Link Hover ────────────────────────────── */
+.sidebar-user-link {
+  transition: opacity 0.2s ease;
+}
+.sidebar-user-link:hover { opacity: 0.72; }
+
+/* ── Mobile Bottom Nav Badge (icon overlay) ─────────────── */
+.mbn-icon-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.mbn-badge-dot {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  background: #f59e0b;
+  color: #000;
+  font-size: 0.55rem;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 0 4px;
+  min-width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Purple utility tokens (Bootstrap 5.3 doesn't ship these) */
@@ -235,25 +350,33 @@ body {
 .badge.status-Paid₹196      { background: #059669; }
 .badge.status-Day1          { background: #ffc107; color: #000; }
 .badge.status-Day2          { background: #fd7e14; }
-.badge.status-Interview     { background: #6610f2; }
-.badge.status-Converted     { background: #198754; }
-.badge.status-Lost          { background: #dc3545; }
-.badge.status-Retarget      { background: #e65100; }
+.badge.status-Interview           { background: #6610f2; }
+.badge.status-MindsetLock         { background: #6366f1; }
+.badge.status-TrackSelected       { background: #0891b2; }
+.badge.status-SeatHoldConfirmed   { background: #7c3aed; }
+.badge.status-FullyConverted      { background: #15803d; }
+.badge.status-Converted           { background: #198754; }
+.badge.status-Lost                { background: #dc3545; }
+.badge.status-Retarget            { background: #e65100; }
 
 /* ── Status Dropdown Colors ─────────────────────────────── */
-.status-select.status-New           { border-color: #6c757d; }
-.status-select.status-NewLead       { border-color: #6c757d; }
-.status-select.status-Contacted     { border-color: #0dcaf0; }
-.status-select.status-Invited       { border-color: #7c3aed; background: #ede9fe; }
-.status-select.status-VideoSent     { border-color: #2563eb; background: #dbeafe; }
-.status-select.status-VideoWatched  { border-color: #0ea5e9; background: #e0f2fe; }
-.status-select.status-Paid₹196      { border-color: #059669; background: #d1fae5; }
-.status-select.status-Day1          { border-color: #ffc107; }
-.status-select.status-Day2          { border-color: #fd7e14; }
-.status-select.status-Interview     { border-color: #6610f2; }
-.status-select.status-Converted     { border-color: #198754; background: #d1e7dd; }
-.status-select.status-Lost          { border-color: #dc3545; background: #f8d7da; }
-.status-select.status-Retarget      { border-color: #e65100; background: #fff3e0; }
+.status-select.status-New                 { border-color: #6c757d; }
+.status-select.status-NewLead             { border-color: #6c757d; }
+.status-select.status-Contacted           { border-color: #0dcaf0; }
+.status-select.status-Invited             { border-color: #7c3aed; background: #ede9fe; }
+.status-select.status-VideoSent           { border-color: #2563eb; background: #dbeafe; }
+.status-select.status-VideoWatched        { border-color: #0ea5e9; background: #e0f2fe; }
+.status-select.status-Paid₹196            { border-color: #059669; background: #d1fae5; }
+.status-select.status-Day1                { border-color: #ffc107; }
+.status-select.status-Day2                { border-color: #fd7e14; }
+.status-select.status-Interview           { border-color: #6610f2; }
+.status-select.status-MindsetLock         { border-color: #6366f1; background: #eef2ff; }
+.status-select.status-TrackSelected       { border-color: #0891b2; background: #ecfeff; }
+.status-select.status-SeatHoldConfirmed   { border-color: #7c3aed; background: #ede9fe; }
+.status-select.status-FullyConverted      { border-color: #15803d; background: #dcfce7; }
+.status-select.status-Converted           { border-color: #198754; background: #d1e7dd; }
+.status-select.status-Lost                { border-color: #dc3545; background: #f8d7da; }
+.status-select.status-Retarget            { border-color: #e65100; background: #fff3e0; }
 
 /* ── Small Buttons ──────────────────────────────────────── */
 .btn-xs {
@@ -578,16 +701,17 @@ body {
 /* ── Bulk select checkbox ───────────────────────────────── */
 .lead-check { width: 16px; height: 16px; cursor: pointer; accent-color: #6366f1; }
 #bulkBar {
-  position: sticky;
+  position: fixed;
   bottom: 0;
-  z-index: 200;
+  left: 0;
+  right: 0;
+  z-index: 1049;
   background: #6366f1;
   color: #fff;
   padding: 10px 16px;
   border-radius: 12px 12px 0 0;
-  display: none;
   align-items: center;
   gap: 10px;
   box-shadow: 0 -4px 20px rgba(99,102,241,0.3);
+  /* display toggled exclusively via Bootstrap d-none / d-flex classes */
 }
-#bulkBar.show { display: flex; }

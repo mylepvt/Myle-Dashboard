@@ -88,16 +88,35 @@
                style="width:{{ ((s.interviews or 0)/(s.total or 1)*100)|int }}%"></div>
         </div>
         <div class="mb-1 d-flex justify-content-between small"><span>Paid (₹196)</span><strong>{{ s.paid or 0 }}</strong></div>
-        <div class="progress" style="height:6px;">
+        <div class="progress mb-2" style="height:6px;">
           <div class="progress-bar bg-success"
                style="width:{{ ((s.paid or 0)/(s.total or 1)*100)|int }}%"></div>
         </div>
+        <div class="mb-1 d-flex justify-content-between small">
+          <span style="color:#7c3aed;">Seat Hold</span>
+          <strong style="color:#7c3aed;">{{ s.seat_holds or 0 }}</strong>
+        </div>
+        <div class="progress mb-2" style="height:6px;">
+          <div class="progress-bar" style="background:#7c3aed;width:{{ ((s.seat_holds or 0)/(s.total or 1)*100)|int }}%"></div>
+        </div>
+        <div class="mb-1 d-flex justify-content-between small">
+          <span style="color:#15803d;">Fully Converted</span>
+          <strong style="color:#15803d;">{{ s.fully_conv or 0 }}</strong>
+        </div>
+        <div class="progress" style="height:6px;">
+          <div class="progress-bar" style="background:#15803d;width:{{ ((s.fully_conv or 0)/(s.total or 1)*100)|int }}%"></div>
+        </div>
 
         {% if s.total %}
-        <div class="mt-3 text-end">
+        <div class="mt-3 d-flex gap-1 flex-wrap justify-content-end">
           <span class="badge bg-primary">
             {{ ((s.converted or 0)/(s.total)*100)|round(1) }}% conversion
           </span>
+          {% if (s.fully_conv or 0) > 0 %}
+          <span class="badge" style="background:#15803d;">
+            <i class="bi bi-trophy-fill me-1"></i>{{ s.fully_conv }} fully converted
+          </span>
+          {% endif %}
         </div>
         {% endif %}
       </div>

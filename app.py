@@ -57,7 +57,16 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 
 STATUSES = ['New Lead', 'New', 'Contacted', 'Invited', 'Video Sent', 'Video Watched',
-            'Paid \u20b9196', 'Day 1', 'Day 2', 'Interview', 'Converted', 'Lost', 'Retarget']
+            'Paid ₹196', 'Mindset Lock',
+            'Day 1', 'Day 2', 'Interview',
+            'Track Selected', 'Seat Hold Confirmed', 'Fully Converted',
+            'Converted', 'Lost', 'Retarget']
+
+TRACKS = {
+    'Slow Track':   {'price': 8000,  'seat_hold': 2000},
+    'Medium Track': {'price': 18000, 'seat_hold': 4000},
+    'Fast Track':   {'price': 38000, 'seat_hold': 5000},
+}
 
 CALL_RESULT_TAGS = [
     '',
@@ -154,15 +163,35 @@ def _get_downline_usernames(db, username):
     return [r['uname'] for r in rows]
 
 
+def _log_activity(db, username, event_type, details=''):
+    """Log a user activity event (login, lead_update, etc.)."""
+    try:
+        ip = request.remote_addr or ''
+    except Exception:
+        ip = ''
+    try:
+        db.execute(
+            "INSERT INTO activity_log (username, event_type, details, ip_address) VALUES (?, ?, ?, ?)",
+            (username, event_type, details, ip)
+        )
+        db.commit()
+    except Exception:
+        pass
+
+
 # Drill-down metric config
 DRILL_LEAD_METRICS = {
-    'total':     ('Total Leads',    'bi bi-people-fill',              'primary', None),
-    'converted': ('Converted',      'bi bi-check-circle-fill',        'success', "status='Converted'"),
-    'paid':      ('Payments \u20b9196',  'bi bi-credit-card-2-front-fill', 'info',    'payment_done=1'),
-    'day1':      ('Day 1 Done',     'bi bi-1-circle-fill',            'info',    'day1_done=1'),
-    'day2':      ('Day 2 Done',     'bi bi-2-circle-fill',            'warning', 'day2_done=1'),
-    'interview': ('Interview Done', 'bi bi-mic-fill',                 'danger',  'interview_done=1'),
-    'revenue':   ('Total Revenue',  'bi bi-currency-rupee',           'warning', 'payment_done=1'),
+    'total':          ('Total Leads',    'bi bi-people-fill',              'primary', None),
+    'converted':      ('Converted',      'bi bi-check-circle-fill',        'success', "status='Converted'"),
+    'paid':           ('Payments ₹196',  'bi bi-credit-card-2-front-fill', 'info',    'payment_done=1'),
+    'day1':           ('Day 1 Done',     'bi bi-1-circle-fill',            'info',    'day1_done=1'),
+    'day2':           ('Day 2 Done',     'bi bi-2-circle-fill',            'warning', 'day2_done=1'),
+    'interview':      ('Interview Done', 'bi bi-mic-fill',                 'danger',  'interview_done=1'),
+    'revenue':        ('Total Revenue',  'bi bi-currency-rupee',           'warning', 'payment_done=1'),
+    'mindset_lock':   ('Mindset Lock',   'bi bi-lock-fill',                'primary', "status='Mindset Lock'"),
+    'track_selected': ('Track Selected', 'bi bi-bookmark-check-fill',      'info',    "status='Track Selected'"),
+    'seat_hold':      ('Seat Hold',      'bi bi-shield-check-fill',        'purple',  "status='Seat Hold Confirmed'"),
+    'fully_converted':('Fully Converted','bi bi-trophy-fill',              'success', "status='Fully Converted'"),
 }
 
 DRILL_REPORT_METRICS = {
@@ -179,9 +208,11 @@ def _get_metrics(db, username=None):
     if username:
         where_clause = "WHERE assigned_to = ? AND in_pool = 0"
         params = (username,)
+        base = "assigned_to = ? AND in_pool = 0"
     else:
         where_clause = "WHERE in_pool = 0"
         params = ()
+        base = "in_pool = 0"
 
     row = db.execute(f"""
         SELECT
@@ -207,6 +238,12 @@ def _get_metrics(db, username=None):
         FROM leads {where_clause}
     """, params).fetchone()
 
+    track_sel    = db.execute(f"SELECT COUNT(*) FROM leads WHERE {base} AND status='Track Selected'", params).fetchone()[0] or 0
+    seat_hold    = db.execute(f"SELECT COUNT(*) FROM leads WHERE {base} AND status='Seat Hold Confirmed'", params).fetchone()[0] or 0
+    fully_conv   = db.execute(f"SELECT COUNT(*) FROM leads WHERE {base} AND status='Fully Converted'", params).fetchone()[0] or 0
+    seat_rev     = db.execute(f"SELECT COALESCE(SUM(seat_hold_amount),0) FROM leads WHERE {base} AND status IN ('Seat Hold Confirmed','Fully Converted')", params).fetchone()[0] or 0
+    final_rev    = db.execute(f"SELECT COALESCE(SUM(track_price),0) FROM leads WHERE {base} AND status='Fully Converted'", params).fetchone()[0] or 0
+
     return dict(
         total        = row['total']        or 0,
         converted    = row['converted']    or 0,
@@ -219,6 +256,11 @@ def _get_metrics(db, username=None):
         close_pct    = row['close_pct']    or 0.0,
         rev_per_lead = row['rev_per_lead'] or 0.0,
         conv_rate    = row['close_pct']    or 0.0,
+        track_sel    = track_sel,
+        seat_hold    = seat_hold,
+        fully_conv   = fully_conv,
+        seat_rev     = seat_rev,
+        final_rev    = final_rev,
     )
 
 
@@ -725,6 +767,9 @@ def login():
             session['username'] = user['username']
             session['role']     = user['role']
             session['dp']       = user['display_picture'] if user['display_picture'] else ''
+            db = get_db()
+            _log_activity(db, user['username'], 'login', f"Role: {user['role']}")
+            db.close()
             flash(f'Welcome back, {user["username"]}!', 'success')
             if user['role'] == 'admin':
                 return redirect(url_for('admin_dashboard'))
@@ -821,6 +866,10 @@ def reset_password(token):
 
 @app.route('/logout')
 def logout():
+    if 'username' in session:
+        db = get_db()
+        _log_activity(db, session['username'], 'logout', '')
+        db.close()
     session.clear()
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
@@ -878,7 +927,23 @@ def reject_user(user_id):
     return redirect(url_for('admin_approvals', filter=request.form.get('current_filter', 'all')))
 
 
-# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+@app.route('/admin/approvals/<int:user_id>/delete', methods=['POST'])
+@admin_required
+def delete_user(user_id):
+    db   = get_db()
+    user = db.execute("SELECT username, status FROM users WHERE id=?", (user_id,)).fetchone()
+    if user:
+        if user['status'] == 'approved':
+            flash('Cannot delete an approved user. Reject them first.', 'danger')
+        else:
+            db.execute("DELETE FROM users WHERE id=?", (user_id,))
+            db.commit()
+            flash(f'User "{user["username"]}" has been permanently deleted.', 'success')
+    db.close()
+    return redirect(url_for('admin_approvals', filter=request.form.get('current_filter', 'all')))
+
+
+# ─────────────────────────────────────────────
 #  PWA support routes
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
@@ -1263,6 +1328,30 @@ def edit_lead(lead_id):
         call_result    = request.form.get('call_result', lead['call_result'] if 'call_result' in lead.keys() else '').strip()
         city           = request.form.get('city', '').strip()
 
+        track_selected_val   = request.form.get('track_selected', lead['track_selected'] or '').strip()
+        track_price_val      = float(request.form.get('track_price', lead['track_price'] or 0) or 0)
+        seat_hold_amount_val = float(request.form.get('seat_hold_amount', lead['seat_hold_amount'] or 0) or 0)
+        seat_hold_received   = bool(request.form.get('seat_hold_received'))
+        final_payment_received = bool(request.form.get('final_payment_received'))
+
+        # Auto-fill from track defaults if track just selected
+        if track_selected_val and track_selected_val in TRACKS:
+            if not track_price_val:
+                track_price_val = TRACKS[track_selected_val]['price']
+            if not seat_hold_amount_val:
+                seat_hold_amount_val = TRACKS[track_selected_val]['seat_hold']
+            if status not in ('Seat Hold Confirmed', 'Fully Converted'):
+                status = 'Track Selected'
+
+        pending_amount_val = max(0.0, track_price_val - seat_hold_amount_val)
+
+        if seat_hold_received:
+            status = 'Seat Hold Confirmed'
+
+        if final_payment_received:
+            status = 'Fully Converted'
+            pending_amount_val = 0.0
+
         if not name or not phone:
             flash('Name and Phone are required.', 'danger')
             lead_notes_rows = db.execute(
@@ -1307,13 +1396,18 @@ def edit_lead(lead_id):
                 payment_done=?, payment_amount=?,
                 day1_done=?, day2_done=?, interview_done=?,
                 follow_up_date=?, call_result=?, notes=?, city=?,
+                track_selected=?, track_price=?, seat_hold_amount=?, pending_amount=?,
                 updated_at=datetime('now','localtime')
             WHERE id=?
         """, (name, phone, email, referred_by, assigned_to, status,
               payment_done, payment_amount,
               day1_done, day2_done, interview_done,
-              follow_up_date, call_result, notes, city, lead_id))
+              follow_up_date, call_result, notes, city,
+              track_selected_val, track_price_val, seat_hold_amount_val, pending_amount_val,
+              lead_id))
         db.commit()
+        _log_activity(db, session['username'], 'lead_update',
+                      f"Lead #{lead_id} updated → status: {status}")
         db.close()
         flash(f'Lead "{name}" updated.', 'success')
         return redirect(url_for('leads'))
@@ -1534,12 +1628,14 @@ def team():
         SELECT
             referred_by,
             COUNT(*) as total,
-            SUM(CASE WHEN status='Converted' THEN 1 ELSE 0 END) as converted,
-            SUM(CASE WHEN payment_done=1    THEN 1 ELSE 0 END) as paid,
-            SUM(payment_amount)                                  as revenue,
-            SUM(CASE WHEN day1_done=1       THEN 1 ELSE 0 END) as day1,
-            SUM(CASE WHEN day2_done=1       THEN 1 ELSE 0 END) as day2,
-            SUM(CASE WHEN interview_done=1  THEN 1 ELSE 0 END) as interviews
+            SUM(CASE WHEN status='Converted'          THEN 1 ELSE 0 END) as converted,
+            SUM(CASE WHEN payment_done=1              THEN 1 ELSE 0 END) as paid,
+            SUM(payment_amount)                                           as revenue,
+            SUM(CASE WHEN day1_done=1                 THEN 1 ELSE 0 END) as day1,
+            SUM(CASE WHEN day2_done=1                 THEN 1 ELSE 0 END) as day2,
+            SUM(CASE WHEN interview_done=1            THEN 1 ELSE 0 END) as interviews,
+            SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) as seat_holds,
+            SUM(CASE WHEN status='Fully Converted'    THEN 1 ELSE 0 END) as fully_conv
         FROM leads WHERE in_pool=0 GROUP BY referred_by
     """).fetchall()
     _stats_map = {r['referred_by']: r for r in _rows}
@@ -1644,6 +1740,7 @@ def report_submit():
               calls_picked, wrong_numbers, enrollments_done, pending_enroll,
               underage, leads_educated, plan_2cc, seat_holdings, remarks))
         db.commit()
+        _log_activity(db, username, 'report_submit', f"Date: {today}")
         db.close()
         flash('Daily report submitted successfully!', 'success')
         return redirect(url_for('team_dashboard'))
@@ -2329,6 +2426,7 @@ def claim_leads():
             )
 
         db.commit()
+        _log_activity(db, username, 'lead_claim', f"Claimed {len(available)} leads")
         db.close()
         flash(f'Successfully claimed {len(available)} leads for \u20b9{total_cost:.0f}! '
               f'Check "My Leads" to view them.', 'success')
@@ -2552,7 +2650,57 @@ def profile():
     return render_template('profile.html', user=user)
 
 
-# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+@app.route('/profile/change-username', methods=['POST'])
+@login_required
+def change_username():
+    if session.get('role') != 'admin':
+        flash('Only admin can change username.', 'danger')
+        return redirect(url_for('profile'))
+
+    old_username = session['username']
+    new_username = request.form.get('new_username', '').strip()
+
+    if not new_username:
+        flash('New username cannot be empty.', 'danger')
+        return redirect(url_for('profile'))
+    if new_username == old_username:
+        flash('New username is the same as current.', 'warning')
+        return redirect(url_for('profile'))
+    if len(new_username) < 3:
+        flash('Username must be at least 3 characters.', 'danger')
+        return redirect(url_for('profile'))
+
+    db = get_db()
+    existing = db.execute("SELECT id FROM users WHERE username=?", (new_username,)).fetchone()
+    if existing:
+        db.close()
+        flash(f'Username "{new_username}" is already taken.', 'danger')
+        return redirect(url_for('profile'))
+
+    try:
+        # Cascade update all tables in one transaction
+        db.execute("UPDATE users        SET username=?    WHERE username=?", (new_username, old_username))
+        db.execute("UPDATE leads        SET assigned_to=? WHERE assigned_to=?", (new_username, old_username))
+        db.execute("UPDATE leads        SET referred_by=? WHERE referred_by=?", (new_username, old_username))
+        db.execute("UPDATE daily_reports SET username=?   WHERE username=?", (new_username, old_username))
+        db.execute("UPDATE wallet_recharges SET username=? WHERE username=?", (new_username, old_username))
+        db.execute("UPDATE announcements SET created_by=? WHERE created_by=?", (new_username, old_username))
+        db.execute("UPDATE push_subscriptions SET username=? WHERE username=?", (new_username, old_username))
+        db.execute("UPDATE users        SET upline_name=? WHERE upline_name=?", (new_username, old_username))
+        db.execute("UPDATE activity_log SET username=?    WHERE username=?", (new_username, old_username))
+        db.commit()
+        session['username'] = new_username
+        flash(f'Username changed to "{new_username}" successfully.', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'Error changing username: {str(e)}', 'danger')
+    finally:
+        db.close()
+
+    return redirect(url_for('profile'))
+
+
+# ─────────────────────────────────────────────
 #  CSV Export
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
@@ -2773,13 +2921,17 @@ def leaderboard():
         SELECT
             u.username,
             u.display_picture,
-            COUNT(l.id)                                                   AS total,
-            SUM(CASE WHEN l.status='Converted' THEN 1 ELSE 0 END)        AS converted,
-            SUM(CASE WHEN l.payment_done=1     THEN 1 ELSE 0 END)        AS paid,
-            COALESCE(SUM(l.payment_amount),0)                             AS revenue,
+            COUNT(l.id)                                                          AS total,
+            SUM(CASE WHEN l.status='Converted' THEN 1 ELSE 0 END)               AS converted,
+            SUM(CASE WHEN l.payment_done=1     THEN 1 ELSE 0 END)               AS paid,
+            COALESCE(SUM(l.payment_amount),0)                                    AS revenue,
             ROUND(
               CAST(SUM(CASE WHEN l.payment_done=1 THEN 1 ELSE 0 END) AS REAL)
-              / NULLIF(COUNT(l.id),0)*100, 1)                             AS paid_pct
+              / NULLIF(COUNT(l.id),0)*100, 1)                                    AS paid_pct,
+            SUM(CASE WHEN l.status='Seat Hold Confirmed' THEN 1 ELSE 0 END)     AS seat_holds,
+            SUM(CASE WHEN l.status='Fully Converted'     THEN 1 ELSE 0 END)     AS fully_conv,
+            COALESCE(SUM(CASE WHEN l.status IN ('Seat Hold Confirmed','Fully Converted')
+                              THEN l.seat_hold_amount ELSE 0 END), 0)           AS seat_rev
         FROM users u
         LEFT JOIN leads l ON l.assigned_to=u.username AND l.in_pool=0
         WHERE u.role='team' AND u.status='approved' {extra}
@@ -3185,7 +3337,62 @@ def member_detail(username):
                            payment_amount=PAYMENT_AMOUNT)
 
 
-# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+@app.route('/admin/activity')
+@admin_required
+def admin_activity():
+    db = get_db()
+
+    page    = int(request.args.get('page', 1))
+    per_pg  = 50
+    offset  = (page - 1) * per_pg
+    filter_user  = request.args.get('user', '')
+    filter_event = request.args.get('event', '')
+
+    where, params = ['1=1'], []
+    if filter_user:
+        where.append('username=?')
+        params.append(filter_user)
+    if filter_event:
+        where.append('event_type=?')
+        params.append(filter_event)
+
+    total = db.execute(
+        f"SELECT COUNT(*) FROM activity_log WHERE {' AND '.join(where)}", params
+    ).fetchone()[0]
+
+    logs = db.execute(
+        f"SELECT * FROM activity_log WHERE {' AND '.join(where)} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        params + [per_pg, offset]
+    ).fetchall()
+
+    # Last seen per team member
+    last_seen_rows = db.execute("""
+        SELECT a.username, MAX(a.created_at) as last_at, u.status
+        FROM activity_log a
+        LEFT JOIN users u ON u.username = a.username
+        WHERE u.role = 'team' OR u.role IS NULL
+        GROUP BY a.username
+        ORDER BY last_at DESC
+    """).fetchall()
+
+    team_members = db.execute(
+        "SELECT username FROM users WHERE role='team' AND status='approved' ORDER BY username"
+    ).fetchall()
+
+    db.close()
+
+    total_pages = max(1, (total + per_pg - 1) // per_pg)
+    return render_template('activity_log.html',
+                           logs=logs, total=total, page=page,
+                           total_pages=total_pages,
+                           last_seen=last_seen_rows,
+                           team_members=team_members,
+                           filter_user=filter_user,
+                           filter_event=filter_event,
+                           event_types=['login','logout','lead_update','report_submit','lead_claim'])
+
+
+# ─────────────────────────────────────────────
 #  Drill-Down Analytics
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 

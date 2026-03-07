@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Activity Log – Myle Community{% endblock %}
+{% block page_title %}Team Activity{% endblock %}
+
+{% block content %}
+
+<!-- ── Last Seen Cards ──────────────────────────────────── -->
+<div class="mb-4">
+  <h6 class="card-section-title mb-3"><i class="bi bi-clock-history me-2"></i>Last Seen</h6>
+  <div class="row g-3">
+    {% for member in last_seen %}
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body py-3 px-3">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            {% if member.display_picture %}
+              <img src="{{ member.display_picture }}" alt="DP"
+                   style="width:36px;height:36px;border-radius:50%;object-fit:cover;">
+            {% else %}
+              <div class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10"
+                   style="width:36px;height:36px;flex-shrink:0;">
+                <i class="bi bi-person-fill text-primary"></i>
+              </div>
+            {% endif %}
+            <div class="min-width-0">
+              <div class="fw-semibold small text-truncate">{{ member.username }}</div>
+              <span class="badge
+                {% if member.event_type == 'login' %}bg-success
+                {% elif member.event_type == 'logout' %}bg-secondary
+                {% elif member.event_type == 'lead_update' %}bg-primary
+                {% elif member.event_type == 'report_submit' %}bg-info text-dark
+                {% elif member.event_type == 'lead_claim' %}bg-warning text-dark
+                {% else %}bg-light text-dark{% endif %}"
+                style="font-size:0.6rem;">
+                {{ member.event_type | replace('_',' ') | title }}
+              </span>
+            </div>
+          </div>
+          <div class="label-xs text-muted">
+            {% if member.created_at %}
+              {{ member.created_at[:16] }}
+            {% else %}
+              <span class="opacity-50">No activity</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body text-center text-muted py-4">
+          <i class="bi bi-people fs-2 d-block mb-2 opacity-25"></i>No team members found.
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ── Filter Bar ───────────────────────────────────────── -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body py-2 px-3">
+    <form method="get" action="{{ url_for('admin_activity') }}" class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label fw-semibold small mb-1">Member</label>
+        <select name="user" class="form-select form-select-sm">
+          <option value="">All members</option>
+          {% for m in team_users %}
+          <option value="{{ m }}" {% if filter_user == m %}selected{% endif %}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-semibold small mb-1">Event Type</label>
+        <select name="event" class="form-select form-select-sm">
+          <option value="">All events</option>
+          <option value="login"          {% if filter_event == 'login' %}selected{% endif %}>Login</option>
+          <option value="logout"         {% if filter_event == 'logout' %}selected{% endif %}>Logout</option>
+          <option value="lead_update"    {% if filter_event == 'lead_update' %}selected{% endif %}>Lead Update</option>
+          <option value="report_submit"  {% if filter_event == 'report_submit' %}selected{% endif %}>Report Submit</option>
+          <option value="lead_claim"     {% if filter_event == 'lead_claim' %}selected{% endif %}>Lead Claim</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-sm btn-primary">
+          <i class="bi bi-funnel-fill me-1"></i>Filter
+        </button>
+        <a href="{{ url_for('admin_activity') }}" class="btn btn-sm btn-outline-secondary ms-1">Clear</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Event Log Table ──────────────────────────────────── -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h6 class="mb-0"><i class="bi bi-activity me-2 text-primary"></i>Event Log</h6>
+    <span class="badge bg-light text-dark border">{{ total }} events</span>
+  </div>
+  <div class="card-body p-0">
+    {% if logs %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Time</th>
+            <th>Member</th>
+            <th>Event</th>
+            <th>Details</th>
+            <th class="d-none d-md-table-cell">IP</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+          <tr>
+            <td class="ps-3 label-xs text-muted text-nowrap">{{ log.created_at[:16] }}</td>
+            <td class="fw-semibold small">{{ log.username }}</td>
+            <td>
+              {% if log.event_type == 'login' %}
+                <span class="badge bg-success"><i class="bi bi-box-arrow-in-right me-1"></i>Login</span>
+              {% elif log.event_type == 'logout' %}
+                <span class="badge bg-secondary"><i class="bi bi-box-arrow-right me-1"></i>Logout</span>
+              {% elif log.event_type == 'lead_update' %}
+                <span class="badge bg-primary"><i class="bi bi-pencil-fill me-1"></i>Lead Update</span>
+              {% elif log.event_type == 'report_submit' %}
+                <span class="badge bg-info text-dark"><i class="bi bi-clipboard2-check-fill me-1"></i>Report</span>
+              {% elif log.event_type == 'lead_claim' %}
+                <span class="badge bg-warning text-dark"><i class="bi bi-lightning-charge-fill me-1"></i>Lead Claim</span>
+              {% else %}
+                <span class="badge bg-light text-dark">{{ log.event_type }}</span>
+              {% endif %}
+            </td>
+            <td class="small text-muted">{{ log.details or '—' }}</td>
+            <td class="d-none d-md-table-cell label-xs text-muted">{{ log.ip_address or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+      <span class="label-sm text-muted">Page {{ page }} of {{ total_pages }}</span>
+      <div class="d-flex gap-1">
+        {% if page > 1 %}
+        <a href="{{ url_for('admin_activity', page=page-1, user=filter_user, event=filter_event) }}"
+           class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-chevron-left"></i>
+        </a>
+        {% endif %}
+        {% if page < total_pages %}
+        <a href="{{ url_for('admin_activity', page=page+1, user=filter_user, event=filter_event) }}"
+           class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-chevron-right"></i>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-activity fs-1 d-block mb-2 opacity-25"></i>
+      No activity logs found{% if filter_user or filter_event %} for this filter{% endif %}.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

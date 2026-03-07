@@ -172,6 +172,18 @@ def init_db():
         )
     """)
 
+    # Activity / Punch Log
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS activity_log (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            username   TEXT    NOT NULL,
+            event_type TEXT    NOT NULL,
+            details    TEXT    NOT NULL DEFAULT '',
+            ip_address TEXT    NOT NULL DEFAULT '',
+            created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -193,6 +205,11 @@ def migrate_db():
         ("claimed_at",     "TEXT NOT NULL DEFAULT ''"),
         ("city",           "TEXT NOT NULL DEFAULT ''"),
         ("deleted_at",     "TEXT NOT NULL DEFAULT ''"),
+        # Extended funnel fields
+        ("track_selected",   "TEXT NOT NULL DEFAULT ''"),
+        ("track_price",      "REAL NOT NULL DEFAULT 0.0"),
+        ("seat_hold_amount", "REAL NOT NULL DEFAULT 0.0"),
+        ("pending_amount",   "REAL NOT NULL DEFAULT 0.0"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE leads ADD COLUMN {col} {definition}")
@@ -340,6 +357,21 @@ def migrate_db():
     except Exception:
         pass
 
+    # --- activity_log table ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS activity_log (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                username   TEXT    NOT NULL,
+                event_type TEXT    NOT NULL,
+                details    TEXT    NOT NULL DEFAULT '',
+                ip_address TEXT    NOT NULL DEFAULT '',
+                created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+        """)
+    except Exception:
+        pass
+
     # --- Performance indexes ---
     indexes = [
         "CREATE INDEX IF NOT EXISTS idx_leads_pool_assigned  ON leads(in_pool, assigned_to)",
@@ -350,6 +382,7 @@ def migrate_db():
         "CREATE INDEX IF NOT EXISTS idx_wallet_user_status   ON wallet_recharges(username, status)",
         "CREATE INDEX IF NOT EXISTS idx_reports_user_date    ON daily_reports(username, report_date)",
         "CREATE INDEX IF NOT EXISTS idx_leads_call_result ON leads(call_result, in_pool, deleted_at)",
+        "CREATE INDEX IF NOT EXISTS idx_activity_user_time ON activity_log(username, created_at)",
     ]
     for idx in indexes:
         try:

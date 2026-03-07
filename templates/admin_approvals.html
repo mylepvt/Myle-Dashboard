@@ -124,6 +124,16 @@
                         data-bs-target="#resetPwModal{{ u.id }}">
                   <i class="bi bi-key-fill"></i>
                 </button>
+                <!-- Delete User (pending/rejected only) -->
+                {% if u.status != 'approved' %}
+                <form method="post" action="{{ url_for('delete_user', user_id=u.id) }}">
+                  <button type="submit" class="btn btn-sm btn-danger"
+                          title="Permanently delete {{ u.username }}"
+                          onclick="return confirm('Permanently delete @{{ u.username }}? This cannot be undone.')">
+                    <i class="bi bi-trash-fill"></i>
+                  </button>
+                </form>
+                {% endif %}
               </div>
             </td>
           </tr>

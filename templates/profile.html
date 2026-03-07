@@ -112,6 +112,39 @@
       </div>
     </div>
 
+    <!-- ── Change Username (admin only) ──────────────── -->
+    {% if user.role == 'admin' %}
+    <div class="card border-0 shadow-sm mt-4">
+      <div class="card-header border-0 pt-3 pb-0 px-4">
+        <h6 class="mb-0"><i class="bi bi-pencil-fill me-2 text-warning"></i>Change Username <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;">Admin Only</span></h6>
+      </div>
+      <div class="card-body p-4">
+        <form method="POST" action="{{ url_for('change_username') }}"
+              onsubmit="return confirm('Change username to this new name? Session will update immediately and all lead/report records will be updated.')">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Current Username</label>
+              <input type="text" class="form-control bg-light" value="{{ user.username }}" disabled>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">New Username <span class="text-danger">*</span></label>
+              <input type="text" name="new_username" class="form-control"
+                     placeholder="Enter new username" minlength="3" maxlength="40"
+                     pattern="[A-Za-z0-9_\-]+" title="Letters, numbers, underscore, hyphen only"
+                     required>
+              <div class="form-text">Letters, numbers, underscore and hyphen only. Will cascade to all records immediately.</div>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-warning fw-semibold">
+                <i class="bi bi-arrow-repeat me-1"></i>Update Username
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- ── Account Status Card ───────────────────────── -->
     <div class="card border-0 shadow-sm mt-4">
       <div class="card-body p-4">

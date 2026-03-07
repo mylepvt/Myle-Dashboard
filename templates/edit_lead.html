@@ -115,6 +115,63 @@
               {% endif %}
             </div>
 
+            <!-- Track & Advanced Payments -->
+            <div class="col-12 mt-2" id="trackSection"
+                 style="{% if lead.status not in ['Track Selected','Seat Hold Confirmed','Fully Converted','Interview','Day 2','Day 1','Mindset Lock'] and not lead.track_selected %}display:none;{% endif %}">
+              <h6 class="text-muted fw-semibold text-uppercase small">Track &amp; Advanced Payments</h6>
+              <hr class="mt-1 mb-2"/>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label fw-semibold">Track</label>
+                  <select name="track_selected" id="trackDropdown" class="form-select">
+                    <option value="">— Not Selected —</option>
+                    <option value="Slow Track" {% if lead.track_selected == 'Slow Track' %}selected{% endif %}>Slow Track (₹8,000)</option>
+                    <option value="Medium Track" {% if lead.track_selected == 'Medium Track' %}selected{% endif %}>Medium Track (₹18,000)</option>
+                    <option value="Fast Track" {% if lead.track_selected == 'Fast Track' %}selected{% endif %}>Fast Track (₹38,000)</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label fw-semibold">Track Price (₹)</label>
+                  <input type="number" name="track_price" id="trackPrice" class="form-control"
+                         value="{{ lead.track_price|int if lead.track_price else '' }}"
+                         placeholder="Auto-filled" min="0" step="1">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label fw-semibold">Seat Hold Amount (₹)</label>
+                  <input type="number" name="seat_hold_amount" id="seatHoldAmount" class="form-control"
+                         value="{{ lead.seat_hold_amount|int if lead.seat_hold_amount else '' }}"
+                         placeholder="Manually editable" min="0" step="1">
+                  <div class="form-text">Team can override this amount.</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label fw-semibold">Pending Amount (₹)</label>
+                  <input type="number" id="pendingAmountDisplay" class="form-control bg-light"
+                         value="{{ (lead.track_price - lead.seat_hold_amount)|int if lead.track_price and lead.seat_hold_amount else '' }}"
+                         placeholder="Auto-calculated" readonly>
+                  <div class="form-text text-muted">Track Price − Seat Hold (read-only)</div>
+                </div>
+                <div class="col-md-8">
+                  <label class="form-label fw-semibold d-block">Stage Actions</label>
+                  <div class="d-flex flex-wrap gap-3 mt-1">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" name="seat_hold_received" id="seatHoldReceived"
+                             {% if lead.status == 'Seat Hold Confirmed' or lead.status == 'Fully Converted' %}checked{% endif %}>
+                      <label class="form-check-label fw-semibold" for="seatHoldReceived">
+                        <i class="bi bi-shield-check me-1 text-purple"></i>Seat Hold Received
+                      </label>
+                    </div>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" name="final_payment_received" id="finalPaymentReceived"
+                             {% if lead.status == 'Fully Converted' %}checked{% endif %}>
+                      <label class="form-check-label fw-semibold" for="finalPaymentReceived">
+                        <i class="bi bi-trophy-fill me-1 text-success"></i>Final Payment → Fully Converted
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Follow-up Date -->
             <div class="col-12 mt-2"><h6 class="text-muted fw-semibold text-uppercase small">Follow-up</h6><hr class="mt-1 mb-2"/></div>
             <div id="retargetDateAlert" class="col-12" style="display:none;">
@@ -236,6 +293,47 @@
   const dateAlert  = document.getElementById('retargetDateAlert');
   const dateInput  = document.getElementById('followUpDateInput');
 
+  // Track section
+  const trackSection      = document.getElementById('trackSection');
+  const trackDropdown     = document.getElementById('trackDropdown');
+  const trackPriceInput   = document.getElementById('trackPrice');
+  const seatHoldInput     = document.getElementById('seatHoldAmount');
+  const pendingDisplay    = document.getElementById('pendingAmountDisplay');
+
+  const TRACKS = {
+    'Slow Track':   { price: 8000,  seat_hold: 2000 },
+    'Medium Track': { price: 18000, seat_hold: 4000 },
+    'Fast Track':   { price: 38000, seat_hold: 5000 },
+  };
+
+  const TRACK_STATUSES = ['Mindset Lock','Day 1','Day 2','Interview',
+                          'Track Selected','Seat Hold Confirmed','Fully Converted'];
+
+  function showTrackSection() {
+    const inTrackStatus = TRACK_STATUSES.includes(statusSel.value);
+    const hasTrack = trackDropdown.value !== '';
+    trackSection.style.display = (inTrackStatus || hasTrack) ? '' : 'none';
+  }
+
+  function updatePending() {
+    const price    = parseFloat(trackPriceInput.value) || 0;
+    const seatHold = parseFloat(seatHoldInput.value)   || 0;
+    pendingDisplay.value = (price - seatHold > 0) ? (price - seatHold) : '';
+  }
+
+  trackDropdown.addEventListener('change', function () {
+    const t = TRACKS[this.value];
+    if (t) {
+      if (!trackPriceInput.value) trackPriceInput.value = t.price;
+      if (!seatHoldInput.value)   seatHoldInput.value   = t.seat_hold;
+    }
+    updatePending();
+    showTrackSection();
+  });
+
+  trackPriceInput.addEventListener('input', updatePending);
+  seatHoldInput.addEventListener('input', updatePending);
+
   function toggleRetarget() {
     if (statusSel.value === 'Retarget') {
       dateAlert.style.display = '';
@@ -247,9 +345,15 @@
     }
   }
 
-  // Run on page load in case lead already has Retarget status
+  statusSel.addEventListener('change', function () {
+    toggleRetarget();
+    showTrackSection();
+  });
+
+  // Run on page load
   toggleRetarget();
-  statusSel.addEventListener('change', toggleRetarget);
+  showTrackSection();
+  updatePending();
 })();
 </script>
 {% endblock %}
