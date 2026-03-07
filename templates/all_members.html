@@ -1,45 +1,168 @@
-{% extends "base.html" %} {% block title %}All Members â€“ Myle Community{% endblock %} {% block page_title %}All Registered Members{% endblock %} {% block content %}
-{% set approved = users|selectattr('status','equalto','approved')|list %} {% set pending = users|selectattr('status','equalto','pending')|list %} {% set rejected = users|selectattr('status','equalto','rejected')|list %}
-{{ users|length }}
-Total Members
-{{ approved|length }}
-Approved
-{{ pending|length }}
-Pending
-{{ rejected|length }}
-Rejected
+{% extends "base.html" %}
+{% block title %}All Members – Myle Community{% endblock %}
+{% block page_title %}All Registered Members{% endblock %}
 
-          All Statuses
-          Approved
-          Pending
-          Rejected
-        
-{% for u in users %} {% set s = stats_map.get(u.username, {}) %} {% else %} {% endfor %}
-Member
-FBO ID
-Upline
-Phone / Email
-Leads
-Paid
-Converted
-Reports
-Status
-Joined
+{% block content %}
 
-{% if u.display_picture %} ￼ {% else %}
-{{ u.username[0]|upper }}
-{% endif %}
-@{{ u.username }}
-{{ u.fbo_id or 'â€”' }}
-{{ u.upline_name or 'â€”' }}
-{{ u.phone or 'â€”' }}
-{{ u.email or 'â€”' }}
-{{ s.total_leads if s else 0 }}
-{{ s.paid if s else 0 }}
-{{ s.converted if s else 0 }}
-{{ report_map.get(u.username, 0) }}
-{% if u.status == 'approved' %} Active {% elif u.status == 'pending' %} Pending {% else %} Rejected {% endif %}
-{{ u.created_at[:10] }}
-View Activity
-No members registered yet.
+<!-- Summary Cards -->
+<div class="row g-3 mb-4">
+  {% set approved = users|selectattr('status','equalto','approved')|list %}
+  {% set pending  = users|selectattr('status','equalto','pending')|list %}
+  {% set rejected = users|selectattr('status','equalto','rejected')|list %}
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fw-bold fs-4 text-primary">{{ users|length }}</div>
+      <div class="text-muted small">Total Members</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fw-bold fs-4 text-success">{{ approved|length }}</div>
+      <div class="text-muted small">Approved</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fw-bold fs-4 text-warning">{{ pending|length }}</div>
+      <div class="text-muted small">Pending</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fw-bold fs-4 text-danger">{{ rejected|length }}</div>
+      <div class="text-muted small">Rejected</div>
+    </div>
+  </div>
+</div>
+
+<!-- Search + Filter Bar -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <div class="row g-2 align-items-center">
+      <div class="col-12 col-sm">
+        <input type="text" id="memberSearch" class="form-control form-control-sm"
+               placeholder="Search by username, email, phone or FBO ID…" oninput="filterTable()">
+      </div>
+      <div class="col-auto">
+        <select id="statusFilter" class="form-select form-select-sm" onchange="filterTable()">
+          <option value="">All Statuses</option>
+          <option value="approved">Approved</option>
+          <option value="pending">Pending</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Members Table -->
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" id="membersTable">
+        <thead class="table-light small text-muted">
+          <tr>
+            <th>Member</th>
+            <th class="d-none d-md-table-cell">FBO ID</th>
+            <th class="d-none d-md-table-cell">Upline</th>
+            <th class="d-none d-sm-table-cell">Phone / Email</th>
+            <th class="text-center">Leads</th>
+            <th class="text-center">Paid</th>
+            <th class="text-center">Converted</th>
+            <th class="text-center">Reports</th>
+            <th>Status</th>
+            <th>Joined</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="membersBody">
+          {% for u in users %}
+          {% set s = stats_map.get(u.username, {}) %}
+          <tr class="member-row"
+              data-name="{{ u.username|lower }}"
+              data-email="{{ u.email|lower }}"
+              data-phone="{{ u.phone }}"
+              data-fbo="{{ u.fbo_id|lower }}"
+              data-status="{{ u.status }}">
+
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                {% if u.display_picture %}
+                  <img src="{{ u.display_picture }}" class="rounded-circle" width="34" height="34"
+                       style="object-fit:cover;flex-shrink:0;">
+                {% else %}
+                  <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                       style="width:34px;height:34px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;font-size:0.9rem;font-weight:700;">
+                    {{ u.username[0]|upper }}
+                  </div>
+                {% endif %}
+                <div>
+                  <div class="fw-semibold" style="font-size:0.9rem;">@{{ u.username }}</div>
+                </div>
+              </div>
+            </td>
+
+            <td class="d-none d-md-table-cell text-muted small">{{ u.fbo_id or '—' }}</td>
+            <td class="d-none d-md-table-cell text-muted small">{{ u.upline_name or '—' }}</td>
+            <td class="d-none d-sm-table-cell">
+              <div class="small">{{ u.phone or '—' }}</div>
+              <div class="text-muted" style="font-size:0.75rem;">{{ u.email or '—' }}</div>
+            </td>
+
+            <td class="text-center fw-semibold">{{ s.total_leads if s else 0 }}</td>
+            <td class="text-center">
+              <span class="badge bg-success-subtle text-success">{{ s.paid if s else 0 }}</span>
+            </td>
+            <td class="text-center">
+              <span class="badge bg-primary-subtle text-primary">{{ s.converted if s else 0 }}</span>
+            </td>
+            <td class="text-center text-muted small">{{ report_map.get(u.username, 0) }}</td>
+
+            <td>
+              {% if u.status == 'approved' %}
+                <span class="badge bg-success">Active</span>
+              {% elif u.status == 'pending' %}
+                <span class="badge bg-warning text-dark">Pending</span>
+              {% else %}
+                <span class="badge bg-danger">Rejected</span>
+              {% endif %}
+            </td>
+
+            <td class="text-muted small text-nowrap">{{ u.created_at[:10] }}</td>
+
+            <td>
+              <a href="{{ url_for('member_detail', username=u.username) }}"
+                 class="btn btn-xs btn-outline-primary text-nowrap">
+                <i class="bi bi-eye-fill me-1"></i>View Activity
+              </a>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="11" class="text-center text-muted py-5">
+              <i class="bi bi-people display-5 d-block mb-2"></i>No members registered yet.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+function filterTable() {
+  const q      = document.getElementById('memberSearch').value.toLowerCase();
+  const status = document.getElementById('statusFilter').value;
+  document.querySelectorAll('.member-row').forEach(row => {
+    const matchQ = !q ||
+      row.dataset.name.includes(q) ||
+      row.dataset.email.includes(q) ||
+      row.dataset.phone.includes(q) ||
+      row.dataset.fbo.includes(q);
+    const matchS = !status || row.dataset.status === status;
+    row.style.display = (matchQ && matchS) ? '' : 'none';
+  });
+}
+</script>
 {% endblock %}
