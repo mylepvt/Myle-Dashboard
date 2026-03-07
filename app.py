@@ -407,13 +407,21 @@ def _get_or_create_vapid_keys(db):
     public_b64  = _get_setting(db, 'vapid_public_key',  '')
 
     if private_pem and public_b64:
-        return private_pem, public_b64
+        # If stored key is PKCS8 format (incompatible with pywebpush), wipe and regenerate
+        if 'PRIVATE KEY' in private_pem and 'EC PRIVATE KEY' not in private_pem:
+            _set_setting(db, 'vapid_private_pem', '')
+            _set_setting(db, 'vapid_public_key', '')
+            db.commit()
+            private_pem = ''
+            public_b64  = ''
+        else:
+            return private_pem, public_b64
 
     # Generate new P-256 key pair
     private_key = ec.generate_private_key(ec.SECP256R1())
     private_pem = private_key.private_bytes(
         _crypto_serial.Encoding.PEM,
-        _crypto_serial.PrivateFormat.PKCS8,
+        _crypto_serial.PrivateFormat.TraditionalOpenSSL,  # SEC1 format — required by pywebpush
         _crypto_serial.NoEncryption()
     ).decode()
 
@@ -1935,6 +1943,19 @@ def admin_test_email():
 # ──────────────────────────────────────────────────────────────
 #  Admin – Test Push Notification
 # ──────────────────────────────────────────────────────────────
+
+@app.route('/admin/settings/reset-vapid', methods=['POST'])
+@admin_required
+def admin_reset_vapid():
+    """Wipe stored VAPID keys so they regenerate fresh on next push attempt."""
+    db = get_db()
+    _set_setting(db, 'vapid_private_pem', '')
+    _set_setting(db, 'vapid_public_key', '')
+    db.commit()
+    db.close()
+    flash('VAPID keys cleared. They will regenerate automatically on next push. All browser subscriptions need to re-subscribe — ask users to refresh their browser.', 'warning')
+    return redirect(url_for('admin_settings'))
+
 
 @app.route('/admin/settings/test-push', methods=['POST'])
 @admin_required
