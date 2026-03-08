@@ -118,6 +118,12 @@
         </a>
       </li>
       <li class="nav-item">
+        <a href="{{ url_for('admin_training') }}"
+           class="nav-link text-white {% if request.endpoint in ['admin_training','admin_training_save_video','admin_training_toggle','admin_training_reset'] %}active{% endif %}">
+          <i class="bi bi-mortarboard me-2"></i><span>Training</span>
+        </a>
+      </li>
+      <li class="nav-item">
         <a href="{{ url_for('admin_budget_export') }}"
            class="nav-link text-white {% if request.endpoint == 'admin_budget_export' %}active{% endif %}">
           <i class="bi bi-file-earmark-spreadsheet me-2"></i><span>Budget Export</span>
@@ -161,6 +167,21 @@
       <li class="nav-section-label"><span>Activity</span><hr class="nav-section-line"></li>
 
       {% if session.get('role') != 'admin' %}
+      {% if session.get('training_status') in ('pending', 'in_progress', 'completed') %}
+      <li class="nav-item">
+        <a href="{{ url_for('training_home') }}"
+           class="nav-link text-white {% if request.endpoint in ['training_home','training_complete_day','training_certificate','training_upload_certificate'] %}active{% endif %}">
+          <i class="bi bi-play-circle-fill me-2 text-warning"></i>
+          <span>Training
+            {% if session.get('training_status') == 'completed' %}
+              <span class="badge bg-success ms-1" style="font-size:0.6rem;">Done</span>
+            {% else %}
+              <span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;">Required</span>
+            {% endif %}
+          </span>
+        </a>
+      </li>
+      {% endif %}
       <li class="nav-item">
         <a href="{{ url_for('report_submit') }}"
            class="nav-link text-white {% if request.endpoint == 'report_submit' %}active{% endif %}">

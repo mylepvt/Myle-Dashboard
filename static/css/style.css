@@ -777,3 +777,42 @@ body {
   box-shadow: 0 -4px 20px rgba(99,102,241,0.3);
   /* display toggled exclusively via Bootstrap d-none / d-flex classes */
 }
+
+/* ── Training System ──────────────────────────────────────── */
+.training-day-step {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.9rem;
+  flex-shrink: 0;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.training-day-step.done {
+  background: #198754; color: #fff;
+}
+.training-day-step.active {
+  background: #0d6efd; color: #fff;
+  box-shadow: 0 0 0 4px rgba(13,110,253,.25);
+  transform: scale(1.1);
+}
+.training-day-step.locked {
+  background: #dee2e6; color: #6c757d;
+}
+.video-responsive {
+  position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;
+}
+.video-responsive iframe,
+.video-responsive > div { /* YouTube replaces div with iframe */
+  position: absolute !important; top: 0 !important; left: 0 !important;
+  width: 100% !important; height: 100% !important; border: 0;
+}
+@keyframes trainingPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(25,135,84,.4); }
+  70%      { box-shadow: 0 0 0 10px rgba(25,135,84,0); }
+}
+.pulse-btn { animation: trainingPulse 1.5s infinite; }
+@media print {
+  #sidebar, .navbar, .no-print { display: none !important; }
+  .certificate-card { box-shadow: none !important; }
+  body { background: #fff !important; }
+}
