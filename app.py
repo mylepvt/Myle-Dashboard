@@ -57,6 +57,7 @@ except ImportError:
     SCHEDULER_AVAILABLE = False
 
 app = Flask(__name__)
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 # ── Secret key & cookie security ─────────────────────────────
 _env_secret = os.environ.get('SECRET_KEY')

@@ -221,7 +221,7 @@
           <div class="kpi-icon bg-info-subtle text-info me-3">
             <i class="bi bi-credit-card-2-front-fill"></i>
           </div>
-          <span class="text-muted small">Payments (₹{{ payment_amount|int }})</span>
+          <span class="text-muted small text-truncate">Payments (₹{{ payment_amount|int }})</span>
           <i class="bi bi-chevron-right ms-auto text-muted opacity-50 small"></i>
         </div>
         <h3 class="fw-bold mb-0">{{ metrics.paid }}</h3>
@@ -393,6 +393,16 @@
       <div class="card-body">
         <h6 class="card-title text-muted mb-3"><i class="bi bi-pie-chart-fill me-2 text-warning"></i>Status Breakdown</h6>
         <canvas id="statusChart" height="200"></canvas>
+        {% set _sc = ['#6c757d','#0d6efd','#0dcaf0','#20c997','#ffc107','#fd7e14','#6610f2','#d63384','#198754','#dc3545','#adb5bd','#343a40','#e65100'] %}
+        <div class="d-flex flex-wrap gap-1 mt-2 d-md-none" style="font-size:0.68rem;overflow:hidden;">
+          {% for s, c in status_data.items() %}
+          {% set cidx = loop.index0 %}
+          <span style="display:inline-flex;align-items:center;gap:3px;max-width:100%;min-width:0;">
+            <span style="width:8px;height:8px;border-radius:2px;background:{{ _sc[cidx] if cidx < _sc|length else '#aaa' }};flex-shrink:0;"></span>
+            <span style="color:#6c757d;white-space:nowrap;">{{ s }}</span>
+          </span>
+          {% endfor %}
+        </div>
       </div>
     </div>
   </div>
@@ -510,12 +520,14 @@ const statusData = {
     borderColor: '#fff'
   }]
 };
+const isMobile = window.innerWidth < 576;
 new Chart(statusCtx, { type: 'doughnut', data: statusData,
   options: {
     responsive: true,
     plugins: {
       legend: {
-        position: window.innerWidth < 576 ? 'bottom' : 'right',
+        display: !isMobile,
+        position: 'right',
         labels: { boxWidth: 10, padding: 6, font: { size: 10 } }
       }
     },
