@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -7,361 +6,329 @@
   <title>{% block title %}Myle Community{% endblock %}</title>
 
   <!-- PWA -->
-
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#6366f1" />
   <meta name="mobile-web-app-capable" content="yes" />
+  <!-- iOS PWA -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Myle" />
   <link rel="apple-touch-icon" href="/static/icon-192.png" />
 
   <!-- Bootstrap 5 -->
-
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <!-- Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
   <!-- Custom -->
-  <link href="{{ url_for('static', filename='css/style.css') }}?v=20260308b" rel="stylesheet" />
+  <link href="{{ url_for('static', filename='css/style.css') }}?v=20260308" rel="stylesheet" />
   {% block extra_head %}{% endblock %}
 </head>
 <body>
 
-<!-- Sidebar backdrop -->
-
+<!-- ── Sidebar backdrop (mobile overlay) ─────────────────── -->
 <div id="sidebarBackdrop"></div>
 
+<!-- ── Sidebar ───────────────────────────────────────────── -->
 <div class="d-flex" id="wrapper">
-
-  <!-- ── Sidebar ───────────────────────────────────────── -->
-
   <nav id="sidebar" class="d-flex flex-column p-3 text-white">
+    <!-- Brand -->
+    <a href="{{ url_for('index') }}" class="d-flex align-items-center mb-4 text-white text-decoration-none">
+      <i class="bi bi-diagram-3-fill fs-4 me-2"></i>
+      <span class="fs-5 fw-bold">Myle Community</span>
+    </a>
+    <hr />
 
-```
-<!-- Brand -->
-<a href="{{ url_for('index') }}" class="d-flex align-items-center mb-4 text-white text-decoration-none px-1">
-  <div class="d-flex align-items-center justify-content-center me-2 rounded-3"
-       style="width:34px;height:34px;background:rgba(99,102,241,0.25);">
-    <i class="bi bi-diagram-3-fill" style="color:#818cf8;font-size:1.1rem;"></i>
-  </div>
-  <span class="fs-6 fw-bold" style="letter-spacing:-0.02em;">Myle Community</span>
-</a>
+    <ul class="nav nav-pills flex-column mb-auto" id="sidebarNav">
 
-<ul class="nav nav-pills flex-column mb-auto" id="sidebarNav">
-
-  <!-- Dashboard -->
-  <li class="nav-item mb-1">
-    {% if session.get('role') == 'admin' %}
-    <a href="{{ url_for('admin_dashboard') }}"
-       class="nav-link text-white {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
-      <i class="bi bi-speedometer2 me-2"></i><span>Dashboard</span>
-    </a>
-    {% else %}
-    <a href="{{ url_for('team_dashboard') }}"
-       class="nav-link text-white {% if request.endpoint == 'team_dashboard' %}active{% endif %}">
-      <i class="bi bi-speedometer2 me-2"></i><span>Dashboard</span>
-    </a>
-    {% endif %}
-  </li>
-
-  <!-- Leads section -->
-  <li class="nav-section-label"><span>Leads</span><hr class="nav-section-line"></li>
-
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('leads') }}"
-       class="nav-link text-white {% if request.endpoint in ['leads','edit_lead'] %}active{% endif %}">
-      <i class="bi bi-people-fill me-2"></i>
-      <span>{% if session.get('role') == 'admin' %}All Leads{% else %}My Leads{% endif %}</span>
-    </a>
-  </li>
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('add_lead') }}"
-       class="nav-link text-white {% if request.endpoint == 'add_lead' %}active{% endif %}">
-      <i class="bi bi-person-plus me-2"></i><span>Add Lead</span>
-    </a>
-  </li>
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('follow_up_queue') }}"
-       class="nav-link text-white d-flex align-items-center justify-content-between {% if request.endpoint == 'follow_up_queue' %}active{% endif %}">
-      <span><i class="bi bi-telephone-outbound-fill me-2"></i><span>Follow-up Queue</span></span>
-      {% if follow_up_queue_count and follow_up_queue_count > 0 %}
-      <span class="badge bg-danger rounded-pill" style="font-size:0.6rem;">{{ follow_up_queue_count }}</span>
-      {% endif %}
-    </a>
-  </li>
-  {% if session.get('role') != 'admin' %}
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('retarget') }}"
-       class="nav-link text-white {% if request.endpoint == 'retarget' %}active{% endif %}">
-      <i class="bi bi-bullseye me-2"></i><span>Retarget List</span>
-    </a>
-  </li>
-  {% endif %}
-  {% if session.get('role') == 'admin' %}
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('admin_lead_pool') }}"
-       class="nav-link text-white {% if request.endpoint in ['admin_lead_pool','import_lead_pool_csv','import_lead_pool_pdf','add_to_pool'] %}active{% endif %}">
-      <i class="bi bi-inbox-fill me-2"></i><span>Lead Pool</span>
-    </a>
-  </li>
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('recycle_bin') }}"
-       class="nav-link text-white {% if request.endpoint == 'recycle_bin' %}active{% endif %}">
-      <i class="bi bi-trash2 me-2"></i><span>Recycle Bin</span>
-    </a>
-  </li>
-  {% endif %}
-
-  <!-- Team (admin only) -->
-  {% if session.get('role') == 'admin' %}
-  <li class="nav-section-label"><span>Team</span><hr class="nav-section-line"></li>
-
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('team') }}"
-       class="nav-link text-white {% if request.endpoint == 'team' %}active{% endif %}">
-      <i class="bi bi-people me-2"></i><span>Members</span>
-    </a>
-  </li>
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('reports_admin') }}"
-       class="nav-link text-white {% if request.endpoint == 'reports_admin' %}active{% endif %}">
-      <i class="bi bi-clipboard2-data me-2"></i><span>Reports</span>
-    </a>
-  </li>
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('admin_approvals') }}"
-       class="nav-link text-white d-flex align-items-center justify-content-between {% if request.endpoint in ['admin_approvals','approve_user','reject_user'] %}active{% endif %}">
-      <span><i class="bi bi-person-check me-2"></i><span>Approvals</span></span>
-      {% if pending_count > 0 %}<span class="badge bg-warning text-dark" style="font-size:0.6rem;">{{ pending_count }}</span>{% endif %}
-    </a>
-  </li>
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('admin_members') }}"
-       class="nav-link text-white {% if request.endpoint in ['admin_members','member_detail'] %}active{% endif %}">
-      <i class="bi bi-person-lines-fill me-2"></i><span>All Members</span>
-    </a>
-  </li>
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('admin_training') }}"
-       class="nav-link text-white {% if request.endpoint in ['admin_training'] %}active{% endif %}">
-      <i class="bi bi-mortarboard me-2"></i><span>Training</span>
-    </a>
-  </li>
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('admin_budget_export') }}"
-       class="nav-link text-white {% if request.endpoint == 'admin_budget_export' %}active{% endif %}">
-      <i class="bi bi-file-earmark-spreadsheet me-2"></i><span>Budget Export</span>
-    </a>
-  </li>
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('admin_activity') }}"
-       class="nav-link text-white {% if request.endpoint == 'admin_activity' %}active{% endif %}">
-      <i class="bi bi-activity me-2"></i><span>Activity Log</span>
-    </a>
-  </li>
-  {% endif %}
-
-  <!-- Finance -->
-  <li class="nav-section-label"><span>Finance</span><hr class="nav-section-line"></li>
-
-  {% if session.get('role') == 'admin' %}
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('admin_wallet_requests') }}"
-       class="nav-link text-white d-flex align-items-center justify-content-between {% if request.endpoint in ['admin_wallet_requests','approve_recharge','reject_recharge'] %}active{% endif %}">
-      <span><i class="bi bi-wallet2 me-2"></i><span>Recharges</span></span>
-      {% if wallet_pending > 0 %}<span class="badge bg-success" style="font-size:0.6rem;">{{ wallet_pending }}</span>{% endif %}
-    </a>
-  </li>
-  {% else %}
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('wallet') }}"
-       class="nav-link text-white {% if request.endpoint == 'wallet' %}active{% endif %}">
-      <i class="bi bi-wallet2 me-2"></i><span>My Wallet</span>
-    </a>
-  </li>
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('lead_pool') }}"
-       class="nav-link text-white {% if request.endpoint == 'lead_pool' %}active{% endif %}">
-      <i class="bi bi-lightning-charge me-2"></i><span>Lead Pool</span>
-    </a>
-  </li>
-  {% endif %}
-
-  <!-- Activity -->
-  <li class="nav-section-label"><span>Activity</span><hr class="nav-section-line"></li>
-
-  {% if session.get('role') != 'admin' %}
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('training_home') }}"
-       class="nav-link text-white {% if request.endpoint in ['training_home','training_complete_day','training_certificate','training_upload_certificate'] %}active{% endif %}">
-      {% if session.get('training_status') in ('pending', 'in_progress') %}
-        <i class="bi bi-play-circle-fill me-2 text-warning"></i>
-      {% else %}
-        <i class="bi bi-mortarboard me-2"></i>
-      {% endif %}
-      <span>Training
-        {% if session.get('training_status') == 'completed' %}
-          <span class="badge bg-success ms-1" style="font-size:0.55rem;">Done</span>
-        {% elif session.get('training_status') in ('pending', 'in_progress') %}
-          <span class="badge bg-warning text-dark ms-1" style="font-size:0.55rem;">Required</span>
+      <!-- ── Overview ─────────────────────────────────── -->
+      <li class="nav-item">
+        {% if session.get('role') == 'admin' %}
+        <a href="{{ url_for('admin_dashboard') }}"
+           class="nav-link text-white {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+          <i class="bi bi-speedometer2 me-2"></i><span>Dashboard</span>
+        </a>
+        {% else %}
+        <a href="{{ url_for('team_dashboard') }}"
+           class="nav-link text-white {% if request.endpoint == 'team_dashboard' %}active{% endif %}">
+          <i class="bi bi-speedometer2 me-2"></i><span>Dashboard</span>
+        </a>
         {% endif %}
-      </span>
-    </a>
-  </li>
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('report_submit') }}"
-       class="nav-link text-white {% if request.endpoint == 'report_submit' %}active{% endif %}">
-      <i class="bi bi-clipboard2-check me-2"></i><span>Daily Report</span>
-    </a>
-  </li>
-  {% endif %}
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('leaderboard') }}"
-       class="nav-link text-white {% if request.endpoint == 'leaderboard' %}active{% endif %}">
-      <i class="bi bi-trophy me-2"></i><span>Leaderboard</span>
-    </a>
-  </li>
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('announcements') }}"
-       class="nav-link text-white {% if request.endpoint in ['announcements','post_announcement','delete_announcement'] %}active{% endif %}">
-      <i class="bi bi-megaphone me-2"></i><span>Notice Board</span>
-    </a>
-  </li>
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('live_session') if session.get('role') != 'admin' else url_for('admin_live_session') }}"
-       class="nav-link text-white {% if request.endpoint in ['live_session','admin_live_session'] %}active{% endif %}">
-      <i class="bi bi-camera-video me-2"></i><span>Live Session</span>
-    </a>
-  </li>
+      </li>
 
-  <!-- System -->
-  {% if session.get('role') == 'admin' %}
-  <li class="nav-section-label"><span>System</span><hr class="nav-section-line"></li>
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('admin_settings') }}"
-       class="nav-link text-white {% if request.endpoint == 'admin_settings' %}active{% endif %}">
-      <i class="bi bi-gear me-2"></i><span>Settings</span>
+      <!-- ── Leads ─────────────────────────────────────── -->
+      <li class="nav-section-label"><span>Leads</span><hr class="nav-section-line"></li>
+
+      <li class="nav-item">
+        <a href="{{ url_for('leads') }}"
+           class="nav-link text-white {% if request.endpoint in ['leads','edit_lead'] %}active{% endif %}">
+          <i class="bi bi-people-fill me-2"></i>
+          <span>{% if session.get('role') == 'admin' %}All Leads{% else %}My Leads{% endif %}</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('add_lead') }}"
+           class="nav-link text-white {% if request.endpoint == 'add_lead' %}active{% endif %}">
+          <i class="bi bi-person-plus me-2"></i><span>Add Lead</span>
+        </a>
+      </li>
+      {% if session.get('role') == 'admin' %}
+      <li class="nav-item">
+        <a href="{{ url_for('admin_lead_pool') }}"
+           class="nav-link text-white {% if request.endpoint in ['admin_lead_pool','import_lead_pool_csv','import_lead_pool_pdf','add_to_pool'] %}active{% endif %}">
+          <i class="bi bi-inbox-fill me-2"></i><span>Lead Pool</span>
+        </a>
+      </li>
+      {% endif %}
+      {% if session.get('role') == 'admin' %}
+      <li class="nav-item">
+        <a href="{{ url_for('recycle_bin') }}"
+           class="nav-link text-white {% if request.endpoint == 'recycle_bin' %}active{% endif %}">
+          <i class="bi bi-trash2 me-2"></i><span>Recycle Bin</span>
+        </a>
+      </li>
+      {% endif %}
+
+      <!-- ── Team (admin only) ─────────────────────────── -->
+      {% if session.get('role') == 'admin' %}
+      <li class="nav-section-label"><span>Team</span><hr class="nav-section-line"></li>
+
+      <li class="nav-item">
+        <a href="{{ url_for('team') }}"
+           class="nav-link text-white {% if request.endpoint == 'team' %}active{% endif %}">
+          <i class="bi bi-people me-2"></i><span>Members</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('reports_admin') }}"
+           class="nav-link text-white {% if request.endpoint == 'reports_admin' %}active{% endif %}">
+          <i class="bi bi-clipboard2-data me-2"></i><span>Reports</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('admin_approvals') }}"
+           class="nav-link text-white d-flex align-items-center justify-content-between {% if request.endpoint in ['admin_approvals','approve_user','reject_user'] %}active{% endif %}">
+          <span><i class="bi bi-person-check me-2"></i><span>Approvals</span></span>
+          {% if pending_count > 0 %}<span class="badge bg-warning text-dark">{{ pending_count }}</span>{% endif %}
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('admin_members') }}"
+           class="nav-link text-white {% if request.endpoint in ['admin_members','member_detail'] %}active{% endif %}">
+          <i class="bi bi-people me-2"></i><span>All Members</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('admin_training') }}"
+           class="nav-link text-white {% if request.endpoint in ['admin_training','admin_training_save_video','admin_training_toggle','admin_training_reset'] %}active{% endif %}">
+          <i class="bi bi-mortarboard me-2"></i><span>Training</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('admin_budget_export') }}"
+           class="nav-link text-white {% if request.endpoint == 'admin_budget_export' %}active{% endif %}">
+          <i class="bi bi-file-earmark-spreadsheet me-2"></i><span>Budget Export</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('admin_activity') }}"
+           class="nav-link text-white {% if request.endpoint == 'admin_activity' %}active{% endif %}">
+          <i class="bi bi-activity me-2"></i><span>Activity Log</span>
+        </a>
+      </li>
+      {% endif %}
+
+      <!-- ── Finance ───────────────────────────────────── -->
+      <li class="nav-section-label"><span>Finance</span><hr class="nav-section-line"></li>
+
+      {% if session.get('role') == 'admin' %}
+      <li class="nav-item">
+        <a href="{{ url_for('admin_wallet_requests') }}"
+           class="nav-link text-white d-flex align-items-center justify-content-between {% if request.endpoint in ['admin_wallet_requests','approve_recharge','reject_recharge'] %}active{% endif %}">
+          <span><i class="bi bi-wallet2 me-2"></i><span>Recharges</span></span>
+          {% if wallet_pending > 0 %}<span class="badge bg-success">{{ wallet_pending }}</span>{% endif %}
+        </a>
+      </li>
+      {% else %}
+      <li class="nav-item">
+        <a href="{{ url_for('wallet') }}"
+           class="nav-link text-white {% if request.endpoint == 'wallet' %}active{% endif %}">
+          <i class="bi bi-wallet2 me-2"></i><span>My Wallet</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('lead_pool') }}"
+           class="nav-link text-white {% if request.endpoint == 'lead_pool' %}active{% endif %}">
+          <i class="bi bi-lightning-charge me-2"></i><span>Lead Pool</span>
+        </a>
+      </li>
+      {% endif %}
+
+      <!-- ── Activity ──────────────────────────────────── -->
+      <li class="nav-section-label"><span>Activity</span><hr class="nav-section-line"></li>
+
+      {% if session.get('role') != 'admin' %}
+      <li class="nav-item">
+        <a href="{{ url_for('training_home') }}"
+           class="nav-link text-white {% if request.endpoint in ['training_home','training_complete_day','training_certificate','training_upload_certificate'] %}active{% endif %}">
+          {% if session.get('training_status') in ('pending', 'in_progress', 'completed') %}
+            <i class="bi bi-play-circle-fill me-2 text-warning"></i>
+          {% else %}
+            <i class="bi bi-mortarboard me-2"></i>
+          {% endif %}
+          <span>Training
+            {% if session.get('training_status') == 'completed' %}
+              <span class="badge bg-success ms-1" style="font-size:0.6rem;">Done</span>
+            {% elif session.get('training_status') in ('pending', 'in_progress') %}
+              <span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;">Required</span>
+            {% endif %}
+          </span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('report_submit') }}"
+           class="nav-link text-white {% if request.endpoint == 'report_submit' %}active{% endif %}">
+          <i class="bi bi-clipboard2-check me-2"></i><span>Daily Report</span>
+        </a>
+      </li>
+      {% endif %}
+      <li class="nav-item">
+        <a href="{{ url_for('leaderboard') }}"
+           class="nav-link text-white {% if request.endpoint == 'leaderboard' %}active{% endif %}">
+          <i class="bi bi-trophy me-2"></i><span>Leaderboard</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('announcements') }}"
+           class="nav-link text-white {% if request.endpoint in ['announcements','post_announcement','delete_announcement'] %}active{% endif %}">
+          <i class="bi bi-megaphone me-2"></i><span>Notice Board</span>
+        </a>
+      </li>
+      {% if session.get('role') != 'admin' %}
+      <li class="nav-item">
+        <a href="{{ url_for('retarget') }}"
+           class="nav-link text-white d-flex align-items-center justify-content-between {% if request.endpoint == 'retarget' %}active{% endif %}">
+          <span><i class="bi bi-bullseye me-2"></i><span>Retarget List</span></span>
+        </a>
+      </li>
+      {% endif %}
+      <li class="nav-item">
+        <a href="{{ url_for('live_session') if session.get('role') != 'admin' else url_for('admin_live_session') }}"
+           class="nav-link text-white {% if request.endpoint in ['live_session','admin_live_session'] %}active{% endif %}">
+          <i class="bi bi-camera-video me-2"></i><span>Live Session</span>
+        </a>
+      </li>
+
+      <!-- ── System (admin only) ───────────────────────── -->
+      {% if session.get('role') == 'admin' %}
+      <li class="nav-section-label"><span>System</span><hr class="nav-section-line"></li>
+      <li class="nav-item">
+        <a href="{{ url_for('admin_settings') }}"
+           class="nav-link text-white {% if request.endpoint == 'admin_settings' %}active{% endif %}">
+          <i class="bi bi-gear me-2"></i><span>Settings</span>
+        </a>
+      </li>
+      {% endif %}
+
+      <!-- ── Help ──────────────────────────────────────── -->
+      <li class="nav-item">
+        <a href="{{ url_for('help_page') }}"
+           class="nav-link text-white {% if request.endpoint == 'help_page' %}active{% endif %}">
+          <i class="bi bi-question-circle me-2"></i><span>Help & Tutorial</span>
+        </a>
+      </li>
+
+    </ul>
+
+    <hr />
+
+    <!-- User info in sidebar footer -->
+    <a href="{{ url_for('profile') }}" class="sidebar-user-link d-flex align-items-center gap-2 px-1 text-white text-decoration-none mb-2">
+      {% if session.get('has_dp') or session.get('dp') %}
+        {# Profile image served via route to avoid 4 KB cookie overflow #}
+        <img src="{{ url_for('profile_dp') }}" alt="DP"
+             style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.4);"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <span class="d-flex align-items-center justify-content-center rounded-circle bg-white bg-opacity-10"
+              style="width:36px;height:36px;flex-shrink:0;display:none!important;">
+          <i class="bi bi-person-fill" style="font-size:1.1rem;"></i>
+        </span>
+      {% else %}
+        <span class="d-flex align-items-center justify-content-center rounded-circle bg-white bg-opacity-10"
+              style="width:36px;height:36px;flex-shrink:0;">
+          <i class="bi bi-person-fill" style="font-size:1.1rem;"></i>
+        </span>
+      {% endif %}
+      <div class="d-flex flex-column" style="min-width:0;">
+        <span class="small fw-semibold text-truncate">{{ session.get('username', '') }}</span>
+        <span class="badge {% if session.get('role') == 'admin' %}bg-warning text-dark{% else %}bg-secondary{% endif %} px-2 py-1" style="font-size:0.65rem; width:fit-content;">
+          {{ session.get('role', '') | upper }}
+        </span>
+      </div>
     </a>
-  </li>
-  {% endif %}
-
-  <li class="nav-item mb-1">
-    <a href="{{ url_for('help_page') }}"
-       class="nav-link text-white {% if request.endpoint == 'help_page' %}active{% endif %}">
-      <i class="bi bi-question-circle me-2"></i><span>Help</span>
-    </a>
-  </li>
-
-</ul>
-
-<hr style="border-color:rgba(255,255,255,0.08);" />
-
-<!-- Sidebar user footer -->
-<a href="{{ url_for('profile') }}" class="sidebar-user-link d-flex align-items-center gap-2 px-1 text-white text-decoration-none mb-2">
-  {% if session.get('has_dp') or session.get('dp') %}
-    <img src="{{ url_for('profile_dp') }}" alt="DP"
-         style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.2);"
-         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-    <span class="d-flex align-items-center justify-content-center rounded-circle"
-          style="width:36px;height:36px;flex-shrink:0;background:rgba(99,102,241,0.3);display:none!important;">
-      <i class="bi bi-person-fill" style="font-size:1.1rem;color:#818cf8;"></i>
-    </span>
-  {% else %}
-    <span class="d-flex align-items-center justify-content-center rounded-circle"
-          style="width:36px;height:36px;flex-shrink:0;background:rgba(99,102,241,0.3);">
-      <i class="bi bi-person-fill" style="font-size:1.1rem;color:#818cf8;"></i>
-    </span>
-  {% endif %}
-  <div class="d-flex flex-column" style="min-width:0;">
-    <span class="small fw-semibold text-truncate" style="letter-spacing:-0.01em;">{{ session.get('username', '') }}</span>
-    <span class="badge px-2 py-1 mt-1"
-          style="font-size:0.6rem;width:fit-content;background:{% if session.get('role') == 'admin' %}rgba(245,158,11,0.25);color:#fbbf24{% else %}rgba(255,255,255,0.1);color:rgba(255,255,255,0.5){% endif %};">
-      {{ session.get('role', '') | upper }}
-    </span>
-  </div>
-</a>
-<div class="d-flex gap-2">
-  <a href="{{ url_for('change_password') }}" class="btn btn-sm btn-outline-light flex-fill" title="Change Password"
-     style="font-size:0.75rem;border-color:rgba(255,255,255,0.15);color:rgba(255,255,255,0.65);">
-    <i class="bi bi-key-fill me-1"></i><span>Password</span>
-  </a>
-  <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light flex-fill"
-     style="font-size:0.75rem;border-color:rgba(255,255,255,0.15);color:rgba(255,255,255,0.65);">
-    <i class="bi bi-box-arrow-right me-1"></i><span>Logout</span>
-  </a>
-</div>
-```
-
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('change_password') }}" class="btn btn-sm btn-outline-light flex-fill" title="Change Password">
+        <i class="bi bi-key-fill me-1"></i><span>Password</span>
+      </a>
+      <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light flex-fill">
+        <i class="bi bi-box-arrow-right me-1"></i><span>Logout</span>
+      </a>
+    </div>
   </nav>
 
-  <!-- ── Page content ──────────────────────────────────── -->
-
+  <!-- ── Page content ─────────────────────────────────────── -->
   <div id="page-content-wrapper" class="w-100">
+    <nav class="navbar border-bottom px-4 py-2" data-bs-theme="light">
+      <button class="btn btn-sm btn-outline-secondary me-3" id="sidebarToggle" aria-label="Toggle sidebar">
+        <i class="bi bi-list fs-5"></i>
+      </button>
+      <span class="fw-semibold text-secondary">{% block page_title %}{% endblock %}</span>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <!-- Dark mode toggle -->
+        <button id="darkToggle" class="btn btn-sm btn-outline-secondary" title="Toggle dark mode">
+          <i class="bi bi-moon-fill" id="darkIcon"></i>
+        </button>
+        {% if session.get('username') %}
+        <!-- Notification bell -->
+        <button id="notifBtn" class="btn btn-sm btn-outline-secondary" title="Enable Notifications"
+                onclick="enablePushNotifications()" style="display:none;">
+          <i class="bi bi-bell-slash-fill" id="notifIcon"></i>
+        </button>
+        {% endif %}
+        {% if session.get('role') == 'admin' %}
+        <a href="{{ url_for('add_lead') }}" class="btn btn-primary btn-sm d-none d-sm-inline-flex">
+          <i class="bi bi-plus-lg me-1"></i>Add Lead
+        </a>
+        {% else %}
+        <a href="{{ url_for('lead_pool') }}" class="btn btn-warning btn-sm text-dark fw-semibold d-none d-sm-inline-flex">
+          <i class="bi bi-lightning-charge-fill me-1"></i>Lead Pool
+        </a>
+        {% endif %}
+      </div>
+    </nav>
 
-```
-<!-- Navbar -->
-<nav class="navbar border-bottom px-3 px-md-4 py-0" data-bs-theme="light">
-  <button class="btn btn-sm me-3" id="sidebarToggle" aria-label="Toggle sidebar"
-          style="background:transparent;border:1px solid rgba(0,0,0,0.1);width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:8px;">
-    <i class="bi bi-list fs-5"></i>
-  </button>
-  <span class="fw-semibold text-secondary" style="font-size:0.9rem;letter-spacing:-0.01em;">{% block page_title %}{% endblock %}</span>
-  <div class="ms-auto d-flex align-items-center gap-2">
-    <!-- Dark mode -->
-    <button id="darkToggle" class="btn btn-sm" title="Toggle dark mode"
-            style="background:transparent;border:1px solid rgba(0,0,0,0.1);width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:8px;">
-      <i class="bi bi-moon-fill" id="darkIcon" style="font-size:0.85rem;"></i>
-    </button>
-    {% if session.get('username') %}
-    <button id="notifBtn" class="btn btn-sm" title="Enable Notifications"
-            onclick="enablePushNotifications()" style="display:none;background:transparent;border:1px solid rgba(0,0,0,0.1);width:36px;height:36px;padding:0;display:none;align-items:center;justify-content:center;border-radius:8px;">
-      <i class="bi bi-bell-slash-fill" id="notifIcon" style="font-size:0.85rem;"></i>
-    </button>
-    {% endif %}
-    {% if session.get('role') == 'admin' %}
-    <a href="{{ url_for('add_lead') }}" class="btn btn-primary btn-sm d-none d-sm-inline-flex">
-      <i class="bi bi-plus-lg me-1"></i>Add Lead
-    </a>
-    {% else %}
-    <a href="{{ url_for('follow_up_queue') }}" class="btn btn-sm d-none d-sm-inline-flex position-relative"
-       style="background:#eef2ff;color:#6366f1;border:1px solid #c7d2fe;font-weight:600;">
-      <i class="bi bi-telephone-outbound-fill me-1"></i>Queue
-      {% if follow_up_queue_count and follow_up_queue_count > 0 %}
-      <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
-            style="font-size:0.55rem;">{{ follow_up_queue_count }}</span>
-      {% endif %}
-    </a>
-    {% endif %}
-  </div>
-</nav>
+    <div class="container-fluid p-4">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for cat, msg in messages %}
+            <div class="alert alert-{{ cat }} alert-dismissible fade show shadow-sm mb-3 js-autodismiss" role="alert">
+              {% if cat == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>
+              {% elif cat == 'danger' %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+              {% elif cat == 'warning' %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+              {% else %}<i class="bi bi-info-circle-fill me-2"></i>{% endif %}
+              {{ msg }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
 
-<div class="container-fluid p-3 p-md-4">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for cat, msg in messages %}
-        <div class="alert alert-{{ cat }} alert-dismissible fade show shadow-sm mb-3 js-autodismiss" role="alert">
-          {% if cat == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>
-          {% elif cat == 'danger' %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
-          {% elif cat == 'warning' %}<i class="bi bi-exclamation-circle-fill me-2"></i>
-          {% else %}<i class="bi bi-info-circle-fill me-2"></i>{% endif %}
-          {{ msg }}
-          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
-
-  {% block content %}{% endblock %}
-</div>
-```
-
+      {% block content %}{% endblock %}
+    </div>
   </div>
 </div>
 
-<!-- ── Mobile Bottom Nav ──────────────────────────────── -->
-
-{% if session.get(‘username’) %}
-
+<!-- ── Mobile Bottom Nav ──────────────────────────────────── -->
+{% if session.get('username') %}
 <nav class="mobile-bottom-nav d-md-none">
   {% if session.get('role') == 'admin' %}
   <a href="{{ url_for('admin_dashboard') }}" class="mbn-item {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
@@ -394,285 +361,383 @@
   <a href="{{ url_for('leads') }}" class="mbn-item {% if request.endpoint in ['leads','add_lead','edit_lead'] %}active{% endif %}">
     <i class="bi bi-people-fill"></i><span>Leads</span>
   </a>
-  <a href="{{ url_for('follow_up_queue') }}" class="mbn-item {% if request.endpoint == 'follow_up_queue' %}active{% endif %}">
-    <span class="mbn-icon-wrap">
-      <i class="bi bi-telephone-outbound-fill"></i>
-      {% if follow_up_queue_count and follow_up_queue_count > 0 %}
-      <span class="mbn-badge-dot">{{ follow_up_queue_count if follow_up_queue_count < 10 else '9+' }}</span>
-      {% endif %}
-    </span>
-    <span>Queue</span>
-  </a>
   <a href="{{ url_for('lead_pool') }}" class="mbn-item {% if request.endpoint == 'lead_pool' %}active{% endif %}">
     <i class="bi bi-lightning-charge-fill"></i><span>Pool</span>
   </a>
   <a href="{{ url_for('wallet') }}" class="mbn-item {% if request.endpoint == 'wallet' %}active{% endif %}">
     <i class="bi bi-wallet2"></i><span>Wallet</span>
   </a>
+  <a href="{{ url_for('retarget') }}" class="mbn-item {% if request.endpoint == 'retarget' %}active{% endif %}">
+    <i class="bi bi-bullseye"></i><span>Retarget</span>
+  </a>
   {% endif %}
 </nav>
 {% endif %}
 
 <!-- Top progress bar -->
-
 <div id="topbar"></div>
+
 <!-- Toast container -->
 <div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
 <script>
-/* ── Top Progress Bar ─────────────────────────────────── */
-const topbar = document.getElementById('topbar');
-function topbarStart() { topbar.classList.add('topbar-running'); }
-function topbarDone()  { topbar.classList.add('topbar-done'); setTimeout(() => { topbar.className = ''; }, 400); }
-document.querySelectorAll('a[href]').forEach(a => {
-  if (!a.target && !a.href.startsWith('#') && !a.href.startsWith('tel:') &&
-      !a.href.startsWith('https://wa.me') && !a.href.startsWith('upi:') &&
-      !a.href.startsWith('phonepe:') && !a.href.startsWith('paytm') &&
-      !a.href.startsWith('gpay:')) {
-    a.addEventListener('click', topbarStart);
-  }
-});
-window.addEventListener('load', topbarDone);
+  /* ── Top progress bar ───────────────────────────────── */
+  const topbar = document.getElementById('topbar');
+  function topbarStart() { topbar.classList.add('topbar-running'); }
+  function topbarDone()  { topbar.classList.add('topbar-done');
+    setTimeout(() => { topbar.className = ''; }, 400); }
 
-/* ── WhatsApp Business helper ─────────────────────────── */
-const _isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-function openWABusiness(phone) {
-  const url = _isIOS
-    ? 'https://wa.me/' + phone
-    : 'intent://send?phone=%2B' + phone + '#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end';
-  window.open(url, '_blank', 'noopener');
-}
-
-/* ── Toast ────────────────────────────────────────────── */
-const toastContainer = document.getElementById('toastContainer');
-function showToast(msg, type = 'success') {
-  const icons = { success:'check-circle-fill', danger:'exclamation-triangle-fill',
-                  warning:'exclamation-circle-fill', info:'info-circle-fill' };
-  const t = document.createElement('div');
-  t.className = `toast align-items-center text-bg-${type} border-0 mb-2`;
-  t.setAttribute('role', 'alert');
-  t.innerHTML = `<div class="d-flex"><div class="toast-body">
-    <i class="bi bi-${icons[type]||icons.info} me-2"></i>${msg}
-  </div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
-  toastContainer.appendChild(t);
-  new bootstrap.Toast(t, { delay: 3000 }).show();
-  t.addEventListener('hidden.bs.toast', () => t.remove());
-}
-
-/* ── Sidebar ──────────────────────────────────────────── */
-const sidebar  = document.getElementById('sidebar');
-const backdrop = document.getElementById('sidebarBackdrop');
-function isMobile() { return window.innerWidth <= 768; }
-function closeMobileSidebar() {
-  sidebar.classList.remove('mobile-open');
-  backdrop.classList.remove('show');
-  document.body.style.overflow = '';
-}
-document.getElementById('sidebarToggle').addEventListener('click', () => {
-  if (isMobile()) {
-    const opening = !sidebar.classList.contains('mobile-open');
-    sidebar.classList.toggle('mobile-open');
-    backdrop.classList.toggle('show');
-    document.body.style.overflow = opening ? 'hidden' : '';
-  } else {
-    sidebar.classList.toggle('collapsed');
-  }
-});
-backdrop.addEventListener('click', closeMobileSidebar);
-document.querySelectorAll('#sidebar .nav-link').forEach(link => {
-  link.addEventListener('click', () => { if (isMobile()) closeMobileSidebar(); });
-});
-window.addEventListener('resize', () => {
-  if (!isMobile()) { backdrop.classList.remove('show'); document.body.style.overflow = ''; }
-});
-
-/* ── Auto-dismiss flash alerts ────────────────────────── */
-document.querySelectorAll('.js-autodismiss').forEach(el => {
-  setTimeout(() => {
-    const bsAlert = bootstrap.Alert.getOrCreateInstance(el);
-    if (bsAlert) bsAlert.close();
-  }, 4000);
-});
-
-/* ── Button loading state ─────────────────────────────── */
-document.querySelectorAll('form').forEach(form => {
-  form.addEventListener('submit', function() {
-    const btn = this.querySelector('button[type="submit"]');
-    if (btn && !btn.dataset.noloading) {
-      const hasFile = !!this.querySelector('input[type="file"]');
-      btn.classList.add('btn-loading');
-      btn.disabled = true;
-      if (hasFile) {
-        const origText = btn.innerHTML;
-        btn.innerHTML = '<span style="opacity:.85">Uploading… please wait</span>';
-        window.addEventListener('pageshow', function(e) {
-          if (e.persisted) { btn.classList.remove('btn-loading'); btn.disabled = false; btn.innerHTML = origText; }
-        }, { once: true });
-      } else {
-        setTimeout(() => { btn.classList.remove('btn-loading'); btn.disabled = false; }, 8000);
-      }
+  /* Start bar on any nav link click */
+  document.querySelectorAll('a[href]').forEach(a => {
+    if (!a.target && !a.href.startsWith('#') && !a.href.startsWith('tel:') &&
+        !a.href.startsWith('https://wa.me') && !a.href.startsWith('upi:') &&
+        !a.href.startsWith('phonepe:') && !a.href.startsWith('paytm') &&
+        !a.href.startsWith('gpay:')) {
+      a.addEventListener('click', topbarStart);
     }
   });
-});
+  /* Complete on load */
+  window.addEventListener('load', topbarDone);
 
-/* ── AJAX Status Select ───────────────────────────────── */
-document.addEventListener('change', function(e) {
-  const sel = e.target;
-  if (!sel.classList.contains('status-select') || !sel.dataset.leadId) return;
-  const leadId = sel.dataset.leadId;
-  const status = sel.value;
-  const form   = sel.closest('form');
-  fetch(`/leads/${leadId}/status`, {
-    method: 'POST',
-    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ status })
-  })
-  .then(r => r.json())
-  .then(data => {
-    if (data.ok) {
-      sel.className = sel.className.replace(/status-\S+/g, '').trim() + ' status-' + status.replace(/ /g, '');
-      const card = sel.closest('.lead-mobile-card');
-      if (card) {
-        const badge = card.querySelector('.badge[class*="status-"]');
-        if (badge) { badge.className = 'badge status-' + status.replace(/ /g,'') + ' ms-2'; badge.textContent = status; }
+  /* ── WhatsApp Business helper (iOS/Android aware) ────── */
+  const _isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  function openWABusiness(phone) {
+    const url = _isIOS
+      ? 'https://wa.me/' + phone
+      : 'intent://send?phone=%2B' + phone + '#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end';
+    window.open(url, '_blank', 'noopener');
+  }
+
+  /* ── Toast helper ───────────────────────────────────── */
+  const toastContainer = document.getElementById('toastContainer');
+  function showToast(msg, type = 'success') {
+    const icons = { success:'check-circle-fill', danger:'exclamation-triangle-fill',
+                    warning:'exclamation-circle-fill', info:'info-circle-fill' };
+    const t = document.createElement('div');
+    t.className = `toast align-items-center text-bg-${type} border-0 mb-2`;
+    t.setAttribute('role', 'alert');
+    t.innerHTML = `<div class="d-flex"><div class="toast-body">
+      <i class="bi bi-${icons[type]||icons.info} me-2"></i>${msg}
+    </div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+    toastContainer.appendChild(t);
+    new bootstrap.Toast(t, { delay: 3000 }).show();
+    t.addEventListener('hidden.bs.toast', () => t.remove());
+  }
+
+  /* ── Sidebar ────────────────────────────────────────── */
+  const sidebar  = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebarBackdrop');
+
+  function isMobile() { return window.innerWidth <= 768; }
+
+  function closeMobileSidebar() {
+    sidebar.classList.remove('mobile-open');
+    backdrop.classList.remove('show');
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('sidebarToggle').addEventListener('click', () => {
+    if (isMobile()) {
+      const opening = !sidebar.classList.contains('mobile-open');
+      sidebar.classList.toggle('mobile-open');
+      backdrop.classList.toggle('show');
+      document.body.style.overflow = opening ? 'hidden' : '';
+    } else {
+      sidebar.classList.toggle('collapsed');
+    }
+  });
+
+  backdrop.addEventListener('click', closeMobileSidebar);
+
+  document.querySelectorAll('#sidebar .nav-link').forEach(link => {
+    link.addEventListener('click', () => { if (isMobile()) closeMobileSidebar(); });
+  });
+
+  window.addEventListener('resize', () => {
+    if (!isMobile()) { backdrop.classList.remove('show'); document.body.style.overflow = ''; }
+  });
+
+  /* ── Auto-dismiss flash alerts after 4s ─────────────── */
+  document.querySelectorAll('.js-autodismiss').forEach(el => {
+    setTimeout(() => {
+      const bsAlert = bootstrap.Alert.getOrCreateInstance(el);
+      if (bsAlert) bsAlert.close();
+    }, 4000);
+  });
+
+  /* ── Button loading state on form submit ────────────── */
+  document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', function() {
+      const btn = this.querySelector('button[type="submit"]');
+      if (btn && !btn.dataset.noloading) {
+        const hasFile = !!this.querySelector('input[type="file"]');
+        btn.classList.add('btn-loading');
+        btn.disabled = true;
+        if (hasFile) {
+          /* File upload — keep spinner until page unloads (no timeout) */
+          const origText = btn.innerHTML;
+          btn.innerHTML = '<span style="opacity:.85">Uploading… please wait</span>';
+          /* Re-enable only if user navigates back (browser back button) */
+          window.addEventListener('pageshow', function(e) {
+            if (e.persisted) { btn.classList.remove('btn-loading'); btn.disabled = false; btn.innerHTML = origText; }
+          }, { once: true });
+        } else {
+          setTimeout(() => { btn.classList.remove('btn-loading'); btn.disabled = false; }, 8000);
+        }
       }
-      showToast('Status → ' + status, 'success');
-    } else { showToast(data.error || 'Failed to update status', 'danger'); }
-  })
-  .catch(() => { if (form) form.submit(); });
-  e.preventDefault();
-});
+    });
+  });
 
-/* ── Tooltip init ─────────────────────────────────────── */
-document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el, { placement: 'right' }));
+  /* ── AJAX Status Select ─────────────────────────────── */
+  document.addEventListener('change', function(e) {
+    const sel = e.target;
+    if (!sel.classList.contains('status-select') || !sel.dataset.leadId) return;
 
-/* ── Dark Mode ────────────────────────────────────────── */
-const darkToggle = document.getElementById('darkToggle');
-const darkIcon   = document.getElementById('darkIcon');
-function applyDark(on) {
-  document.documentElement.setAttribute('data-theme', on ? 'dark' : 'light');
-  darkIcon.className = on ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
-  darkIcon.style.fontSize = '0.85rem';
-}
-applyDark(localStorage.getItem('myle-dark') === '1');
-darkToggle.addEventListener('click', () => {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  localStorage.setItem('myle-dark', isDark ? '0' : '1');
-  applyDark(!isDark);
-});
+    const leadId = sel.dataset.leadId;
+    const status = sel.value;
+    const form   = sel.closest('form');
 
-/* ── CSRF Auto-inject ─────────────────────────────────── */
-(function () {
-  const _csrfToken = '{{ csrf_token }}';
-  if (!_csrfToken) return;
-  function _injectForms() {
-    document.querySelectorAll('form').forEach(function (form) {
-      if (!form.querySelector('input[name="csrf_token"]')) {
-        const inp = document.createElement('input');
-        inp.type = 'hidden'; inp.name = 'csrf_token'; inp.value = _csrfToken;
-        form.appendChild(inp);
+    fetch(`/leads/${leadId}/status`, {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest',
+                 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ status })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        /* Update select color class */
+        sel.className = sel.className.replace(/status-\S+/g, '').trim() +
+                        ' status-' + status.replace(/ /g, '');
+        /* Also update card badge if present (mobile) */
+        const card = sel.closest('.lead-mobile-card');
+        if (card) {
+          const badge = card.querySelector('.badge[class*="status-"]');
+          if (badge) {
+            badge.className = 'badge status-' + status.replace(/ /g,'') + ' ms-2';
+            badge.textContent = status;
+          }
+        }
+        showToast('Status → ' + status, 'success');
+      } else {
+        showToast(data.error || 'Failed to update status', 'danger');
+        /* Revert select to previous value by reloading if needed */
+      }
+    })
+    .catch(() => {
+      /* Fallback: submit the form normally */
+      if (form) form.submit();
+    });
+
+    e.preventDefault();
+  });
+
+  /* ── Tooltip init ───────────────────────────────────── */
+  const tooltipEls = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+  tooltipEls.forEach(el => new bootstrap.Tooltip(el, { placement: 'right' }));
+
+  /* ── Dark Mode ──────────────────────────────────────── */
+  const darkToggle = document.getElementById('darkToggle');
+  const darkIcon   = document.getElementById('darkIcon');
+
+  function applyDark(on) {
+    document.documentElement.setAttribute('data-theme', on ? 'dark' : 'light');
+    darkIcon.className = on ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+  }
+
+  // Load saved preference
+  applyDark(localStorage.getItem('myle-dark') === '1');
+
+  darkToggle.addEventListener('click', () => {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    localStorage.setItem('myle-dark', isDark ? '0' : '1');
+    applyDark(!isDark);
+  });
+
+  /* ── CSRF Auto-inject ────────────────────────────────
+   * Automatically adds the CSRF token to every POST form
+   * and to fetch() calls so no template needs to be changed. */
+  (function () {
+    const _csrfToken = '{{ csrf_token }}';
+    if (!_csrfToken) return;
+
+    /* 1. Inject hidden field into all forms on the page */
+    function _injectForms() {
+      document.querySelectorAll('form').forEach(function (form) {
+        if (!form.querySelector('input[name="csrf_token"]')) {
+          const inp = document.createElement('input');
+          inp.type  = 'hidden';
+          inp.name  = 'csrf_token';
+          inp.value = _csrfToken;
+          form.appendChild(inp);
+        }
+      });
+    }
+    _injectForms();
+
+    /* 2. Patch fetch() so AJAX POST/PUT/DELETE requests also carry the token */
+    const _origFetch = window.fetch;
+    window.fetch = function (url, opts) {
+      opts = opts || {};
+      const method = (opts.method || 'GET').toUpperCase();
+      if (method !== 'GET' && method !== 'HEAD') {
+        opts.headers = opts.headers || {};
+        opts.headers['X-CSRF-Token'] = _csrfToken;
+      }
+      return _origFetch.call(this, url, opts);
+    };
+
+    /* 3. Also inject into dynamically added forms (e.g. modals) */
+    if (window.MutationObserver) {
+      new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+          m.addedNodes.forEach(function (node) {
+            if (node.nodeType === 1) {
+              if (node.tagName === 'FORM') _injectForms();
+              else if (node.querySelectorAll) {
+                if (node.querySelectorAll('form').length) _injectForms();
+              }
+            }
+          });
+        });
+      }).observe(document.body, { childList: true, subtree: true });
+    }
+  })();
+</script>
+{% block scripts %}{% endblock %}
+
+<!-- PWA Service Worker + Push Subscription -->
+<script>
+  function _urlB64ToUint8Array(b64) {
+    const pad = '='.repeat((4 - b64.length % 4) % 4);
+    const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+  }
+
+  let _swReg = null;
+
+  /* Update the bell icon based on current permission state */
+  function _updateNotifUI() {
+    const btn  = document.getElementById('notifBtn');
+    const icon = document.getElementById('notifIcon');
+    if (!btn || !('Notification' in window)) return;
+    btn.style.display = 'inline-flex';
+    const perm = Notification.permission;
+    if (perm === 'granted') {
+      icon.className = 'bi bi-bell-fill text-warning';
+      btn.title = 'Notifications ON';
+    } else if (perm === 'denied') {
+      icon.className = 'bi bi-bell-slash-fill text-danger';
+      btn.title = 'Notifications blocked — allow in browser settings';
+    } else {
+      icon.className = 'bi bi-bell-fill';
+      btn.title = 'Enable Notifications';
+    }
+  }
+
+  /* Subscribe this browser to push and save on server */
+  async function _doSubscribe(reg) {
+    const res = await fetch('/push/vapid-key');
+    const { public_key } = await res.json();
+    if (!public_key) { console.warn('[Push] No VAPID key from server'); return; }
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: _urlB64ToUint8Array(public_key)
+    });
+    const r = await fetch('/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sub.toJSON())
+    });
+    const json = await r.json();
+    console.log('[Push] Subscribed:', json);
+    _updateNotifUI();
+  }
+
+  /* Called automatically on load + by bell button click */
+  async function initPushSubscription(reg) {
+    if (!('PushManager' in window)) { console.warn('[Push] PushManager not supported'); return; }
+    try {
+      // Always fetch current server VAPID public key first
+      const keyRes = await fetch('/push/vapid-key');
+      const { public_key: serverKey } = await keyRes.json();
+      if (!serverKey) { console.warn('[Push] No VAPID key from server'); return; }
+
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) {
+        // Check if the existing subscription was made with the current VAPID key
+        // by comparing the applicationServerKey stored in the subscription
+        let keyMismatch = false;
+        try {
+          const subKey = existing.options && existing.options.applicationServerKey;
+          if (subKey) {
+            const subKeyB64 = btoa(String.fromCharCode(...new Uint8Array(subKey)))
+              .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+            keyMismatch = (subKeyB64 !== serverKey);
+          }
+        } catch(_) {}
+
+        if (keyMismatch) {
+          console.log('[Push] VAPID key changed — unsubscribing old subscription and re-subscribing...');
+          await existing.unsubscribe();
+        } else {
+          // Key matches — just re-sync endpoint with server
+          await fetch('/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(existing.toJSON())
+          });
+          console.log('[Push] Re-synced existing subscription');
+          _updateNotifUI();
+          return;
+        }
+      }
+
+      // No subscription or old one was cleared — create fresh one
+      if (Notification.permission === 'granted') {
+        await _doSubscribe(reg);
+      } else if (Notification.permission !== 'denied') {
+        const perm = await Notification.requestPermission();
+        console.log('[Push] Permission:', perm);
+        if (perm === 'granted') await _doSubscribe(reg);
+        _updateNotifUI();
+      } else {
+        console.warn('[Push] Permission denied by user');
+        _updateNotifUI();
+      }
+    } catch (err) {
+      console.error('[Push] Subscription error:', err);
+    }
+  }
+
+  /* Bell button manual trigger */
+  async function enablePushNotifications() {
+    if (!_swReg) { showToast('Service Worker not ready', 'warning'); return; }
+    if (Notification.permission === 'denied') {
+      showToast('Notifications blocked — please allow in your browser/phone settings then refresh', 'warning');
+      return;
+    }
+    await initPushSubscription(_swReg);
+    if (Notification.permission === 'granted') showToast('Notifications enabled!', 'success');
+  }
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+      try {
+        _swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        console.log('[SW] Registered:', _swReg.scope);
+        {% if session.get('username') %}
+        await initPushSubscription(_swReg);
+        {% endif %}
+        _updateNotifUI();
+      } catch (err) {
+        console.error('[SW] Registration failed:', err);
       }
     });
   }
-  _injectForms();
-  const _origFetch = window.fetch;
-  window.fetch = function (url, opts) {
-    opts = opts || {};
-    const method = (opts.method || 'GET').toUpperCase();
-    if (method !== 'GET' && method !== 'HEAD') {
-      opts.headers = opts.headers || {};
-      opts.headers['X-CSRF-Token'] = _csrfToken;
-    }
-    return _origFetch.call(this, url, opts);
-  };
-  if (window.MutationObserver) {
-    new MutationObserver(function (mutations) {
-      mutations.forEach(function (m) {
-        m.addedNodes.forEach(function (node) {
-          if (node.nodeType === 1) {
-            if (node.tagName === 'FORM') _injectForms();
-            else if (node.querySelectorAll && node.querySelectorAll('form').length) _injectForms();
-          }
-        });
-      });
-    }).observe(document.body, { childList: true, subtree: true });
-  }
-})();
 </script>
-
-{% block scripts %}{% endblock %}
-
-<!-- PWA Service Worker + Push -->
-
-<script>
-function _urlB64ToUint8Array(b64) {
-  const pad = '='.repeat((4 - b64.length % 4) % 4);
-  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
-  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
-}
-let _swReg = null;
-function _updateNotifUI() {
-  const btn = document.getElementById('notifBtn');
-  const icon = document.getElementById('notifIcon');
-  if (!btn || !('Notification' in window)) return;
-  btn.style.display = 'inline-flex';
-  const perm = Notification.permission;
-  if (perm === 'granted') { icon.className = 'bi bi-bell-fill text-warning'; icon.style.fontSize='0.85rem'; btn.title = 'Notifications ON'; }
-  else if (perm === 'denied') { icon.className = 'bi bi-bell-slash-fill text-danger'; icon.style.fontSize='0.85rem'; btn.title = 'Notifications blocked'; }
-  else { icon.className = 'bi bi-bell-fill'; icon.style.fontSize='0.85rem'; btn.title = 'Enable Notifications'; }
-}
-async function _doSubscribe(reg) {
-  const res = await fetch('/push/vapid-key');
-  const { public_key } = await res.json();
-  if (!public_key) return;
-  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _urlB64ToUint8Array(public_key) });
-  const r = await fetch('/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub.toJSON()) });
-  _updateNotifUI();
-}
-async function initPushSubscription(reg) {
-  if (!('PushManager' in window)) return;
-  try {
-    const keyRes = await fetch('/push/vapid-key');
-    const { public_key: serverKey } = await keyRes.json();
-    if (!serverKey) return;
-    const existing = await reg.pushManager.getSubscription();
-    if (existing) {
-      let keyMismatch = false;
-      try {
-        const subKey = existing.options && existing.options.applicationServerKey;
-        if (subKey) {
-          const subKeyB64 = btoa(String.fromCharCode(...new Uint8Array(subKey))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-          keyMismatch = (subKeyB64 !== serverKey);
-        }
-      } catch(_) {}
-      if (keyMismatch) { await existing.unsubscribe(); }
-      else { await fetch('/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(existing.toJSON()) }); _updateNotifUI(); return; }
-    }
-    if (Notification.permission === 'granted') { await _doSubscribe(reg); }
-    else if (Notification.permission !== 'denied') { const perm = await Notification.requestPermission(); if (perm === 'granted') await _doSubscribe(reg); _updateNotifUI(); }
-    else { _updateNotifUI(); }
-  } catch (err) { console.error('[Push] Subscription error:', err); }
-}
-async function enablePushNotifications() {
-  if (!_swReg) { showToast('Service Worker not ready', 'warning'); return; }
-  if (Notification.permission === 'denied') { showToast('Notifications blocked — allow in browser settings', 'warning'); return; }
-  await initPushSubscription(_swReg);
-  if (Notification.permission === 'granted') showToast('Notifications enabled!', 'success');
-}
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    try {
-      _swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-      {% if session.get('username') %} await initPushSubscription(_swReg); {% endif %}
-      _updateNotifUI();
-    } catch (err) { console.error('[SW] Registration failed:', err); }
-  });
-}
-</script>
-
 {% block extra_scripts %}{% endblock %}
-
 </body>
 </html>
