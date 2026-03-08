@@ -264,7 +264,7 @@ def _get_metrics(db, username=None):
     track_sel    = db.execute(f"SELECT COUNT(*) FROM leads WHERE {base} AND status='Track Selected'", params).fetchone()[0] or 0
     seat_hold    = db.execute(f"SELECT COUNT(*) FROM leads WHERE {base} AND status='Seat Hold Confirmed'", params).fetchone()[0] or 0
     fully_conv   = db.execute(f"SELECT COUNT(*) FROM leads WHERE {base} AND status='Fully Converted'", params).fetchone()[0] or 0
-    seat_rev     = db.execute(f"SELECT COALESCE(SUM(seat_hold_amount),0) FROM leads WHERE {base} AND status IN ('Seat Hold Confirmed','Fully Converted')", params).fetchone()[0] or 0
+    seat_rev     = db.execute(f"SELECT COALESCE(SUM(seat_hold_amount),0) FROM leads WHERE {base} AND status='Seat Hold Confirmed'", params).fetchone()[0] or 0
     final_rev    = db.execute(f"SELECT COALESCE(SUM(track_price),0) FROM leads WHERE {base} AND status='Fully Converted'", params).fetchone()[0] or 0
 
     return dict(
@@ -1479,6 +1479,9 @@ def edit_lead(lead_id):
         if final_payment_received:
             status = 'Fully Converted'
             pending_amount_val = 0.0
+            # If seat hold was NOT separately received, clear the amount
+            if not seat_hold_received:
+                seat_hold_amount_val = 0.0
         elif seat_hold_received:
             status = 'Seat Hold Confirmed'
         else:
@@ -3480,7 +3483,7 @@ def leaderboard():
               / NULLIF(COUNT(l.id),0)*100, 1)                                    AS paid_pct,
             SUM(CASE WHEN l.status='Seat Hold Confirmed' THEN 1 ELSE 0 END)     AS seat_holds,
             SUM(CASE WHEN l.status='Fully Converted'     THEN 1 ELSE 0 END)     AS fully_conv,
-            COALESCE(SUM(CASE WHEN l.status IN ('Seat Hold Confirmed','Fully Converted')
+            COALESCE(SUM(CASE WHEN l.status='Seat Hold Confirmed'
                               THEN l.seat_hold_amount ELSE 0 END), 0)           AS seat_rev
         FROM users u
         LEFT JOIN leads l ON l.assigned_to=u.username AND l.in_pool=0
