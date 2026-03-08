@@ -4131,12 +4131,16 @@ def training_home():
     ts = session.get('training_status', 'not_required')
     db = get_db()
 
-    # ── Old members / fully unlocked: show downline progress (read-only) ──
+    # ── Old members / fully unlocked: show videos freely + downline progress ──
     if ts in ('not_required', 'unlocked'):
         user_row = db.execute(
             "SELECT fbo_id FROM users WHERE username=?", (username,)
         ).fetchone()
         fbo_id = user_row['fbo_id'] if user_row else ''
+
+        # All training videos (freely watchable)
+        videos = {v['day_number']: v for v in
+                  db.execute("SELECT * FROM training_videos ORDER BY day_number").fetchall()}
 
         # Direct downline who have training_required=1
         downline_rows = db.execute("""
@@ -4157,7 +4161,7 @@ def training_home():
                                training_status=ts,
                                downline=downline_rows,
                                days=range(1, 8),
-                               videos={}, progress={},
+                               videos=videos, progress={},
                                current_day=None, current_video=None,
                                all_done=False, joining_date='')
 
