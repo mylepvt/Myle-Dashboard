@@ -100,6 +100,10 @@ def init_db():
             status                TEXT    NOT NULL DEFAULT 'pending',
             display_picture       TEXT    NOT NULL DEFAULT '',
             calling_reminder_time TEXT    NOT NULL DEFAULT '',
+            training_required     INTEGER NOT NULL DEFAULT 0,
+            training_status       TEXT    NOT NULL DEFAULT 'not_required',
+            joining_date          TEXT    NOT NULL DEFAULT '',
+            certificate_path      TEXT    NOT NULL DEFAULT '',
             created_at            TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
         )
     """)
@@ -184,6 +188,30 @@ def init_db():
         )
     """)
 
+    # Training videos (one per day, 7 days)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS training_videos (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            day_number  INTEGER NOT NULL UNIQUE,
+            title       TEXT    NOT NULL DEFAULT '',
+            youtube_url TEXT    NOT NULL DEFAULT '',
+            description TEXT    NOT NULL DEFAULT '',
+            created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+        )
+    """)
+
+    # Training progress per user per day
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS training_progress (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            username     TEXT    NOT NULL,
+            day_number   INTEGER NOT NULL,
+            completed    INTEGER NOT NULL DEFAULT 0,
+            completed_at TEXT    NOT NULL DEFAULT '',
+            UNIQUE(username, day_number)
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -235,13 +263,18 @@ def migrate_db():
         pass
 
     for col, definition in [
-        ("fbo_id",           "TEXT NOT NULL DEFAULT ''"),
-        ("upline_name",      "TEXT NOT NULL DEFAULT ''"),
-        ("phone",            "TEXT NOT NULL DEFAULT ''"),
-        ("email",            "TEXT NOT NULL DEFAULT ''"),
-        ("status",           "TEXT NOT NULL DEFAULT 'pending'"),
-        ("display_picture",      "TEXT NOT NULL DEFAULT ''"),
+        ("fbo_id",                "TEXT NOT NULL DEFAULT ''"),
+        ("upline_name",           "TEXT NOT NULL DEFAULT ''"),
+        ("phone",                 "TEXT NOT NULL DEFAULT ''"),
+        ("email",                 "TEXT NOT NULL DEFAULT ''"),
+        ("status",                "TEXT NOT NULL DEFAULT 'pending'"),
+        ("display_picture",       "TEXT NOT NULL DEFAULT ''"),
         ("calling_reminder_time", "TEXT NOT NULL DEFAULT ''"),
+        # Training system
+        ("training_required",     "INTEGER NOT NULL DEFAULT 0"),
+        ("training_status",       "TEXT NOT NULL DEFAULT 'not_required'"),
+        ("joining_date",          "TEXT NOT NULL DEFAULT ''"),
+        ("certificate_path",      "TEXT NOT NULL DEFAULT ''"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
@@ -367,6 +400,36 @@ def migrate_db():
                 details    TEXT    NOT NULL DEFAULT '',
                 ip_address TEXT    NOT NULL DEFAULT '',
                 created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+        """)
+    except Exception:
+        pass
+
+    # --- training_videos table ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS training_videos (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                day_number  INTEGER NOT NULL UNIQUE,
+                title       TEXT    NOT NULL DEFAULT '',
+                youtube_url TEXT    NOT NULL DEFAULT '',
+                description TEXT    NOT NULL DEFAULT '',
+                created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+        """)
+    except Exception:
+        pass
+
+    # --- training_progress table ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS training_progress (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                username     TEXT    NOT NULL,
+                day_number   INTEGER NOT NULL,
+                completed    INTEGER NOT NULL DEFAULT 0,
+                completed_at TEXT    NOT NULL DEFAULT '',
+                UNIQUE(username, day_number)
             )
         """)
     except Exception:

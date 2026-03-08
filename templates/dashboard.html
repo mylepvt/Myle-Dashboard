@@ -497,16 +497,22 @@
                 ('Interview', metrics.interviews,  'bg-danger',  'interview'),
                 ('Converted', metrics.converted,   'bg-success', 'converted')
             ] %}
-            <div class="mb-2">
+            <div class="mb-2 position-relative" style="cursor:pointer;">
               <div class="d-flex justify-content-between small mb-1">
-                <a href="{{ url_for('drilldown', metric=metric_key) }}"
-                   class="text-decoration-none text-dark">{{ label }}</a>
+                <span class="text-dark">{{ label }}</span>
                 <strong>{{ val }}</strong>
               </div>
               <div class="progress" style="height:6px;">
                 <div class="progress-bar {{ color }}"
                      style="width:{{ ((val/metrics.total)*100)|int if metrics.total else 0 }}%"></div>
               </div>
+              {% set leads_at_stage = funnel_leads.get(metric_key, []) %}
+              {% if leads_at_stage %}
+              <div class="mt-1" style="position:relative;z-index:2;font-size:0.62rem;color:#6c757d;line-height:1.4;">
+                {% for ln in leads_at_stage[:3] %}{{ ln[:14] }}{% if ln|length > 14 %}…{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}{% if leads_at_stage|length > 3 %} <span>+{{ leads_at_stage|length - 3 }}</span>{% endif %}
+              </div>
+              {% endif %}
+              <a href="{{ url_for('drilldown', metric=metric_key) }}" class="stretched-link"></a>
             </div>
             {% endfor %}
           </div>
@@ -520,6 +526,16 @@
               <i class="bi bi-pie-chart-fill me-1 text-warning"></i>Status Breakdown
             </h6>
             <canvas id="statusChart" height="190"></canvas>
+            {% set _sc = ['#6c757d','#0d6efd','#0dcaf0','#20c997','#ffc107','#fd7e14','#6610f2','#d63384','#198754','#dc3545','#adb5bd','#343a40','#e65100'] %}
+            <div class="d-flex flex-wrap gap-1 mt-2 d-md-none" style="font-size:0.68rem;overflow:hidden;">
+              {% for s, c in status_data.items() %}
+              {% set cidx = loop.index0 %}
+              <span style="display:inline-flex;align-items:center;gap:3px;max-width:100%;min-width:0;">
+                <span style="width:8px;height:8px;border-radius:2px;background:{{ _sc[cidx] if cidx < _sc|length else '#aaa' }};flex-shrink:0;"></span>
+                <span style="color:#6c757d;white-space:nowrap;">{{ s }}</span>
+              </span>
+              {% endfor %}
+            </div>
           </div>
         </div>
       </div>
@@ -569,15 +585,18 @@ if (analyticsEl && chevron) {
 // ── Status Doughnut ───────────────────────────────────────
 const statusCtx = document.getElementById('statusChart');
 if (statusCtx) {
+  const statusIsMobile = window.innerWidth < 576;
+  const statusLabels = [{% for s, c in status_data.items() %}'{{ s }}',{% endfor %}];
+  const statusColors = ['#6c757d','#0d6efd','#0dcaf0','#20c997','#ffc107',
+                        '#fd7e14','#6610f2','#d63384','#198754','#dc3545',
+                        '#adb5bd','#343a40','#e65100'];
   new Chart(statusCtx, {
     type: 'doughnut',
     data: {
-      labels:   [{% for s, c in status_data.items() %}'{{ s }}',{% endfor %}],
+      labels: statusLabels,
       datasets: [{
         data:            [{% for s, c in status_data.items() %}{{ c }},{% endfor %}],
-        backgroundColor: ['#6c757d','#0d6efd','#0dcaf0','#20c997','#ffc107',
-                          '#fd7e14','#6610f2','#d63384','#198754','#dc3545',
-                          '#adb5bd','#343a40','#e65100'],
+        backgroundColor: statusColors,
         borderWidth: 2,
         borderColor: '#fff'
       }]
@@ -586,11 +605,9 @@ if (statusCtx) {
       responsive: true,
       plugins: {
         legend: {
-          position: window.innerWidth < 576 ? 'bottom' : 'right',
-          labels: {
-            boxWidth: 10, padding: 6,
-            font: { size: 10 }
-          }
+          display: !statusIsMobile,
+          position: 'right',
+          labels: { boxWidth: 10, padding: 6, font: { size: 10 } }
         }
       },
       cutout: '65%'

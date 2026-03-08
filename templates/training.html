@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}Training – Myle Community{% endblock %}
+{% block page_title %}7-Day Training{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-3 p-md-4">
+
+  <!-- Top banner -->
+  <div class="alert alert-warning border-0 rounded-3 mb-4 d-flex align-items-center gap-2 py-2">
+    <i class="bi bi-mortarboard-fill fs-5"></i>
+    <span class="small fw-semibold">Complete all 7 days of training to unlock the full app.</span>
+  </div>
+
+  {% if all_done and training_status == 'completed' %}
+  <!-- ── Certificate section ── -->
+  <div class="card border-0 shadow-sm rounded-3 mb-4" style="background:linear-gradient(135deg,#198754,#20c997);color:#fff;">
+    <div class="card-body p-4 text-center">
+      <div class="mb-2" style="font-size:3rem;">🎉</div>
+      <h4 class="fw-bold mb-1">Training Complete!</h4>
+      <p class="mb-3 opacity-90 small">You've finished all 7 days. Download your certificate, then upload it below to unlock the full app.</p>
+      <a href="{{ url_for('training_certificate') }}" target="_blank"
+         class="btn btn-light fw-semibold me-2 mb-2">
+        <i class="bi bi-award-fill me-1 text-warning"></i> View &amp; Print Certificate
+      </a>
+    </div>
+  </div>
+
+  <!-- Upload certificate -->
+  <div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-body p-4">
+      <h6 class="fw-bold mb-1"><i class="bi bi-upload me-2 text-primary"></i>Upload Certificate to Unlock App</h6>
+      <p class="text-muted small mb-3">Print your certificate (Ctrl+P → Save as PDF), then upload it here.</p>
+      <form method="post" action="{{ url_for('training_upload_certificate') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+          <input type="file" name="certificate_file" class="form-control form-control-sm"
+                 accept=".pdf,.jpg,.jpeg,.png" style="max-width:320px;" required>
+          <button type="submit" class="btn btn-primary btn-sm fw-semibold">
+            <i class="bi bi-unlock-fill me-1"></i> Upload &amp; Unlock
+          </button>
+        </div>
+        <div class="form-text mt-1">Accepted: PDF, JPG, PNG · Max 5 MB</div>
+      </form>
+    </div>
+  </div>
+
+  {% elif training_status == 'unlocked' %}
+  <div class="alert alert-success border-0 rounded-3 d-flex align-items-center gap-2">
+    <i class="bi bi-check-circle-fill fs-5"></i>
+    <span class="fw-semibold">Training complete &amp; certificate uploaded! Full app access granted.</span>
+    <a href="{{ url_for('team_dashboard') }}" class="btn btn-sm btn-success ms-auto">Go to Dashboard →</a>
+  </div>
+
+  {% else %}
+  <!-- ── Current day video ── -->
+  {% set vid = current_video %}
+  <div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-body p-3 p-md-4">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="badge bg-primary rounded-pill px-3 py-2 fs-6">Day {{ current_day }}</span>
+        <h5 class="mb-0 fw-bold">
+          {% if vid %}{{ vid.title or 'Training Video' }}{% else %}Day {{ current_day }} – Coming Soon{% endif %}
+        </h5>
+      </div>
+
+      {% if vid and vid.youtube_url %}
+        {# Extract YouTube video ID from URL #}
+        {% set yt_url = vid.youtube_url %}
+        {% set yt_id = '' %}
+        {% if 'youtu.be/' in yt_url %}
+          {% set yt_id = yt_url.split('youtu.be/')[1].split('?')[0] %}
+        {% elif 'v=' in yt_url %}
+          {% set yt_id = yt_url.split('v=')[1].split('&')[0] %}
+        {% endif %}
+
+        {% if yt_id %}
+        <!-- Video wrapper (no-skip) -->
+        <div class="video-responsive mb-3 rounded-3 overflow-hidden shadow-sm">
+          <div id="ytPlayer"></div>
+        </div>
+
+        <div id="watchNotice" class="alert alert-info border-0 py-2 small d-flex align-items-center gap-2">
+          <i class="bi bi-info-circle-fill"></i>
+          Watch the full video — seeking forward is disabled. The button appears when the video ends.
+        </div>
+
+        <form method="post" action="{{ url_for('training_complete_day') }}" id="completeForm">
+          <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
+          <input type="hidden" name="day_number" value="{{ current_day }}">
+          <button type="submit" id="completeBtn" class="btn btn-success fw-semibold" disabled>
+            <i class="bi bi-check-circle-fill me-1"></i> Mark Day {{ current_day }} Complete
+          </button>
+          <span id="completingHint" class="text-muted small ms-2">Finish the video to enable this button</span>
+        </form>
+
+        <script>
+        // ── YouTube IFrame no-skip player ─────────────────────────
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        document.head.appendChild(tag);
+
+        var ytPlayer, lastTime = 0, videoEnded = false;
+        var YT_VIDEO_ID = "{{ yt_id }}";
+
+        function onYouTubeIframeAPIReady() {
+          ytPlayer = new YT.Player('ytPlayer', {
+            height: '100%', width: '100%',
+            videoId: YT_VIDEO_ID,
+            playerVars: {
+              rel: 0, modestbranding: 1, fs: 1,
+              disablekb: 0, controls: 1
+            },
+            events: {
+              'onStateChange': onPlayerStateChange
+            }
+          });
+        }
+
+        function onPlayerStateChange(event) {
+          if (event.data === YT.PlayerState.ENDED) {
+            videoEnded = true;
+            var btn = document.getElementById('completeBtn');
+            var hint = document.getElementById('completingHint');
+            var notice = document.getElementById('watchNotice');
+            btn.disabled = false;
+            btn.classList.add('pulse-btn');
+            if (hint) hint.style.display = 'none';
+            if (notice) {
+              notice.className = 'alert alert-success border-0 py-2 small d-flex align-items-center gap-2';
+              notice.innerHTML = '<i class="bi bi-check-circle-fill"></i> Great job! You can now mark this day as complete.';
+            }
+          }
+        }
+
+        // Anti-skip: check every 1s if user jumped forward
+        setInterval(function() {
+          if (!ytPlayer || videoEnded || typeof ytPlayer.getCurrentTime !== 'function') return;
+          try {
+            var state = ytPlayer.getPlayerState();
+            if (state !== 1) return; // only when playing
+            var ct = ytPlayer.getCurrentTime();
+            if (ct > lastTime + 3.5) {
+              ytPlayer.seekTo(lastTime, true);
+            } else {
+              lastTime = ct;
+            }
+          } catch(e) {}
+        }, 1000);
+        </script>
+
+        {% else %}
+        <div class="alert alert-warning border-0">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          Video URL is not configured correctly. Please contact the admin.
+        </div>
+        {% endif %}
+
+      {% else %}
+      <div class="alert alert-secondary border-0 d-flex align-items-center gap-2">
+        <i class="bi bi-hourglass-split fs-4 text-muted"></i>
+        <div>
+          <div class="fw-semibold">Day {{ current_day }} video coming soon</div>
+          <div class="small text-muted">Admin hasn't uploaded this video yet. Check back later.</div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if vid and vid.description %}
+      <hr class="my-3">
+      <p class="small text-muted mb-0"><i class="bi bi-info-circle me-1"></i>{{ vid.description }}</p>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Progress tracker ── -->
+  <div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-body p-3">
+      <h6 class="fw-bold mb-3"><i class="bi bi-list-check me-2 text-success"></i>Your Progress</h6>
+      <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        {% for d in days %}
+          {% set done = progress.get(d, 0) %}
+          {% set is_active = (d == current_day and not all_done) %}
+          {% set is_locked = (d > current_day and not done) %}
+          <div class="d-flex flex-column align-items-center gap-1" style="min-width:44px;">
+            <div class="training-day-step {% if done %}done{% elif is_active %}active{% else %}locked{% endif %}">
+              {% if done %}<i class="bi bi-check2"></i>{% else %}{{ d }}{% endif %}
+            </div>
+            <span style="font-size:0.6rem;color:#6c757d;">Day {{ d }}</span>
+          </div>
+        {% endfor %}
+        {% if all_done %}
+        <div class="ms-2 text-success fw-bold small">
+          <i class="bi bi-trophy-fill me-1"></i> All Done!
+        </div>
+        {% endif %}
+      </div>
+      <!-- Progress bar -->
+      {% set done_count = progress.values()|list|sum %}
+      <div class="progress" style="height:8px;border-radius:99px;">
+        <div class="progress-bar bg-success" style="width:{{ (done_count / 7 * 100)|int }}%;border-radius:99px;transition:width 0.6s;"></div>
+      </div>
+      <div class="d-flex justify-content-between mt-1">
+        <span class="text-muted" style="font-size:0.72rem;">{{ done_count }} / 7 days complete</span>
+        <span class="text-muted" style="font-size:0.72rem;">{{ (done_count / 7 * 100)|int }}%</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.video-responsive { position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:12px; }
+.video-responsive > *, .video-responsive iframe, #ytPlayer { position:absolute!important; top:0!important; left:0!important; width:100%!important; height:100%!important; border:0; }
+@keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(25,135,84,.4);} 70%{box-shadow:0 0 0 8px rgba(25,135,84,0);} }
+.pulse-btn { animation: pulse 1.5s infinite; }
+</style>
+{% endblock %}

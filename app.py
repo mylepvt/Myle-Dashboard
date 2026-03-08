@@ -57,6 +57,7 @@ except ImportError:
     SCHEDULER_AVAILABLE = False
 
 app = Flask(__name__)
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 # ── Secret key & cookie security ─────────────────────────────
 _env_secret = os.environ.get('SECRET_KEY')
@@ -787,18 +788,25 @@ def register():
             return render_template('register.html')
         upline_name = upline_user['username']
 
+        is_new      = 1 if request.form.get('is_new_joining') else 0
+        joining_dt  = request.form.get('joining_date', '').strip()
+        t_status    = 'pending' if is_new else 'not_required'
+
         db.execute(
-            "INSERT INTO users (username, password, role, fbo_id, upline_name, phone, email, status) "
-            "VALUES (?, ?, 'team', ?, ?, ?, ?, 'pending')",
+            "INSERT INTO users (username, password, role, fbo_id, upline_name, phone, email, status, "
+            "training_required, training_status, joining_date) "
+            "VALUES (?, ?, 'team', ?, ?, ?, ?, 'pending', ?, ?, ?)",
             (username, generate_password_hash(password, method='pbkdf2:sha256'),
-             fbo_id, upline_name, phone, email)
+             fbo_id, upline_name, phone, email,
+             is_new, t_status, joining_dt)
         )
         db.commit()
         db.close()
         flash('Registration submitted! Your account is pending admin approval.', 'success')
         return redirect(url_for('login'))
 
-    return render_template('register.html')
+    today = datetime.date.today().isoformat()
+    return render_template('register.html', today=today)
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -851,6 +859,9 @@ def login():
             # Store only a boolean flag — full base64 in session overflows the 4 KB cookie limit.
             # Profile image is served via /profile/dp route.
             session['has_dp']   = bool(user['display_picture'])
+            # Training gate — store status so before_request can redirect cheaply
+            keys = user.keys() if hasattr(user, 'keys') else []
+            session['training_status'] = user['training_status'] if 'training_status' in keys else 'not_required'
             db = get_db()
             _log_activity(db, user['username'], 'login', f"Role: {user['role']}")
             db.close()
@@ -1138,6 +1149,20 @@ def admin_dashboard():
 
     pool_count = db.execute("SELECT COUNT(*) FROM leads WHERE in_pool=1").fetchone()[0]
 
+    funnel_members = {}
+    for _mk, _cond in [
+        ('day1',      'day1_done=1'),
+        ('day2',      'day2_done=1'),
+        ('interview', 'interview_done=1'),
+        ('converted', "status='Converted'"),
+    ]:
+        _rows = db.execute(
+            f"SELECT DISTINCT assigned_to FROM leads "
+            f"WHERE in_pool=0 AND deleted_at='' AND assigned_to!='' AND {_cond} "
+            f"ORDER BY assigned_to"
+        ).fetchall()
+        funnel_members[_mk] = [r['assigned_to'] for r in _rows]
+
     db.close()
     resp = make_response(render_template('admin.html',
                            metrics=metrics,
@@ -1152,7 +1177,8 @@ def admin_dashboard():
                            report_verification=report_verification,
                            today=today,
                            wallet_pending_count=wallet_pending_count,
-                           pool_count=pool_count))
+                           pool_count=pool_count,
+                           funnel_members=funnel_members))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
     return resp
 
@@ -1239,6 +1265,21 @@ def team_dashboard():
     ).fetchone()
     calling_reminder_time = _cr_row['calling_reminder_time'] if _cr_row else ''
 
+    funnel_leads = {}
+    for _mk, _cond in [
+        ('day1',      'day1_done=1'),
+        ('day2',      'day2_done=1'),
+        ('interview', 'interview_done=1'),
+        ('converted', "status='Converted'"),
+    ]:
+        _rows = db.execute(
+            f"SELECT name FROM leads "
+            f"WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND {_cond} "
+            f"ORDER BY updated_at DESC LIMIT 5",
+            (username,)
+        ).fetchall()
+        funnel_leads[_mk] = [r['name'] for r in _rows]
+
     db.close()
     resp = make_response(render_template('dashboard.html',
                            metrics=metrics,
@@ -1258,7 +1299,8 @@ def team_dashboard():
                            retarget_count=retarget_count,
                            zoom_link=zoom_link,
                            zoom_title=zoom_title,
-                           zoom_time=zoom_time))
+                           zoom_time=zoom_time,
+                           funnel_leads=funnel_leads))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
     return resp
 
@@ -1853,12 +1895,14 @@ def reports_admin():
     db          = get_db()
     filter_date = request.args.get('date', '')
     filter_user = request.args.get('user', '')
+    view        = request.args.get('view', 'daily')  # 'daily' or 'monthly'
 
     query  = "SELECT * FROM daily_reports WHERE 1=1"
     params = []
-    if filter_date:
-        query += " AND report_date=?"
-        params.append(filter_date)
+    if view == 'daily':
+        if filter_date:
+            query += " AND report_date=?"
+            params.append(filter_date)
     if filter_user:
         query += " AND username=?"
         params.append(filter_user)
@@ -1875,7 +1919,7 @@ def reports_admin():
             SUM(enrollments_done) AS enrollments_done,
             SUM(plan_2cc)         AS plan_2cc
         FROM daily_reports WHERE 1=1
-        {'AND report_date=?' if filter_date else ''}
+        {'AND report_date=?' if (view == 'daily' and filter_date) else ''}
         {'AND username=?' if filter_user else ''}
     """, params).fetchone()
 
@@ -1892,16 +1936,48 @@ def reports_admin():
     ).fetchall()]
     missing_today = [u for u in approved_team if u not in submitted_today]
 
-    trend = db.execute("""
-        SELECT report_date,
-               COUNT(DISTINCT username)  AS reporters,
-               SUM(total_calling)        AS calling,
-               SUM(enrollments_done)     AS enrolments
-        FROM daily_reports
-        WHERE report_date >= date('now', '-13 days')
-        GROUP BY report_date
-        ORDER BY report_date ASC
-    """).fetchall()
+    user_filter_sql = 'AND username=?' if filter_user else ''
+    user_filter_params = [filter_user] if filter_user else []
+
+    if view == 'monthly':
+        trend = db.execute(f"""
+            SELECT strftime('%Y-%m', report_date) AS report_date,
+                   COUNT(DISTINCT username)        AS reporters,
+                   SUM(total_calling)              AS calling,
+                   SUM(enrollments_done)           AS enrolments
+            FROM daily_reports
+            WHERE report_date >= date('now', '-365 days')
+            {user_filter_sql}
+            GROUP BY strftime('%Y-%m', report_date)
+            ORDER BY report_date ASC
+        """, user_filter_params).fetchall()
+
+        monthly_reports = db.execute(f"""
+            SELECT strftime('%Y-%m', report_date) AS month,
+                   username,
+                   SUM(total_calling)    AS total_calling,
+                   SUM(pdf_covered)      AS pdf_covered,
+                   SUM(calls_picked)     AS calls_picked,
+                   SUM(enrollments_done) AS enrollments_done,
+                   SUM(plan_2cc)         AS plan_2cc,
+                   COUNT(*)              AS days_reported
+            FROM daily_reports
+            WHERE 1=1 {user_filter_sql}
+            GROUP BY month, username
+            ORDER BY month DESC, username
+        """, user_filter_params).fetchall()
+    else:
+        trend = db.execute("""
+            SELECT report_date,
+                   COUNT(DISTINCT username)  AS reporters,
+                   SUM(total_calling)        AS calling,
+                   SUM(enrollments_done)     AS enrolments
+            FROM daily_reports
+            WHERE report_date >= date('now', '-13 days')
+            GROUP BY report_date
+            ORDER BY report_date ASC
+        """).fetchall()
+        monthly_reports = []
 
     db.close()
     return render_template('reports_admin.html',
@@ -1911,8 +1987,10 @@ def reports_admin():
                            submitted_today=submitted_today,
                            missing_today=missing_today,
                            trend=trend,
+                           monthly_reports=monthly_reports,
                            filter_date=filter_date,
                            filter_user=filter_user,
+                           view=view,
                            today=today)
 
 
@@ -3883,7 +3961,8 @@ def drilldown(metric):
     else:
         network = _get_downline_usernames(db, session['username'])
 
-    fmt = request.args.get('format', '')
+    fmt  = request.args.get('format', '')
+    view = request.args.get('view', 'daily')  # 'daily' or 'monthly'
 
     # \u2500\u2500 Lead metrics \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
     if metric in DRILL_LEAD_METRICS:
@@ -3912,12 +3991,20 @@ def drilldown(metric):
             base_params
         ).fetchall()
 
-        trend_rows = db.execute(
-            f"SELECT date(created_at) as d, COUNT(*) as cnt FROM leads "
-            f"WHERE {base}{extra} AND date(created_at) >= date('now','-30 days') "
-            f"GROUP BY d ORDER BY d",
-            base_params
-        ).fetchall()
+        if view == 'monthly':
+            trend_rows = db.execute(
+                f"SELECT strftime('%Y-%m', created_at) as d, COUNT(*) as cnt FROM leads "
+                f"WHERE {base}{extra} AND date(created_at) >= date('now','-365 days') "
+                f"GROUP BY d ORDER BY d",
+                base_params
+            ).fetchall()
+        else:
+            trend_rows = db.execute(
+                f"SELECT date(created_at) as d, COUNT(*) as cnt FROM leads "
+                f"WHERE {base}{extra} AND date(created_at) >= date('now','-30 days') "
+                f"GROUP BY d ORDER BY d",
+                base_params
+            ).fetchall()
         trend = [{'d': r['d'], 'cnt': r['cnt']} for r in trend_rows]
 
         if fmt == 'csv':
@@ -3938,7 +4025,7 @@ def drilldown(metric):
                                metric=metric, label=label, icon=icon, color=color,
                                leads=leads_rows, report_rows=None,
                                breakdown=breakdown, trend=trend,
-                               is_report=False, is_admin=is_admin)
+                               is_report=False, is_admin=is_admin, view=view)
 
     # \u2500\u2500 Report metrics \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
     else:
@@ -3966,12 +4053,20 @@ def drilldown(metric):
             where_params
         ).fetchall()
 
-        trend_rows = db.execute(
-            f"SELECT report_date as d, SUM({col}) as cnt FROM daily_reports "
-            f"WHERE {where} AND report_date >= date('now','-30 days') "
-            f"GROUP BY report_date ORDER BY report_date",
-            where_params
-        ).fetchall()
+        if view == 'monthly':
+            trend_rows = db.execute(
+                f"SELECT strftime('%Y-%m', report_date) as d, SUM({col}) as cnt FROM daily_reports "
+                f"WHERE {where} AND report_date >= date('now','-365 days') "
+                f"GROUP BY d ORDER BY d",
+                where_params
+            ).fetchall()
+        else:
+            trend_rows = db.execute(
+                f"SELECT report_date as d, SUM({col}) as cnt FROM daily_reports "
+                f"WHERE {where} AND report_date >= date('now','-30 days') "
+                f"GROUP BY report_date ORDER BY report_date",
+                where_params
+            ).fetchall()
         trend = [{'d': r['d'], 'cnt': r['cnt']} for r in trend_rows]
 
         if fmt == 'csv':
@@ -3989,7 +4084,329 @@ def drilldown(metric):
                                metric=metric, label=label, icon=icon, color=color,
                                leads=None, report_rows=report_rows,
                                breakdown=breakdown, trend=trend,
-                               is_report=True, is_admin=is_admin)
+                               is_report=True, is_admin=is_admin, view=view)
+
+
+# ─────────────────────────────────────────────────────────────
+#  Training Gate (before_request)
+# ─────────────────────────────────────────────────────────────
+
+_TRAINING_EXEMPT = (
+    '/static', '/training', '/profile/dp', '/meta',
+    '/login', '/register', '/logout', '/health',
+    '/manifest.json', '/sw.js', '/forgot-password',
+    '/reset-password', '/push', '/calling-reminder',
+)
+
+@app.before_request
+def training_gate():
+    if any(request.path.startswith(p) for p in _TRAINING_EXEMPT):
+        return
+    if 'username' not in session:
+        return
+    if session.get('role') == 'admin':
+        return
+    ts = session.get('training_status', 'not_required')
+    if ts not in ('not_required', 'unlocked'):
+        return redirect(url_for('training_home'))
+
+
+# ─────────────────────────────────────────────────────────────
+#  Training Routes (Team)
+# ─────────────────────────────────────────────────────────────
+
+def _get_training_progress(db, username):
+    """Return dict {day_number: completed} for the user."""
+    rows = db.execute(
+        "SELECT day_number, completed FROM training_progress WHERE username=?",
+        (username,)
+    ).fetchall()
+    return {r['day_number']: r['completed'] for r in rows}
+
+
+@app.route('/training')
+@login_required
+def training_home():
+    username = session['username']
+    db = get_db()
+
+    # Load all 7 videos
+    videos = {v['day_number']: v for v in
+              db.execute("SELECT * FROM training_videos ORDER BY day_number").fetchall()}
+
+    # Load progress
+    progress = _get_training_progress(db, username)
+
+    # Find current day (first incomplete, or 8 if all done)
+    current_day = 1
+    for d in range(1, 8):
+        if not progress.get(d, 0):
+            current_day = d
+            break
+    else:
+        current_day = 8  # all done
+
+    # Auto-promote status if all 7 completed
+    all_done = all(progress.get(d, 0) for d in range(1, 8))
+    ts = session.get('training_status', 'pending')
+    if all_done and ts not in ('completed', 'unlocked'):
+        db.execute(
+            "UPDATE users SET training_status='completed' WHERE username=?",
+            (username,)
+        )
+        db.commit()
+        session['training_status'] = 'completed'
+        ts = 'completed'
+
+    current_video = videos.get(current_day)
+    user_row = db.execute(
+        "SELECT joining_date, training_status FROM users WHERE username=?",
+        (username,)
+    ).fetchone()
+    db.close()
+
+    return render_template('training.html',
+                           videos=videos,
+                           progress=progress,
+                           current_day=current_day,
+                           current_video=current_video,
+                           all_done=all_done,
+                           training_status=ts,
+                           joining_date=user_row['joining_date'] if user_row else '',
+                           days=range(1, 8))
+
+
+@app.route('/training/complete-day', methods=['POST'])
+@login_required
+def training_complete_day():
+    username = session['username']
+    day = request.form.get('day_number', type=int)
+    if not day or day < 1 or day > 7:
+        flash('Invalid day.', 'danger')
+        return redirect(url_for('training_home'))
+
+    db = get_db()
+    progress = _get_training_progress(db, username)
+
+    # Ensure user is on this day (can't skip)
+    for prev in range(1, day):
+        if not progress.get(prev, 0):
+            db.close()
+            flash('Please complete previous days first.', 'warning')
+            return redirect(url_for('training_home'))
+
+    now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    db.execute(
+        "INSERT INTO training_progress (username, day_number, completed, completed_at) "
+        "VALUES (?, ?, 1, ?) ON CONFLICT(username, day_number) DO UPDATE SET completed=1, completed_at=?",
+        (username, day, now_str, now_str)
+    )
+
+    # Check if all 7 now done
+    progress[day] = 1
+    all_done = all(progress.get(d, 0) for d in range(1, 8))
+    if all_done:
+        db.execute(
+            "UPDATE users SET training_status='completed' WHERE username=?",
+            (username,)
+        )
+        session['training_status'] = 'completed'
+        flash('🎉 Training complete! Download your certificate and upload it to unlock the app.', 'success')
+    else:
+        flash(f'✅ Day {day} complete! Keep going.', 'success')
+
+    db.commit()
+    db.close()
+    return redirect(url_for('training_home'))
+
+
+@app.route('/training/certificate')
+@login_required
+def training_certificate():
+    ts = session.get('training_status', 'pending')
+    if ts not in ('completed', 'unlocked'):
+        flash('Complete all 7 training days first.', 'warning')
+        return redirect(url_for('training_home'))
+
+    username = session['username']
+    db = get_db()
+    user_row = db.execute(
+        "SELECT joining_date, training_status FROM users WHERE username=?",
+        (username,)
+    ).fetchone()
+    # Find completion date (day 7)
+    day7 = db.execute(
+        "SELECT completed_at FROM training_progress WHERE username=? AND day_number=7",
+        (username,)
+    ).fetchone()
+    db.close()
+
+    completion_date = ''
+    if day7 and day7['completed_at']:
+        try:
+            completion_date = datetime.datetime.strptime(
+                day7['completed_at'], '%Y-%m-%d %H:%M:%S'
+            ).strftime('%d %B %Y')
+        except Exception:
+            completion_date = day7['completed_at'][:10]
+
+    cert_number = f"MYLE-{datetime.date.today().year}-{username.upper()}"
+
+    return render_template('training_certificate.html',
+                           username=username,
+                           joining_date=user_row['joining_date'] if user_row else '',
+                           completion_date=completion_date,
+                           cert_number=cert_number,
+                           training_status=ts)
+
+
+@app.route('/training/upload-certificate', methods=['POST'])
+@login_required
+def training_upload_certificate():
+    ts = session.get('training_status', 'pending')
+    if ts not in ('completed', 'unlocked'):
+        flash('Complete training first.', 'warning')
+        return redirect(url_for('training_home'))
+
+    f = request.files.get('certificate_file')
+    if not f or not f.filename:
+        flash('Please select a file to upload.', 'danger')
+        return redirect(url_for('training_home'))
+
+    ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
+    if ext not in ('pdf', 'jpg', 'jpeg', 'png'):
+        flash('Only PDF, JPG, or PNG files are accepted.', 'danger')
+        return redirect(url_for('training_home'))
+
+    # Size check (max 5 MB)
+    f.seek(0, 2)
+    size = f.tell()
+    f.seek(0)
+    if size > 5 * 1024 * 1024:
+        flash('File too large. Maximum size is 5 MB.', 'danger')
+        return redirect(url_for('training_home'))
+
+    # Save file
+    upload_dir = os.path.join(os.path.dirname(__file__), 'uploads', 'training_certs')
+    os.makedirs(upload_dir, exist_ok=True)
+    filename = f"{session['username']}_cert.{ext}"
+    f.save(os.path.join(upload_dir, filename))
+
+    db = get_db()
+    db.execute(
+        "UPDATE users SET training_status='unlocked', certificate_path=? WHERE username=?",
+        (filename, session['username'])
+    )
+    db.commit()
+    db.close()
+
+    session['training_status'] = 'unlocked'
+    flash('🎉 Certificate uploaded! Full app access granted. Welcome to Myle Community!', 'success')
+    return redirect(url_for('team_dashboard'))
+
+
+# ─────────────────────────────────────────────────────────────
+#  Admin Training Management
+# ─────────────────────────────────────────────────────────────
+
+@app.route('/admin/training')
+@admin_required
+def admin_training():
+    db = get_db()
+    videos = {v['day_number']: v for v in
+              db.execute("SELECT * FROM training_videos ORDER BY day_number").fetchall()}
+
+    # Members who need training
+    members = db.execute(
+        "SELECT username, joining_date, training_status, training_required, certificate_path "
+        "FROM users WHERE role='team' AND status='approved' ORDER BY username"
+    ).fetchall()
+
+    # Progress per member
+    all_progress = {}
+    for m in members:
+        prog = _get_training_progress(db, m['username'])
+        all_progress[m['username']] = sum(1 for d in range(1, 8) if prog.get(d, 0))
+
+    db.close()
+    return render_template('admin_training.html',
+                           videos=videos,
+                           members=members,
+                           all_progress=all_progress,
+                           days=range(1, 8))
+
+
+@app.route('/admin/training/save-video', methods=['POST'])
+@admin_required
+def admin_training_save_video():
+    day   = request.form.get('day_number', type=int)
+    title = request.form.get('title', '').strip()
+    url   = request.form.get('youtube_url', '').strip()
+    desc  = request.form.get('description', '').strip()
+
+    if not day or day < 1 or day > 7:
+        flash('Invalid day number.', 'danger')
+        return redirect(url_for('admin_training'))
+
+    db = get_db()
+    db.execute(
+        "INSERT INTO training_videos (day_number, title, youtube_url, description) VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(day_number) DO UPDATE SET title=?, youtube_url=?, description=?",
+        (day, title, url, desc, title, url, desc)
+    )
+    db.commit()
+    db.close()
+    flash(f'Day {day} video saved.', 'success')
+    return redirect(url_for('admin_training'))
+
+
+@app.route('/admin/training/<username>/toggle', methods=['POST'])
+@admin_required
+def admin_training_toggle(username):
+    db = get_db()
+    user = db.execute(
+        "SELECT training_required, training_status FROM users WHERE username=?",
+        (username,)
+    ).fetchone()
+    if not user:
+        db.close()
+        flash('User not found.', 'danger')
+        return redirect(url_for('admin_training'))
+
+    if user['training_required']:
+        # Disable training — give full access
+        db.execute(
+            "UPDATE users SET training_required=0, training_status='not_required' WHERE username=?",
+            (username,)
+        )
+        flash(f'{username}: Training requirement removed. Full access granted.', 'success')
+    else:
+        # Enable training
+        ts = 'pending' if user['training_status'] == 'not_required' else user['training_status']
+        db.execute(
+            "UPDATE users SET training_required=1, training_status=? WHERE username=?",
+            (ts, username)
+        )
+        flash(f'{username}: Training required. Access locked until completion.', 'warning')
+
+    db.commit()
+    db.close()
+    return redirect(url_for('admin_training'))
+
+
+@app.route('/admin/training/<username>/reset', methods=['POST'])
+@admin_required
+def admin_training_reset(username):
+    db = get_db()
+    db.execute("DELETE FROM training_progress WHERE username=?", (username,))
+    db.execute(
+        "UPDATE users SET training_status='pending', certificate_path='' WHERE username=? AND training_required=1",
+        (username,)
+    )
+    db.commit()
+    db.close()
+    flash(f'{username}: Training progress reset.', 'success')
+    return redirect(url_for('admin_training'))
 
 
 @app.route('/health')
@@ -3998,4 +4415,4 @@ def health():
 
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=5001)
+    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5001)))

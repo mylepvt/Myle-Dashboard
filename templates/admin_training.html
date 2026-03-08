@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}Training Management – Admin{% endblock %}
+{% block page_title %}Training Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-3 p-md-4">
+
+  <!-- Tabs -->
+  <ul class="nav nav-tabs mb-4" id="trainingTabs" role="tablist">
+    <li class="nav-item">
+      <button class="nav-link active fw-semibold" data-bs-toggle="tab" data-bs-target="#videosTab">
+        <i class="bi bi-play-circle me-1"></i> Videos (Day 1–7)
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link fw-semibold" data-bs-toggle="tab" data-bs-target="#membersTab">
+        <i class="bi bi-people me-1"></i> Member Progress
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+
+    <!-- ── Videos Tab ── -->
+    <div class="tab-pane fade show active" id="videosTab">
+      <div class="row g-3">
+        {% for d in days %}
+        {% set vid = videos.get(d) %}
+        <div class="col-12 col-md-6 col-lg-4">
+          <div class="card border-0 shadow-sm h-100 rounded-3">
+            <div class="card-body p-3">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-primary rounded-pill">Day {{ d }}</span>
+                <span class="fw-semibold small text-truncate">
+                  {{ vid.title if vid and vid.title else 'Not configured' }}
+                </span>
+              </div>
+
+              {% if vid and vid.youtube_url %}
+              <div class="mb-2">
+                <a href="{{ vid.youtube_url }}" target="_blank"
+                   class="btn btn-sm btn-outline-danger w-100 text-truncate">
+                  <i class="bi bi-youtube me-1"></i>
+                  {{ vid.youtube_url | truncate(45) }}
+                </a>
+              </div>
+              {% if vid.description %}
+              <p class="text-muted small mb-2">{{ vid.description }}</p>
+              {% endif %}
+              {% else %}
+              <div class="alert alert-warning py-2 small border-0 mb-2">
+                <i class="bi bi-exclamation-triangle me-1"></i> No video set for this day
+              </div>
+              {% endif %}
+
+              <!-- Edit button -->
+              <button class="btn btn-sm btn-outline-primary w-100"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#editDay{{ d }}">
+                <i class="bi bi-pencil me-1"></i> {{ 'Edit' if vid else 'Add' }} Video
+              </button>
+
+              <!-- Edit form (collapsible) -->
+              <div class="collapse mt-2" id="editDay{{ d }}">
+                <form method="post" action="{{ url_for('admin_training_save_video') }}" class="border-top pt-2">
+                  <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
+                  <input type="hidden" name="day_number" value="{{ d }}">
+                  <div class="mb-2">
+                    <label class="form-label small fw-semibold mb-1">Title</label>
+                    <input type="text" name="title" class="form-control form-control-sm"
+                           placeholder="Day {{ d }} Training Video"
+                           value="{{ vid.title if vid else '' }}">
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label small fw-semibold mb-1">YouTube URL <span class="text-danger">*</span></label>
+                    <input type="url" name="youtube_url" class="form-control form-control-sm"
+                           placeholder="https://youtu.be/... or https://youtube.com/watch?v=..."
+                           value="{{ vid.youtube_url if vid else '' }}" required>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label small fw-semibold mb-1">Description</label>
+                    <textarea name="description" class="form-control form-control-sm" rows="2"
+                              placeholder="Optional description...">{{ vid.description if vid else '' }}</textarea>
+                  </div>
+                  <button type="submit" class="btn btn-success btn-sm w-100">
+                    <i class="bi bi-save me-1"></i> Save Day {{ d }} Video
+                  </button>
+                </form>
+              </div>
+
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="mt-4 alert alert-info border-0 rounded-3 small">
+        <i class="bi bi-lightbulb me-1"></i>
+        <strong>Tip:</strong> Paste the full YouTube video URL (e.g. <code>https://youtu.be/abc123</code> or <code>https://youtube.com/watch?v=abc123</code>).
+        Videos cannot be skipped by members — they must watch each one fully.
+      </div>
+    </div>
+
+    <!-- ── Members Tab ── -->
+    <div class="tab-pane fade" id="membersTab">
+
+      {% if members %}
+      <div class="card border-0 shadow-sm rounded-3">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3">Member</th>
+                  <th>Joining Date</th>
+                  <th>Progress</th>
+                  <th>Status</th>
+                  <th class="text-end pe-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for m in members %}
+                {% set days_done = all_progress.get(m.username, 0) %}
+                <tr>
+                  <td class="ps-3 fw-semibold">{{ m.username }}</td>
+                  <td class="small text-muted">{{ m.joining_date or '—' }}</td>
+                  <td style="min-width:160px;">
+                    {% if m.training_required %}
+                    <div class="d-flex align-items-center gap-2">
+                      <div class="progress flex-grow-1" style="height:6px;border-radius:99px;">
+                        <div class="progress-bar bg-success"
+                             style="width:{{ (days_done / 7 * 100)|int }}%;border-radius:99px;"></div>
+                      </div>
+                      <span class="small text-muted" style="white-space:nowrap;">{{ days_done }}/7</span>
+                    </div>
+                    {% else %}
+                    <span class="text-muted small">—</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if not m.training_required %}
+                      <span class="badge bg-secondary">No Training</span>
+                    {% elif m.training_status == 'unlocked' %}
+                      <span class="badge bg-success">Unlocked ✓</span>
+                    {% elif m.training_status == 'completed' %}
+                      <span class="badge bg-info text-dark">Cert Pending</span>
+                    {% elif m.training_status == 'in_progress' %}
+                      <span class="badge bg-warning text-dark">In Progress</span>
+                    {% elif m.training_status == 'pending' %}
+                      <span class="badge bg-danger">Not Started</span>
+                    {% else %}
+                      <span class="badge bg-secondary">{{ m.training_status }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end pe-3">
+                    <div class="d-flex gap-1 justify-content-end flex-wrap">
+                      <!-- Toggle training required -->
+                      <form method="post"
+                            action="{{ url_for('admin_training_toggle', username=m.username) }}"
+                            style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
+                        <button type="submit"
+                                class="btn btn-sm {{ 'btn-outline-danger' if m.training_required else 'btn-outline-success' }}"
+                                title="{{ 'Remove training requirement' if m.training_required else 'Add training requirement' }}"
+                                onclick="return confirm('{{ 'Remove training requirement for ' + m.username + '?' if m.training_required else 'Require training for ' + m.username + '?' }}')">
+                          {% if m.training_required %}
+                            <i class="bi bi-unlock-fill"></i>
+                          {% else %}
+                            <i class="bi bi-lock-fill"></i>
+                          {% endif %}
+                        </button>
+                      </form>
+                      <!-- Reset progress -->
+                      {% if m.training_required and days_done > 0 %}
+                      <form method="post"
+                            action="{{ url_for('admin_training_reset', username=m.username) }}"
+                            style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
+                        <button type="submit" class="btn btn-sm btn-outline-warning"
+                                title="Reset training progress"
+                                onclick="return confirm('Reset training progress for {{ m.username }}? This cannot be undone.')">
+                          <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                      </form>
+                      {% endif %}
+                      <!-- View certificate if uploaded -->
+                      {% if m.certificate_path %}
+                      <span class="badge bg-success align-self-center" title="Certificate uploaded">
+                        <i class="bi bi-file-earmark-check-fill"></i>
+                      </span>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-people fs-1 d-block mb-2 opacity-50"></i>
+        <p>No approved team members yet.</p>
+      </div>
+      {% endif %}
+
+      <!-- Legend -->
+      <div class="mt-3 d-flex flex-wrap gap-2 align-items-center small text-muted">
+        <span><i class="bi bi-unlock-fill text-danger me-1"></i> Remove training lock</span>
+        <span><i class="bi bi-lock-fill text-success me-1"></i> Add training lock</span>
+        <span><i class="bi bi-arrow-counterclockwise text-warning me-1"></i> Reset progress</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
