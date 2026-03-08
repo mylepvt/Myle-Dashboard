@@ -1853,12 +1853,14 @@ def reports_admin():
     db          = get_db()
     filter_date = request.args.get('date', '')
     filter_user = request.args.get('user', '')
+    view        = request.args.get('view', 'daily')  # 'daily' or 'monthly'
 
     query  = "SELECT * FROM daily_reports WHERE 1=1"
     params = []
-    if filter_date:
-        query += " AND report_date=?"
-        params.append(filter_date)
+    if view == 'daily':
+        if filter_date:
+            query += " AND report_date=?"
+            params.append(filter_date)
     if filter_user:
         query += " AND username=?"
         params.append(filter_user)
@@ -1875,7 +1877,7 @@ def reports_admin():
             SUM(enrollments_done) AS enrollments_done,
             SUM(plan_2cc)         AS plan_2cc
         FROM daily_reports WHERE 1=1
-        {'AND report_date=?' if filter_date else ''}
+        {'AND report_date=?' if (view == 'daily' and filter_date) else ''}
         {'AND username=?' if filter_user else ''}
     """, params).fetchone()
 
@@ -1892,16 +1894,48 @@ def reports_admin():
     ).fetchall()]
     missing_today = [u for u in approved_team if u not in submitted_today]
 
-    trend = db.execute("""
-        SELECT report_date,
-               COUNT(DISTINCT username)  AS reporters,
-               SUM(total_calling)        AS calling,
-               SUM(enrollments_done)     AS enrolments
-        FROM daily_reports
-        WHERE report_date >= date('now', '-13 days')
-        GROUP BY report_date
-        ORDER BY report_date ASC
-    """).fetchall()
+    user_filter_sql = 'AND username=?' if filter_user else ''
+    user_filter_params = [filter_user] if filter_user else []
+
+    if view == 'monthly':
+        trend = db.execute(f"""
+            SELECT strftime('%Y-%m', report_date) AS report_date,
+                   COUNT(DISTINCT username)        AS reporters,
+                   SUM(total_calling)              AS calling,
+                   SUM(enrollments_done)           AS enrolments
+            FROM daily_reports
+            WHERE report_date >= date('now', '-365 days')
+            {user_filter_sql}
+            GROUP BY strftime('%Y-%m', report_date)
+            ORDER BY report_date ASC
+        """, user_filter_params).fetchall()
+
+        monthly_reports = db.execute(f"""
+            SELECT strftime('%Y-%m', report_date) AS month,
+                   username,
+                   SUM(total_calling)    AS total_calling,
+                   SUM(pdf_covered)      AS pdf_covered,
+                   SUM(calls_picked)     AS calls_picked,
+                   SUM(enrollments_done) AS enrollments_done,
+                   SUM(plan_2cc)         AS plan_2cc,
+                   COUNT(*)              AS days_reported
+            FROM daily_reports
+            WHERE 1=1 {user_filter_sql}
+            GROUP BY month, username
+            ORDER BY month DESC, username
+        """, user_filter_params).fetchall()
+    else:
+        trend = db.execute("""
+            SELECT report_date,
+                   COUNT(DISTINCT username)  AS reporters,
+                   SUM(total_calling)        AS calling,
+                   SUM(enrollments_done)     AS enrolments
+            FROM daily_reports
+            WHERE report_date >= date('now', '-13 days')
+            GROUP BY report_date
+            ORDER BY report_date ASC
+        """).fetchall()
+        monthly_reports = []
 
     db.close()
     return render_template('reports_admin.html',
@@ -1911,8 +1945,10 @@ def reports_admin():
                            submitted_today=submitted_today,
                            missing_today=missing_today,
                            trend=trend,
+                           monthly_reports=monthly_reports,
                            filter_date=filter_date,
                            filter_user=filter_user,
+                           view=view,
                            today=today)
 
 
@@ -3883,7 +3919,8 @@ def drilldown(metric):
     else:
         network = _get_downline_usernames(db, session['username'])
 
-    fmt = request.args.get('format', '')
+    fmt  = request.args.get('format', '')
+    view = request.args.get('view', 'daily')  # 'daily' or 'monthly'
 
     # \u2500\u2500 Lead metrics \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
     if metric in DRILL_LEAD_METRICS:
@@ -3912,12 +3949,20 @@ def drilldown(metric):
             base_params
         ).fetchall()
 
-        trend_rows = db.execute(
-            f"SELECT date(created_at) as d, COUNT(*) as cnt FROM leads "
-            f"WHERE {base}{extra} AND date(created_at) >= date('now','-30 days') "
-            f"GROUP BY d ORDER BY d",
-            base_params
-        ).fetchall()
+        if view == 'monthly':
+            trend_rows = db.execute(
+                f"SELECT strftime('%Y-%m', created_at) as d, COUNT(*) as cnt FROM leads "
+                f"WHERE {base}{extra} AND date(created_at) >= date('now','-365 days') "
+                f"GROUP BY d ORDER BY d",
+                base_params
+            ).fetchall()
+        else:
+            trend_rows = db.execute(
+                f"SELECT date(created_at) as d, COUNT(*) as cnt FROM leads "
+                f"WHERE {base}{extra} AND date(created_at) >= date('now','-30 days') "
+                f"GROUP BY d ORDER BY d",
+                base_params
+            ).fetchall()
         trend = [{'d': r['d'], 'cnt': r['cnt']} for r in trend_rows]
 
         if fmt == 'csv':
@@ -3938,7 +3983,7 @@ def drilldown(metric):
                                metric=metric, label=label, icon=icon, color=color,
                                leads=leads_rows, report_rows=None,
                                breakdown=breakdown, trend=trend,
-                               is_report=False, is_admin=is_admin)
+                               is_report=False, is_admin=is_admin, view=view)
 
     # \u2500\u2500 Report metrics \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
     else:
@@ -3966,12 +4011,20 @@ def drilldown(metric):
             where_params
         ).fetchall()
 
-        trend_rows = db.execute(
-            f"SELECT report_date as d, SUM({col}) as cnt FROM daily_reports "
-            f"WHERE {where} AND report_date >= date('now','-30 days') "
-            f"GROUP BY report_date ORDER BY report_date",
-            where_params
-        ).fetchall()
+        if view == 'monthly':
+            trend_rows = db.execute(
+                f"SELECT strftime('%Y-%m', report_date) as d, SUM({col}) as cnt FROM daily_reports "
+                f"WHERE {where} AND report_date >= date('now','-365 days') "
+                f"GROUP BY d ORDER BY d",
+                where_params
+            ).fetchall()
+        else:
+            trend_rows = db.execute(
+                f"SELECT report_date as d, SUM({col}) as cnt FROM daily_reports "
+                f"WHERE {where} AND report_date >= date('now','-30 days') "
+                f"GROUP BY report_date ORDER BY report_date",
+                where_params
+            ).fetchall()
         trend = [{'d': r['d'], 'cnt': r['cnt']} for r in trend_rows]
 
         if fmt == 'csv':
@@ -3989,7 +4042,7 @@ def drilldown(metric):
                                metric=metric, label=label, icon=icon, color=color,
                                leads=None, report_rows=report_rows,
                                breakdown=breakdown, trend=trend,
-                               is_report=True, is_admin=is_admin)
+                               is_report=True, is_admin=is_admin, view=view)
 
 
 @app.route('/health')
@@ -3998,4 +4051,4 @@ def health():
 
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=5001)
+    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5001)))

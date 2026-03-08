@@ -361,16 +361,16 @@
             ('Interview Done', metrics.interviews, 'bg-danger',  'interview'),
             ('Converted',      metrics.converted,  'bg-success', 'converted')
         ] %}
-        <div class="funnel-step mb-2">
+        <div class="funnel-step mb-2 position-relative" style="cursor:pointer;">
           <div class="d-flex justify-content-between small mb-1">
-            <a href="{{ url_for('drilldown', metric=metric_f) }}"
-               class="text-decoration-none text-dark">{{ label_f }}</a>
+            <span class="text-dark">{{ label_f }}</span>
             <strong>{{ val_f }}</strong>
           </div>
           <div class="progress" style="height:8px;">
             <div class="progress-bar {{ color_f }}"
                  style="width:{{ ((val_f/metrics.total)*100)|int if metrics.total else 0 }}%"></div>
           </div>
+          <a href="{{ url_for('drilldown', metric=metric_f) }}" class="stretched-link"></a>
         </div>
         {% endfor %}
       </div>
