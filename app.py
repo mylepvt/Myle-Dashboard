@@ -1476,12 +1476,23 @@ def edit_lead(lead_id):
         pending_amount_val = max(0.0, track_price_val - seat_hold_amount_val)
 
         # ── Checkbox-driven status (checkboxes override dropdown) ────────
-        if final_payment_received:
+        if final_payment_received and not seat_hold_received:
+            # ❌ Cannot be Fully Converted without Seat Hold
+            flash('Seat Hold pehle confirm hona chahiye — Fully Converted tab ho sakta hai jab Seat Hold Received bhi checked ho.', 'danger')
+            lead_notes_rows = db.execute(
+                "SELECT * FROM lead_notes WHERE lead_id=? ORDER BY created_at ASC",
+                (lead_id,)
+            ).fetchall()
+            db.close()
+            return render_template('edit_lead.html',
+                                   lead=lead, statuses=STATUSES,
+                                   team=team, payment_amount=PAYMENT_AMOUNT,
+                                   lead_notes=lead_notes_rows,
+                                   call_result_tags=CALL_RESULT_TAGS)
+        elif final_payment_received:
+            # Both seat_hold + final_payment checked
             status = 'Fully Converted'
             pending_amount_val = 0.0
-            # If seat hold was NOT separately received, clear the amount
-            if not seat_hold_received:
-                seat_hold_amount_val = 0.0
         elif seat_hold_received:
             status = 'Seat Hold Confirmed'
         else:
