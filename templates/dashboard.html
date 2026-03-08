@@ -506,6 +506,12 @@
                 <div class="progress-bar {{ color }}"
                      style="width:{{ ((val/metrics.total)*100)|int if metrics.total else 0 }}%"></div>
               </div>
+              {% set leads_at_stage = funnel_leads.get(metric_key, []) %}
+              {% if leads_at_stage %}
+              <div class="mt-1" style="position:relative;z-index:2;font-size:0.62rem;color:#6c757d;line-height:1.4;">
+                {% for ln in leads_at_stage[:3] %}{{ ln[:14] }}{% if ln|length > 14 %}…{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}{% if leads_at_stage|length > 3 %} <span>+{{ leads_at_stage|length - 3 }}</span>{% endif %}
+              </div>
+              {% endif %}
               <a href="{{ url_for('drilldown', metric=metric_key) }}" class="stretched-link"></a>
             </div>
             {% endfor %}

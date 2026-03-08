@@ -1138,6 +1138,20 @@ def admin_dashboard():
 
     pool_count = db.execute("SELECT COUNT(*) FROM leads WHERE in_pool=1").fetchone()[0]
 
+    funnel_members = {}
+    for _mk, _cond in [
+        ('day1',      'day1_done=1'),
+        ('day2',      'day2_done=1'),
+        ('interview', 'interview_done=1'),
+        ('converted', "status='Converted'"),
+    ]:
+        _rows = db.execute(
+            f"SELECT DISTINCT assigned_to FROM leads "
+            f"WHERE in_pool=0 AND deleted_at='' AND assigned_to!='' AND {_cond} "
+            f"ORDER BY assigned_to"
+        ).fetchall()
+        funnel_members[_mk] = [r['assigned_to'] for r in _rows]
+
     db.close()
     resp = make_response(render_template('admin.html',
                            metrics=metrics,
@@ -1152,7 +1166,8 @@ def admin_dashboard():
                            report_verification=report_verification,
                            today=today,
                            wallet_pending_count=wallet_pending_count,
-                           pool_count=pool_count))
+                           pool_count=pool_count,
+                           funnel_members=funnel_members))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
     return resp
 
@@ -1239,6 +1254,21 @@ def team_dashboard():
     ).fetchone()
     calling_reminder_time = _cr_row['calling_reminder_time'] if _cr_row else ''
 
+    funnel_leads = {}
+    for _mk, _cond in [
+        ('day1',      'day1_done=1'),
+        ('day2',      'day2_done=1'),
+        ('interview', 'interview_done=1'),
+        ('converted', "status='Converted'"),
+    ]:
+        _rows = db.execute(
+            f"SELECT name FROM leads "
+            f"WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND {_cond} "
+            f"ORDER BY updated_at DESC LIMIT 5",
+            (username,)
+        ).fetchall()
+        funnel_leads[_mk] = [r['name'] for r in _rows]
+
     db.close()
     resp = make_response(render_template('dashboard.html',
                            metrics=metrics,
@@ -1258,7 +1288,8 @@ def team_dashboard():
                            retarget_count=retarget_count,
                            zoom_link=zoom_link,
                            zoom_title=zoom_title,
-                           zoom_time=zoom_time))
+                           zoom_time=zoom_time,
+                           funnel_leads=funnel_leads))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
     return resp
 

@@ -370,6 +370,17 @@
             <div class="progress-bar {{ color_f }}"
                  style="width:{{ ((val_f/metrics.total)*100)|int if metrics.total else 0 }}%"></div>
           </div>
+          {% set members_at_stage = funnel_members.get(metric_f, []) %}
+          {% if members_at_stage %}
+          <div class="d-flex flex-wrap gap-1 mt-1" style="position:relative;z-index:2;">
+            {% for m in members_at_stage[:4] %}
+            <span class="badge bg-light text-dark border" style="font-size:0.62rem;font-weight:500;">{{ m }}</span>
+            {% endfor %}
+            {% if members_at_stage|length > 4 %}
+            <span class="badge bg-secondary" style="font-size:0.62rem;">+{{ members_at_stage|length - 4 }}</span>
+            {% endif %}
+          </div>
+          {% endif %}
           <a href="{{ url_for('drilldown', metric=metric_f) }}" class="stretched-link"></a>
         </div>
         {% endfor %}
