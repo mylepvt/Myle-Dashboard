@@ -1475,12 +1475,19 @@ def edit_lead(lead_id):
 
         pending_amount_val = max(0.0, track_price_val - seat_hold_amount_val)
 
-        if seat_hold_received:
-            status = 'Seat Hold Confirmed'
-
+        # ── Checkbox-driven status (checkboxes override dropdown) ────────
         if final_payment_received:
             status = 'Fully Converted'
             pending_amount_val = 0.0
+        elif seat_hold_received:
+            status = 'Seat Hold Confirmed'
+        else:
+            # Both unchecked — if status was set by checkboxes, revert it
+            if status in ('Seat Hold Confirmed', 'Fully Converted'):
+                status = 'Track Selected' if track_selected_val else 'New'
+            # Clear seat hold amount & recalculate pending
+            seat_hold_amount_val = 0.0
+            pending_amount_val   = track_price_val
 
         if not name or not phone:
             flash('Name and Phone are required.', 'danger')
