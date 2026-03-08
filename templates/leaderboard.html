@@ -69,6 +69,9 @@
         {% if (row.seat_rev or 0) > 0 %}
         <div class="label-xs" style="color:#7c3aed;">₹{{ "%.0f"|format(row.seat_rev or 0) }} seat rev</div>
         {% endif %}
+        {% if (row.final_rev or 0) > 0 %}
+        <div class="label-xs" style="color:#d97706;">₹{{ "%.0f"|format(row.final_rev or 0) }} track rev</div>
+        {% endif %}
       </div>
 
       <!-- Progress bar -->

@@ -205,7 +205,7 @@ def _log_activity(db, username, event_type, details=''):
 # Drill-down metric config
 DRILL_LEAD_METRICS = {
     'total':          ('Total Leads',    'bi bi-people-fill',              'primary', None),
-    'converted':      ('Converted',      'bi bi-check-circle-fill',        'success', "status='Converted'"),
+    'converted':      ('Converted',      'bi bi-check-circle-fill',        'success', "status IN ('Converted','Fully Converted')"),
     'paid':           ('Payments ₹196',  'bi bi-credit-card-2-front-fill', 'info',    'payment_done=1'),
     'day1':           ('Day 1 Done',     'bi bi-1-circle-fill',            'info',    'day1_done=1'),
     'day2':           ('Day 2 Done',     'bi bi-2-circle-fill',            'warning', 'day2_done=1'),
@@ -240,7 +240,8 @@ def _get_metrics(db, username=None):
     row = db.execute(f"""
         SELECT
             COUNT(*)                                                      AS total,
-            SUM(CASE WHEN status='Converted' THEN 1 ELSE 0 END)          AS converted,
+            SUM(CASE WHEN status IN ('Converted','Fully Converted')
+                      THEN 1 ELSE 0 END)                                  AS converted,
             SUM(CASE WHEN payment_done=1     THEN 1 ELSE 0 END)          AS paid,
             SUM(COALESCE(payment_amount,0) + COALESCE(revenue,0))        AS revenue,
             SUM(CASE WHEN day1_done=1        THEN 1 ELSE 0 END)          AS day1,
@@ -251,7 +252,8 @@ def _get_metrics(db, username=None):
                 / NULLIF(COUNT(*), 0) * 100
             , 1)                                                          AS paid196_pct,
             ROUND(
-                CAST(SUM(CASE WHEN status='Converted' THEN 1 ELSE 0 END) AS REAL)
+                CAST(SUM(CASE WHEN status IN ('Converted','Fully Converted')
+                              THEN 1 ELSE 0 END) AS REAL)
                 / NULLIF(COUNT(*), 0) * 100
             , 1)                                                          AS close_pct,
             ROUND(
@@ -1109,7 +1111,7 @@ def admin_dashboard():
     _stats_rows = db.execute("""
         SELECT assigned_to,
             COUNT(*) as total,
-            SUM(CASE WHEN status='Converted' THEN 1 ELSE 0 END) as converted,
+            SUM(CASE WHEN status IN ('Converted','Fully Converted') THEN 1 ELSE 0 END) as converted,
             SUM(CASE WHEN payment_done=1     THEN 1 ELSE 0 END) as paid,
             SUM(COALESCE(payment_amount,0) + COALESCE(revenue,0)) as revenue
         FROM leads WHERE in_pool=0 AND deleted_at=''
@@ -1154,7 +1156,7 @@ def admin_dashboard():
         ('day1',      'day1_done=1'),
         ('day2',      'day2_done=1'),
         ('interview', 'interview_done=1'),
-        ('converted', "status='Converted'"),
+        ('converted', "status IN ('Converted','Fully Converted')"),
     ]:
         _rows = db.execute(
             f"SELECT DISTINCT assigned_to FROM leads "
@@ -1252,7 +1254,7 @@ def team_dashboard():
         WHERE assigned_to=? AND in_pool=0
           AND follow_up_date != ''
           AND follow_up_date <= ?
-          AND status NOT IN ('Converted','Lost')
+          AND status NOT IN ('Converted','Fully Converted','Lost')
         ORDER BY follow_up_date ASC LIMIT 10
     """, (username, today)).fetchall()
 
@@ -1270,7 +1272,7 @@ def team_dashboard():
         ('day1',      'day1_done=1'),
         ('day2',      'day2_done=1'),
         ('interview', 'interview_done=1'),
-        ('converted', "status='Converted'"),
+        ('converted', "status IN ('Converted','Fully Converted')"),
     ]:
         _rows = db.execute(
             f"SELECT name FROM leads "
@@ -1784,7 +1786,7 @@ def team():
         SELECT
             referred_by,
             COUNT(*) as total,
-            SUM(CASE WHEN status='Converted'          THEN 1 ELSE 0 END) as converted,
+            SUM(CASE WHEN status IN ('Converted','Fully Converted') THEN 1 ELSE 0 END) as converted,
             SUM(CASE WHEN payment_done=1              THEN 1 ELSE 0 END) as paid,
             SUM(payment_amount)                                           as revenue,
             SUM(CASE WHEN day1_done=1                 THEN 1 ELSE 0 END) as day1,
@@ -3485,17 +3487,20 @@ def leaderboard():
         SELECT
             u.username,
             u.display_picture,
-            COUNT(l.id)                                                          AS total,
-            SUM(CASE WHEN l.status='Converted' THEN 1 ELSE 0 END)               AS converted,
-            SUM(CASE WHEN l.payment_done=1     THEN 1 ELSE 0 END)               AS paid,
-            COALESCE(SUM(l.payment_amount),0)                                    AS revenue,
+            COUNT(l.id)                                                                AS total,
+            SUM(CASE WHEN l.status IN ('Converted','Fully Converted')
+                      THEN 1 ELSE 0 END)                                               AS converted,
+            SUM(CASE WHEN l.payment_done=1 THEN 1 ELSE 0 END)                         AS paid,
+            COALESCE(SUM(COALESCE(l.payment_amount,0)+COALESCE(l.revenue,0)),0)        AS revenue,
             ROUND(
               CAST(SUM(CASE WHEN l.payment_done=1 THEN 1 ELSE 0 END) AS REAL)
-              / NULLIF(COUNT(l.id),0)*100, 1)                                    AS paid_pct,
-            SUM(CASE WHEN l.status='Seat Hold Confirmed' THEN 1 ELSE 0 END)     AS seat_holds,
-            SUM(CASE WHEN l.status='Fully Converted'     THEN 1 ELSE 0 END)     AS fully_conv,
+              / NULLIF(COUNT(l.id),0)*100, 1)                                          AS paid_pct,
+            SUM(CASE WHEN l.status='Seat Hold Confirmed' THEN 1 ELSE 0 END)           AS seat_holds,
+            SUM(CASE WHEN l.status='Fully Converted'     THEN 1 ELSE 0 END)           AS fully_conv,
             COALESCE(SUM(CASE WHEN l.status='Seat Hold Confirmed'
-                              THEN l.seat_hold_amount ELSE 0 END), 0)           AS seat_rev
+                              THEN l.seat_hold_amount ELSE 0 END), 0)                 AS seat_rev,
+            COALESCE(SUM(CASE WHEN l.status='Fully Converted'
+                              THEN l.track_price ELSE 0 END), 0)                      AS final_rev
         FROM users u
         LEFT JOIN leads l ON l.assigned_to=u.username AND l.in_pool=0
         WHERE u.role='team' AND u.status='approved' {extra}
@@ -3713,7 +3718,7 @@ def job_followup_reminders():
             WHERE in_pool=0
               AND follow_up_date=?
               AND follow_up_date != ''
-              AND status NOT IN ('Converted','Lost')
+              AND status NOT IN ('Converted','Fully Converted','Lost')
               AND assigned_to != ''
             GROUP BY assigned_to
         """, (today,)).fetchall()
@@ -3834,7 +3839,7 @@ def admin_members():
     _rows = db.execute("""
         SELECT assigned_to,
             COUNT(*) as total_leads,
-            SUM(CASE WHEN status='Converted' THEN 1 ELSE 0 END) as converted,
+            SUM(CASE WHEN status IN ('Converted','Fully Converted') THEN 1 ELSE 0 END) as converted,
             SUM(CASE WHEN payment_done=1 THEN 1 ELSE 0 END) as paid
         FROM leads WHERE in_pool=0
         GROUP BY assigned_to
