@@ -3508,6 +3508,32 @@ def leaderboard():
         ORDER BY paid DESC, converted DESC, total DESC
     """
 
+    NETWORK_TREE_SQL = """
+        WITH RECURSIVE tree(uname, level) AS (
+            SELECT :me, 0
+            UNION ALL
+            SELECT u.username, t.level + 1
+            FROM users u JOIN tree t ON u.upline_name = t.uname
+            WHERE u.role='team' AND u.status='approved'
+        )
+        SELECT t.uname, t.level,
+               u.display_picture,
+               COUNT(l.id)                                                                AS total,
+               SUM(CASE WHEN l.status IN ('Converted','Fully Converted') THEN 1 ELSE 0 END) AS converted,
+               SUM(CASE WHEN l.payment_done=1 THEN 1 ELSE 0 END)                            AS paid,
+               ROUND(CAST(SUM(CASE WHEN l.payment_done=1 THEN 1 ELSE 0 END) AS REAL)
+                     / NULLIF(COUNT(l.id),0)*100, 1)                                        AS paid_pct,
+               COALESCE(SUM(COALESCE(l.payment_amount,0)+COALESCE(l.revenue,0)),0)          AS revenue,
+               SUM(CASE WHEN l.status='Seat Hold Confirmed' THEN 1 ELSE 0 END)             AS seat_holds,
+               SUM(CASE WHEN l.status='Fully Converted'     THEN 1 ELSE 0 END)             AS fully_conv
+        FROM tree t
+        JOIN users u ON u.username = t.uname
+        LEFT JOIN leads l ON l.assigned_to = t.uname AND l.in_pool=0
+        WHERE t.uname != :me
+        GROUP BY t.uname, t.level
+        ORDER BY t.level, paid DESC, converted DESC
+    """
+
     if session.get('role') == 'admin':
         rows = db.execute(LEADER_SQL.format(extra='')).fetchall()
     else:
@@ -3521,9 +3547,24 @@ def leaderboard():
         else:
             rows = []
 
+    # Network tree — run for both admin (full org) and team (own downline)
+    tree_rows = db.execute(NETWORK_TREE_SQL, {'me': username}).fetchall()
+    network_by_gen = {}
+    for r in tree_rows:
+        network_by_gen.setdefault(r['level'], []).append(r)
+    net_summary = {
+        'total':   len(tree_rows),
+        'direct':  len(network_by_gen.get(1, [])),
+        'revenue': sum(r['revenue'] or 0 for r in tree_rows),
+    }
+
     db.close()
-    return render_template('leaderboard.html', rows=rows,
-                           current_user=username)
+    return render_template('leaderboard.html',
+                           rows=rows,
+                           current_user=username,
+                           role=session.get('role'),
+                           network_by_gen=network_by_gen,
+                           net_summary=net_summary)
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500

@@ -4,92 +4,259 @@
 
 {% block content %}
 
-<div class="card border-0 shadow-sm">
-  <div class="card-header bg-white d-flex align-items-center justify-content-between">
-    <h6 class="mb-0"><i class="bi bi-trophy-fill me-2 text-warning"></i>Team Leaderboard</h6>
-    <span class="text-muted small">Ranked by ₹196 payments</span>
-  </div>
-  <div class="card-body p-0">
-    {% for row in rows %}
-    {% set rank = loop.index %}
-    <div class="d-flex align-items-center gap-3 px-4 py-3 border-bottom
-                {% if row.username == current_user %}bg-primary bg-opacity-10{% endif %}">
-
-      <!-- Rank badge -->
-      <div class="fw-bold fs-5 text-center" style="width:36px;">
-        {% if rank == 1 %}<span class="badge bg-warning text-dark">#1</span>
-        {% elif rank == 2 %}<span class="badge bg-secondary">#2</span>
-        {% elif rank == 3 %}<span class="badge bg-danger-subtle text-danger">#3</span>
-        {% else %}<span class="text-muted">#{{ rank }}</span>
-        {% endif %}
-      </div>
-
-      <!-- Avatar -->
-      {% if row.display_picture %}
-        <img src="{{ row.display_picture }}" alt="DP"
-             style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid #e9ecef;">
-      {% else %}
-        <div class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10"
-             style="width:44px;height:44px;flex-shrink:0;">
-          <i class="bi bi-person-fill text-primary fs-5"></i>
-        </div>
+<!-- Tab Nav -->
+<ul class="nav nav-tabs mb-3" id="leaderboardTabs" role="tablist">
+  <li class="nav-item">
+    <button class="nav-link active fw-semibold"
+            id="tab-lb" data-bs-toggle="tab" data-bs-target="#pane-lb"
+            role="tab" aria-selected="true">
+      <i class="bi bi-trophy-fill me-1 text-warning"></i>Leaderboard
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link fw-semibold"
+            id="tab-net" data-bs-toggle="tab" data-bs-target="#pane-net"
+            role="tab" aria-selected="false">
+      <i class="bi bi-diagram-3-fill me-1 text-primary"></i>My Network
+      {% if net_summary.total > 0 %}
+        <span class="badge bg-primary ms-1" style="font-size:0.6rem;">{{ net_summary.total }}</span>
       {% endif %}
+    </button>
+  </li>
+</ul>
 
-      <!-- Name + stats -->
-      <div class="flex-grow-1">
-        <div class="fw-semibold">
-          {{ row.username }}
-          {% if row.username == current_user %}
-            <span class="badge bg-primary ms-1" style="font-size:0.65rem;">You</span>
-          {% endif %}
-        </div>
-        <div class="text-muted small">
-          {{ row.total }} leads · {{ row.converted }} converted · {{ row.paid_pct or 0 }}% paid rate
-        </div>
-        {% if (row.seat_holds or 0) > 0 or (row.fully_conv or 0) > 0 %}
-        <div class="label-xs mt-1">
-          {% if (row.seat_holds or 0) > 0 %}
-            <span class="badge" style="background:#7c3aed;font-size:0.58rem;">
-              <i class="bi bi-shield-check-fill me-1"></i>{{ row.seat_holds }} seat hold
-            </span>
-          {% endif %}
-          {% if (row.fully_conv or 0) > 0 %}
-            <span class="badge bg-success ms-1" style="font-size:0.58rem;">
-              <i class="bi bi-trophy-fill me-1"></i>{{ row.fully_conv }} fully converted
-            </span>
-          {% endif %}
-        </div>
-        {% endif %}
+<div class="tab-content">
+
+  <!-- ── Tab 1: Leaderboard ─────────────────────────── -->
+  <div class="tab-pane fade show active" id="pane-lb" role="tabpanel">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white d-flex align-items-center justify-content-between">
+        <h6 class="mb-0"><i class="bi bi-trophy-fill me-2 text-warning"></i>Team Leaderboard</h6>
+        <span class="text-muted small">Ranked by ₹196 payments</span>
       </div>
+      <div class="card-body p-0">
+        {% for row in rows %}
+        {% set rank = loop.index %}
+        <div class="d-flex align-items-center gap-3 px-4 py-3 border-bottom
+                    {% if row.username == current_user %}bg-primary bg-opacity-10{% endif %}">
 
-      <!-- KPIs -->
-      <div class="text-end d-none d-md-block">
-        <div class="fw-bold text-success">₹{{ "%.0f"|format(row.revenue or 0) }}</div>
-        <div class="text-muted small">{{ row.paid }} paid</div>
-        {% if (row.seat_rev or 0) > 0 %}
-        <div class="label-xs" style="color:#7c3aed;">₹{{ "%.0f"|format(row.seat_rev or 0) }} seat rev</div>
-        {% endif %}
-        {% if (row.final_rev or 0) > 0 %}
-        <div class="label-xs" style="color:#d97706;">₹{{ "%.0f"|format(row.final_rev or 0) }} track rev</div>
-        {% endif %}
-      </div>
+          <!-- Rank badge -->
+          <div class="fw-bold fs-5 text-center" style="width:36px;">
+            {% if rank == 1 %}<span class="badge bg-warning text-dark">#1</span>
+            {% elif rank == 2 %}<span class="badge bg-secondary">#2</span>
+            {% elif rank == 3 %}<span class="badge bg-danger-subtle text-danger">#3</span>
+            {% else %}<span class="text-muted">#{{ rank }}</span>
+            {% endif %}
+          </div>
 
-      <!-- Progress bar -->
-      <div class="d-none d-md-block" style="width:100px;">
-        <div class="progress" style="height:6px;">
-          <div class="progress-bar bg-success"
-               style="width:{{ [row.paid_pct or 0, 100]|min }}%"></div>
+          <!-- Avatar -->
+          {% if row.display_picture %}
+            <img src="{{ row.display_picture }}" alt="DP"
+                 style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid #e9ecef;">
+          {% else %}
+            <div class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10"
+                 style="width:44px;height:44px;flex-shrink:0;">
+              <i class="bi bi-person-fill text-primary fs-5"></i>
+            </div>
+          {% endif %}
+
+          <!-- Name + stats -->
+          <div class="flex-grow-1">
+            <div class="fw-semibold">
+              {{ row.username }}
+              {% if row.username == current_user %}
+                <span class="badge bg-primary ms-1" style="font-size:0.65rem;">You</span>
+              {% endif %}
+            </div>
+            <div class="text-muted small">
+              {{ row.total }} leads · {{ row.converted }} converted · {{ row.paid_pct or 0 }}% paid rate
+            </div>
+            {% if (row.seat_holds or 0) > 0 or (row.fully_conv or 0) > 0 %}
+            <div class="label-xs mt-1">
+              {% if (row.seat_holds or 0) > 0 %}
+                <span class="badge" style="background:#7c3aed;font-size:0.58rem;">
+                  <i class="bi bi-shield-check-fill me-1"></i>{{ row.seat_holds }} seat hold
+                </span>
+              {% endif %}
+              {% if (row.fully_conv or 0) > 0 %}
+                <span class="badge bg-success ms-1" style="font-size:0.58rem;">
+                  <i class="bi bi-trophy-fill me-1"></i>{{ row.fully_conv }} fully converted
+                </span>
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- KPIs -->
+          <div class="text-end d-none d-md-block">
+            <div class="fw-bold text-success">₹{{ "%.0f"|format(row.revenue or 0) }}</div>
+            <div class="text-muted small">{{ row.paid }} paid</div>
+            {% if (row.seat_rev or 0) > 0 %}
+            <div class="label-xs" style="color:#7c3aed;">₹{{ "%.0f"|format(row.seat_rev or 0) }} seat rev</div>
+            {% endif %}
+            {% if (row.final_rev or 0) > 0 %}
+            <div class="label-xs" style="color:#d97706;">₹{{ "%.0f"|format(row.final_rev or 0) }} track rev</div>
+            {% endif %}
+          </div>
+
+          <!-- Progress bar -->
+          <div class="d-none d-md-block" style="width:100px;">
+            <div class="progress" style="height:6px;">
+              <div class="progress-bar bg-success"
+                   style="width:{{ [row.paid_pct or 0, 100]|min }}%"></div>
+            </div>
+            <div class="text-muted" style="font-size:0.68rem;text-align:right;">{{ row.paid_pct or 0 }}%</div>
+          </div>
         </div>
-        <div class="text-muted" style="font-size:0.68rem;text-align:right;">{{ row.paid_pct or 0 }}%</div>
+        {% else %}
+        <div class="empty-state py-5">
+          <i class="bi bi-trophy"></i>
+          <p>No team data yet. Start adding leads!</p>
+        </div>
+        {% endfor %}
       </div>
     </div>
+  </div>
+
+  <!-- ── Tab 2: My Network ──────────────────────────── -->
+  <div class="tab-pane fade" id="pane-net" role="tabpanel">
+
+    {% if net_summary.total > 0 %}
+
+    <!-- Summary cards -->
+    <div class="row g-2 mb-3">
+      <div class="col-4">
+        <div class="card border-0 shadow-sm text-center py-2">
+          <div class="fw-bold fs-5">{{ net_summary.total }}</div>
+          <div class="text-muted" style="font-size:0.72rem;">In Network</div>
+        </div>
+      </div>
+      <div class="col-4">
+        <div class="card border-0 shadow-sm text-center py-2">
+          <div class="fw-bold fs-5">{{ net_summary.direct }}</div>
+          <div class="text-muted" style="font-size:0.72rem;">Direct</div>
+        </div>
+      </div>
+      <div class="col-4">
+        <div class="card border-0 shadow-sm text-center py-2">
+          <div class="fw-bold fs-5 text-success">₹{{ "%.0f"|format(net_summary.revenue) }}</div>
+          <div class="text-muted" style="font-size:0.72rem;">Network Rev</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- All / Direct toggle -->
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <span class="text-muted small fw-semibold">View:</span>
+      <div class="btn-group btn-group-sm" role="group">
+        <button type="button" class="btn btn-primary active" id="btnAllGens"
+                onclick="showAllGens()">All Generations</button>
+        <button type="button" class="btn btn-outline-primary" id="btnDirectOnly"
+                onclick="showDirectOnly()">Direct Only</button>
+      </div>
+    </div>
+
+    <!-- Tree -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-0">
+        {% for level in network_by_gen.keys()|sort %}
+        {% set members = network_by_gen[level] %}
+
+        <!-- Generation header -->
+        <div class="net-gen-header px-3 py-2 d-flex align-items-center gap-2" data-gen="{{ level }}">
+          <span class="badge net-gen-badge net-gen-badge-{{ level if level <= 5 else 5 }}">
+            Gen {{ level }}
+          </span>
+          <span class="fw-semibold small">
+            {% if level == 1 %}Direct{% else %}Generation {{ level }}{% endif %}
+          </span>
+          <span class="badge bg-light text-dark ms-auto">
+            {{ members|length }} member{{ 's' if members|length != 1 else '' }}
+          </span>
+        </div>
+
+        <!-- Member rows -->
+        {% for row in members %}
+        <div class="d-flex align-items-center gap-3 px-4 py-3 border-bottom net-member-row" data-gen="{{ level }}">
+
+          <!-- Avatar -->
+          {% if row.display_picture %}
+            <img src="{{ row.display_picture }}" alt="DP"
+                 style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #e9ecef;flex-shrink:0;">
+          {% else %}
+            <div class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10"
+                 style="width:40px;height:40px;flex-shrink:0;">
+              <i class="bi bi-person-fill text-primary"></i>
+            </div>
+          {% endif %}
+
+          <!-- Name + stats -->
+          <div class="flex-grow-1 min-w-0">
+            <div class="fw-semibold text-truncate">{{ row.uname }}</div>
+            <div class="text-muted small">
+              {{ row.total or 0 }} leads · {{ row.converted or 0 }} conv · {{ row.paid_pct or 0 }}% paid
+            </div>
+            {% if (row.seat_holds or 0) > 0 or (row.fully_conv or 0) > 0 %}
+            <div class="label-xs mt-1">
+              {% if (row.seat_holds or 0) > 0 %}
+                <span class="badge" style="background:#7c3aed;font-size:0.58rem;">
+                  <i class="bi bi-shield-check-fill me-1"></i>{{ row.seat_holds }}
+                </span>
+              {% endif %}
+              {% if (row.fully_conv or 0) > 0 %}
+                <span class="badge bg-success ms-1" style="font-size:0.58rem;">
+                  <i class="bi bi-trophy-fill me-1"></i>{{ row.fully_conv }}
+                </span>
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- Revenue KPI -->
+          <div class="text-end flex-shrink-0">
+            <div class="fw-bold text-success small">₹{{ "%.0f"|format(row.revenue or 0) }}</div>
+            <div class="text-muted" style="font-size:0.68rem;">{{ row.paid or 0 }} paid</div>
+          </div>
+
+        </div>
+        {% endfor %}
+
+        {% endfor %}
+      </div>
+    </div>
+
     {% else %}
     <div class="empty-state py-5">
-      <i class="bi bi-trophy"></i>
-      <p>No team data yet. Start adding leads!</p>
+      <i class="bi bi-diagram-3"></i>
+      <p>Your network is empty.<br>
+        <span class="small text-muted">Members who register with your upline will appear here.</span>
+      </p>
     </div>
-    {% endfor %}
-  </div>
-</div>
+    {% endif %}
 
+  </div><!-- end pane-net -->
+
+</div><!-- end tab-content -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showAllGens() {
+  document.querySelectorAll('#pane-net [data-gen]').forEach(el => el.style.display = '');
+  document.getElementById('btnAllGens').classList.add('active', 'btn-primary');
+  document.getElementById('btnAllGens').classList.remove('btn-outline-primary');
+  document.getElementById('btnDirectOnly').classList.remove('active', 'btn-primary');
+  document.getElementById('btnDirectOnly').classList.add('btn-outline-primary');
+}
+function showDirectOnly() {
+  document.querySelectorAll('#pane-net [data-gen]').forEach(el => {
+    el.style.display = parseInt(el.dataset.gen) > 1 ? 'none' : '';
+  });
+  document.getElementById('btnDirectOnly').classList.add('active', 'btn-primary');
+  document.getElementById('btnDirectOnly').classList.remove('btn-outline-primary');
+  document.getElementById('btnAllGens').classList.remove('active', 'btn-primary');
+  document.getElementById('btnAllGens').classList.add('btn-outline-primary');
+}
+</script>
 {% endblock %}

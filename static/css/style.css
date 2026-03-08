@@ -816,3 +816,19 @@ body {
   .certificate-card { box-shadow: none !important; }
   body { background: #fff !important; }
 }
+
+/* ── Downline Network Tree ───────────────────────── */
+.net-gen-header {
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  border-top: 2px solid #e9ecef;
+}
+.net-gen-header:first-child { border-top: none; }
+.net-gen-badge { font-size:.6rem; font-weight:700; letter-spacing:.04em; padding:.25em .55em; }
+.net-gen-badge-1 { background:#6366f1; color:#fff; }
+.net-gen-badge-2 { background:#0891b2; color:#fff; }
+.net-gen-badge-3 { background:#059669; color:#fff; }
+.net-gen-badge-4 { background:#d97706; color:#fff; }
+.net-gen-badge-5 { background:#7c3aed; color:#fff; }
+[data-theme="dark"] .net-gen-header { background:#1e2235; border-color:#2d3148; }
+[data-theme="dark"] .net-gen-header .badge.bg-light { background:#2d3148 !important; color:#e2e8f0 !important; }
