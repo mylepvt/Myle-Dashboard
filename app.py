@@ -4128,16 +4128,46 @@ def _get_training_progress(db, username):
 @login_required
 def training_home():
     username = session['username']
+    ts = session.get('training_status', 'not_required')
     db = get_db()
 
-    # Load all 7 videos
+    # ── Old members / fully unlocked: show downline progress (read-only) ──
+    if ts in ('not_required', 'unlocked'):
+        user_row = db.execute(
+            "SELECT fbo_id FROM users WHERE username=?", (username,)
+        ).fetchone()
+        fbo_id = user_row['fbo_id'] if user_row else ''
+
+        # Direct downline who have training_required=1
+        downline_rows = db.execute("""
+            SELECT u.username, u.joining_date, u.training_status,
+                   COALESCE(p.days_done, 0) AS days_done
+            FROM users u
+            LEFT JOIN (
+                SELECT username, SUM(completed) AS days_done
+                FROM training_progress GROUP BY username
+            ) p ON p.username = u.username
+            WHERE u.upline_name = ? AND u.training_required = 1
+            ORDER BY u.username
+        """, (fbo_id,)).fetchall()
+        db.close()
+
+        return render_template('training.html',
+                               is_viewer=True,
+                               training_status=ts,
+                               downline=downline_rows,
+                               days=range(1, 8),
+                               videos={}, progress={},
+                               current_day=None, current_video=None,
+                               all_done=False, joining_date='')
+
+    # ── Members currently in training ──
     videos = {v['day_number']: v for v in
               db.execute("SELECT * FROM training_videos ORDER BY day_number").fetchall()}
 
-    # Load progress
     progress = _get_training_progress(db, username)
 
-    # Find current day (first incomplete, or 8 if all done)
+    # Find current day (first incomplete)
     current_day = 1
     for d in range(1, 8):
         if not progress.get(d, 0):
@@ -4148,7 +4178,6 @@ def training_home():
 
     # Auto-promote status if all 7 completed
     all_done = all(progress.get(d, 0) for d in range(1, 8))
-    ts = session.get('training_status', 'pending')
     if all_done and ts not in ('completed', 'unlocked'):
         db.execute(
             "UPDATE users SET training_status='completed' WHERE username=?",
@@ -4166,6 +4195,7 @@ def training_home():
     db.close()
 
     return render_template('training.html',
+                           is_viewer=False,
                            videos=videos,
                            progress=progress,
                            current_day=current_day,
@@ -4173,7 +4203,8 @@ def training_home():
                            all_done=all_done,
                            training_status=ts,
                            joining_date=user_row['joining_date'] if user_row else '',
-                           days=range(1, 8))
+                           days=range(1, 8),
+                           downline=[])
 
 
 @app.route('/training/complete-day', methods=['POST'])
