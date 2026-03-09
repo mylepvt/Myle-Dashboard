@@ -1,1 +1,1 @@
-web: gunicorn app:app --preload --workers 2
+web: gunicorn app:app -c gunicorn.conf.py
