@@ -77,19 +77,19 @@
           </div>
           <div class="d-flex gap-2 justify-content-center flex-wrap">
             <a id="gpayBtn"
-               href="tez://upi/pay?pa={{ upi_id }}&pn=Myle+Community&cu=INR&tn=Wallet+Recharge"
+               href="upi://pay?pa={{ upi_id }}&pn=Myle+Community&cu=INR&tn=Wallet+Recharge"
                class="btn btn-sm fw-semibold px-3"
                style="background:#1a73e8;color:#fff;border-radius:8px;">
               <span style="font-size:1rem;">G</span> Pay
             </a>
             <a id="phonepeBtn"
-               href="phonepe://pay?pa={{ upi_id }}&pn=Myle+Community&cu=INR&tn=Wallet+Recharge"
+               href="upi://pay?pa={{ upi_id }}&pn=Myle+Community&cu=INR&tn=Wallet+Recharge"
                class="btn btn-sm fw-semibold px-3"
                style="background:#5f259f;color:#fff;border-radius:8px;">
               <i class="bi bi-phone-fill me-1"></i>PhonePe
             </a>
             <a id="paytmBtn"
-               href="paytmmp://pay?pa={{ upi_id }}&pn=Myle+Community&cu=INR&tn=Wallet+Recharge"
+               href="upi://pay?pa={{ upi_id }}&pn=Myle+Community&cu=INR&tn=Wallet+Recharge"
                class="btn btn-sm fw-semibold px-3"
                style="background:#002970;color:#fff;border-radius:8px;">
               <i class="bi bi-credit-card-fill me-1"></i>Paytm
@@ -101,7 +101,18 @@
               ₹ Any UPI
             </a>
           </div>
-          <div class="small text-muted mt-2 opacity-75">Works on mobile only</div>
+          <!-- Copy UPI ID fallback -->
+          <div class="mt-3 text-center">
+            <span class="small text-muted me-2">UPI ID:</span>
+            <code id="upiIdText" class="fw-semibold">{{ upi_id }}</code>
+            <button type="button" class="btn btn-sm btn-outline-secondary ms-2 py-0 px-2"
+                    onclick="navigator.clipboard.writeText('{{ upi_id }}').then(()=>{this.textContent='Copied!';setTimeout(()=>{this.textContent='Copy'},1500)})">
+              Copy
+            </button>
+          </div>
+          <div class="small text-muted mt-2 opacity-75 text-center">
+            If button doesn't open the app, copy the UPI ID and pay manually.
+          </div>
         </div>
       </div>
     </div>
@@ -278,10 +289,11 @@
   function buildLinks(amount) {
     const am   = amount ? `&am=${amount}` : '';
     const base = `pa=${UPI_ID}&pn=${NAME}&cu=INR&tn=${NOTE}${am}`;
-    gpayBtn.href    = `tez://upi/pay?${base}`;
-    phonepeBtn.href = `phonepe://pay?${base}`;
-    paytmBtn.href   = `paytmmp://pay?${base}`;
-    upiBtn.href     = `upi://pay?${base}`;
+    const link = `upi://pay?${base}`;
+    gpayBtn.href    = link;
+    phonepeBtn.href = link;
+    paytmBtn.href   = link;
+    upiBtn.href     = link;
   }
 
   // Sync quick amount input → form amount field + update links
