@@ -25,6 +25,11 @@
 </head>
 <body>
 
+<div id="offlineBanner" class="d-none alert alert-warning mb-0 rounded-0 py-2 text-center"
+     style="font-size:.82rem;position:sticky;top:0;z-index:2000;">
+  <i class="bi bi-wifi-off me-1"></i> You're offline — showing cached data.
+</div>
+
 <!-- ── Sidebar backdrop (mobile overlay) ─────────────────── -->
 <div id="sidebarBackdrop"></div>
 
@@ -69,6 +74,15 @@
         <a href="{{ url_for('add_lead') }}"
            class="nav-link text-white {% if request.endpoint == 'add_lead' %}active{% endif %}">
           <i class="bi bi-person-plus me-2"></i><span>Add Lead</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link text-white d-flex align-items-center justify-content-between {% if request.endpoint == 'follow_up_queue' %}active{% endif %}"
+           href="/follow-up">
+          <span><i class="bi bi-telephone-forward me-2"></i><span>Follow-up Queue</span></span>
+          {% if session.get('role') != 'admin' and followup_count is defined and followup_count > 0 %}
+          <span class="badge bg-danger" style="font-size:.6rem;">{{ followup_count }}</span>
+          {% endif %}
         </a>
       </li>
       {% if session.get('role') == 'admin' %}
@@ -124,6 +138,12 @@
         </a>
       </li>
       <li class="nav-item">
+        <a href="{{ url_for('admin_targets') }}"
+           class="nav-link text-white {% if request.endpoint == 'admin_targets' %}active{% endif %}">
+          <i class="bi bi-bullseye me-2"></i><span>Monthly Targets</span>
+        </a>
+      </li>
+      <li class="nav-item">
         <a href="{{ url_for('admin_budget_export') }}"
            class="nav-link text-white {% if request.endpoint == 'admin_budget_export' %}active{% endif %}">
           <i class="bi bi-file-earmark-spreadsheet me-2"></i><span>Budget Export</span>
@@ -159,6 +179,12 @@
         <a href="{{ url_for('lead_pool') }}"
            class="nav-link text-white {% if request.endpoint == 'lead_pool' %}active{% endif %}">
           <i class="bi bi-lightning-charge me-2"></i><span>Lead Pool</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('earnings') }}"
+           class="nav-link text-white {% if request.endpoint == 'earnings' %}active{% endif %}">
+          <i class="bi bi-cash-coin me-2"></i><span>My Earnings</span>
         </a>
       </li>
       {% endif %}
@@ -520,6 +546,9 @@
           }
         }
         showToast('Status → ' + status, 'success');
+        if (data.new_badges && data.new_badges.length) {
+          data.new_badges.forEach(b => showToast('🏆 Badge unlocked: ' + b, 'warning'));
+        }
       } else {
         showToast(data.error || 'Failed to update status', 'danger');
         /* Revert select to previous value by reloading if needed */
@@ -554,6 +583,10 @@
     localStorage.setItem('myle-dark', isDark ? '0' : '1');
     applyDark(!isDark);
   });
+
+  /* ── Offline indicator ──────────────────────────────── */
+  window.addEventListener('offline', function(){ document.getElementById('offlineBanner').classList.remove('d-none'); });
+  window.addEventListener('online',  function(){ document.getElementById('offlineBanner').classList.add('d-none'); });
 
   /* ── CSRF Auto-inject ────────────────────────────────
    * Automatically adds the CSRF token to every POST form

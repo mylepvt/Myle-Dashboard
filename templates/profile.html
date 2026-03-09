@@ -145,6 +145,20 @@
     </div>
     {% endif %}
 
+    <!-- ── Achievement Badges ───────────────────────── -->
+    {% if session.get('role') != 'admin' %}
+    <div class="card border-0 shadow-sm mt-4" id="badgesCard">
+      <div class="card-header border-0 pt-3 pb-0 px-4">
+        <h6 class="mb-0"><i class="bi bi-award-fill me-2 text-warning"></i>Achievement Badges</h6>
+      </div>
+      <div class="card-body p-4">
+        <div id="badgesList" class="d-flex flex-wrap gap-2">
+          <div class="text-muted small">Loading badges…</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- ── Account Status Card ───────────────────────── -->
     <div class="card border-0 shadow-sm mt-4">
       <div class="card-body p-4">
@@ -174,6 +188,43 @@
 
 {% block scripts %}
 <script>
+// Load achievement badges
+(function() {
+  const el = document.getElementById('badgesList');
+  if (!el) return;
+  fetch('/profile/badges')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.badges || !data.badges.length) {
+        el.innerHTML = '<span class="text-muted small">No badges yet. Keep going!</span>';
+        return;
+      }
+      el.innerHTML = data.badges.map(b => `
+        <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3 border"
+             style="background:${b.color}18;border-color:${b.color}44!important;" title="${b.desc}">
+          <i class="bi ${b.icon}" style="color:${b.color};font-size:1.1rem;"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.78rem;">${b.label}</div>
+            <div class="text-muted" style="font-size:.68rem;">${b.desc}</div>
+          </div>
+        </div>`).join('');
+      if (data.locked && data.locked.length) {
+        el.innerHTML += data.locked.slice(0, 3).map(b => `
+          <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3 border opacity-40"
+               style="filter:grayscale(1);" title="Locked: ${b.desc}">
+            <i class="bi ${b.icon}" style="font-size:1.1rem;"></i>
+            <div>
+              <div class="fw-semibold" style="font-size:.78rem;">${b.label}</div>
+              <div class="text-muted" style="font-size:.68rem;">Locked</div>
+            </div>
+          </div>`).join('');
+      }
+    })
+    .catch(() => {
+      if (el) el.innerHTML = '';
+    });
+})();
+
 function previewDP(input) {
   if (input.files && input.files[0]) {
     const reader = new FileReader();

@@ -2,6 +2,10 @@
 {% block title %}Leaderboard – Myle Community{% endblock %}
 {% block page_title %}Leaderboard{% endblock %}
 
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
 {% block content %}
 
 <!-- Tab Nav -->
@@ -145,6 +149,17 @@
       </div>
     </div>
 
+    {% if growth_data %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header py-2">
+        <span class="small fw-semibold"><i class="bi bi-graph-up-arrow me-1 text-success"></i>Network Growth</span>
+      </div>
+      <div class="card-body py-2">
+        <canvas id="growthChart" height="120"></canvas>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- All / Direct toggle -->
     <div class="d-flex align-items-center gap-2 mb-3">
       <span class="text-muted small fw-semibold">View:</span>
@@ -258,5 +273,29 @@ function showDirectOnly() {
   document.getElementById('btnAllGens').classList.remove('active', 'btn-primary');
   document.getElementById('btnAllGens').classList.add('btn-outline-primary');
 }
+
+{% if growth_data %}
+(function(){
+  const ctx = document.getElementById('growthChart');
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: {{ growth_data | map(attribute='month') | list | tojson }},
+      datasets: [{
+        label: 'New Members',
+        data: {{ growth_data | map(attribute='count') | list | tojson }},
+        backgroundColor: 'rgba(99,102,241,0.7)',
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+    }
+  });
+})();
+{% endif %}
 </script>
 {% endblock %}

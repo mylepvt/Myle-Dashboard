@@ -227,6 +227,32 @@
 
 </div>
 
+{% if targets_data %}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header py-2">
+    <i class="bi bi-bullseye me-1 text-primary"></i>
+    <span class="fw-semibold small">This Month's Goals</span>
+  </div>
+  <div class="card-body px-3 py-2">
+    {% for t in targets_data %}
+    <div class="mb-2">
+      <div class="d-flex justify-content-between mb-1" style="font-size:.8rem;">
+        <span>{{ t.label }}</span>
+        <span class="fw-semibold {% if t.pct >= 100 %}text-success{% endif %}">
+          {{ t.actual }} / {{ t.target }}
+          {% if t.pct >= 100 %}<i class="bi bi-check-circle-fill text-success ms-1"></i>{% endif %}
+        </span>
+      </div>
+      <div class="progress" style="height:5px;">
+        <div class="progress-bar {% if t.pct >= 100 %}bg-success{% else %}bg-primary{% endif %}"
+             style="width:{{ [t.pct, 100]|min }}%"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 {# Extended Funnel KPIs — Seat Hold + Fully Conv. (shown when non-zero) #}
 {% if metrics.seat_hold or metrics.fully_conv %}
 <div class="row g-2 mb-3">
@@ -425,7 +451,19 @@
   </div>
 </div>
 
-{# ── 5. ANALYTICS (toggle on mobile, always visible on desktop) #}
+{# ── 5. ACTIVITY FEED ──────────────────────────────────────── #}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header py-2 d-flex align-items-center">
+    <i class="bi bi-activity me-2 text-success"></i>
+    <span class="fw-semibold small">Team Activity</span>
+    <span class="badge bg-success ms-2" style="font-size:.55rem;animation:pulse 2s infinite;">LIVE</span>
+  </div>
+  <div id="activityFeed" class="card-body p-0" style="max-height:200px;overflow-y:auto;">
+    <div class="text-muted text-center py-3 small" id="activityEmpty">Loading…</div>
+  </div>
+</div>
+
+{# ── 6. ANALYTICS (toggle on mobile, always visible on desktop) #}
 <div class="mb-3">
 
   {# Mobile toggle button #}
@@ -581,6 +619,62 @@ if (analyticsEl && chevron) {
     if (analyticsBtn) analyticsBtn.setAttribute('aria-expanded','false');
   });
 }
+
+// ── Activity Feed (polls every 30s) ───────────────────────
+(function(){
+  let lastTs = '';
+  const feed = document.getElementById('activityFeed');
+  const empty = document.getElementById('activityEmpty');
+  if (!feed) return;
+
+  const ICONS = {
+    lead_status_change: 'bi-arrow-repeat text-primary',
+    payment_done:       'bi-cash-coin text-success',
+    seat_hold:          'bi-shield-check text-purple',
+    fully_converted:    'bi-trophy-fill text-warning',
+    new_member:         'bi-person-plus-fill text-info',
+    login:              'bi-box-arrow-in-right text-secondary',
+  };
+
+  function renderEvents(events) {
+    if (!events.length) {
+      if (empty) empty.textContent = 'No recent activity.';
+      return;
+    }
+    if (empty) empty.remove();
+    events.forEach(ev => {
+      const row = document.createElement('div');
+      row.className = 'd-flex align-items-start gap-2 px-3 py-2 border-bottom feed-row';
+      row.style.animation = 'feedIn .3s ease';
+      const icon = ICONS[ev.event_type] || 'bi-dot text-muted';
+      row.innerHTML = `
+        <i class="bi ${icon} mt-1" style="font-size:.85rem;flex-shrink:0;"></i>
+        <div class="flex-grow-1 min-w-0">
+          <span class="fw-semibold small">${ev.username}</span>
+          <span class="text-muted small ms-1">${ev.details || ev.event_type.replace(/_/g,' ')}</span>
+        </div>
+        <div class="text-muted flex-shrink-0" style="font-size:.65rem;">${ev.created_at.slice(11,16)}</div>`;
+      feed.prepend(row);
+    });
+  }
+
+  function poll() {
+    fetch('/api/activity-feed' + (lastTs ? '?since=' + encodeURIComponent(lastTs) : ''))
+      .then(r => r.json())
+      .then(d => {
+        if (d.events && d.events.length) {
+          renderEvents(d.events);
+          if (d.latest) lastTs = d.latest;
+        } else if (!lastTs) {
+          if (empty) empty.textContent = 'No recent activity in your network.';
+        }
+      })
+      .catch(() => {});
+  }
+
+  poll();
+  setInterval(poll, 30000);
+})();
 
 // ── Status Doughnut ───────────────────────────────────────
 const statusCtx = document.getElementById('statusChart');

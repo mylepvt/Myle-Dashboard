@@ -48,6 +48,8 @@ def init_db():
             in_pool        INTEGER NOT NULL DEFAULT 0,
             pool_price     REAL    NOT NULL DEFAULT 0.0,
             claimed_at     TEXT    NOT NULL DEFAULT '',
+            last_contacted TEXT    NOT NULL DEFAULT '',
+            contact_count  INTEGER NOT NULL DEFAULT 0,
             created_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
             updated_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
         )
@@ -104,6 +106,7 @@ def init_db():
             training_status       TEXT    NOT NULL DEFAULT 'not_required',
             joining_date          TEXT    NOT NULL DEFAULT '',
             certificate_path      TEXT    NOT NULL DEFAULT '',
+            badges_json           TEXT    NOT NULL DEFAULT '[]',
             created_at            TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
         )
     """)
@@ -212,6 +215,31 @@ def init_db():
         )
     """)
 
+    # Monthly targets per member
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS targets (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            username     TEXT NOT NULL,
+            metric       TEXT NOT NULL,
+            target_value REAL NOT NULL DEFAULT 0,
+            month        TEXT NOT NULL,
+            created_by   TEXT NOT NULL DEFAULT 'admin',
+            created_at   TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            UNIQUE(username, metric, month)
+        )
+    """)
+
+    # User achievement badges
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_badges (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            username    TEXT NOT NULL,
+            badge_key   TEXT NOT NULL,
+            unlocked_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            UNIQUE(username, badge_key)
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -238,6 +266,9 @@ def migrate_db():
         ("track_price",      "REAL NOT NULL DEFAULT 0.0"),
         ("seat_hold_amount", "REAL NOT NULL DEFAULT 0.0"),
         ("pending_amount",   "REAL NOT NULL DEFAULT 0.0"),
+        # Contact tracking
+        ("last_contacted",   "TEXT NOT NULL DEFAULT ''"),
+        ("contact_count",    "INTEGER NOT NULL DEFAULT 0"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE leads ADD COLUMN {col} {definition}")
@@ -275,6 +306,8 @@ def migrate_db():
         ("training_status",       "TEXT NOT NULL DEFAULT 'not_required'"),
         ("joining_date",          "TEXT NOT NULL DEFAULT ''"),
         ("certificate_path",      "TEXT NOT NULL DEFAULT ''"),
+        # Badges
+        ("badges_json",           "TEXT NOT NULL DEFAULT '[]'"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
@@ -435,6 +468,37 @@ def migrate_db():
     except Exception:
         pass
 
+    # --- targets table ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS targets (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                username     TEXT NOT NULL,
+                metric       TEXT NOT NULL,
+                target_value REAL NOT NULL DEFAULT 0,
+                month        TEXT NOT NULL,
+                created_by   TEXT NOT NULL DEFAULT 'admin',
+                created_at   TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+                UNIQUE(username, metric, month)
+            )
+        """)
+    except Exception:
+        pass
+
+    # --- user_badges table ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS user_badges (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                username    TEXT NOT NULL,
+                badge_key   TEXT NOT NULL,
+                unlocked_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+                UNIQUE(username, badge_key)
+            )
+        """)
+    except Exception:
+        pass
+
     # --- Performance indexes ---
     indexes = [
         "CREATE INDEX IF NOT EXISTS idx_leads_pool_assigned  ON leads(in_pool, assigned_to)",
@@ -446,6 +510,10 @@ def migrate_db():
         "CREATE INDEX IF NOT EXISTS idx_reports_user_date    ON daily_reports(username, report_date)",
         "CREATE INDEX IF NOT EXISTS idx_leads_call_result ON leads(call_result, in_pool, deleted_at)",
         "CREATE INDEX IF NOT EXISTS idx_activity_user_time ON activity_log(username, created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_targets_user_month ON targets(username, month)",
+        "CREATE INDEX IF NOT EXISTS idx_lead_notes_lead ON lead_notes(lead_id, created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_leads_followup ON leads(follow_up_date, assigned_to)",
+        "CREATE INDEX IF NOT EXISTS idx_leads_contacted ON leads(last_contacted, assigned_to)",
     ]
     for idx in indexes:
         try:

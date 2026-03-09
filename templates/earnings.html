@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}My Earnings – Myle Community{% endblock %}
+{% block page_title %}My Earnings{% endblock %}
+
+{% block content %}
+
+<div class="alert alert-info py-2 mb-3" style="font-size:.82rem;">
+  <i class="bi bi-info-circle me-1"></i>
+  Ye estimated commission hai based on ₹196 payments. Actual payout admin decide karta hai.
+</div>
+
+<!-- Total Earnings Card -->
+<div class="card border-0 shadow-sm mb-3" style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;">
+  <div class="card-body text-center py-4">
+    <div style="font-size:.8rem;opacity:.85;">Total Estimated Commission</div>
+    <div class="fw-bold" style="font-size:2rem;">₹{{ "%.0f"|format(total_earn) }}</div>
+    <div style="font-size:.75rem;opacity:.75;">Based on your network payments</div>
+  </div>
+</div>
+
+<!-- Breakdown -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header py-2">
+    <span class="fw-semibold small"><i class="bi bi-diagram-3 me-1"></i>Commission Breakdown</span>
+  </div>
+  <div class="card-body p-0">
+
+    <!-- My own -->
+    <div class="d-flex align-items-center gap-3 px-3 py-3 border-bottom">
+      <div class="rounded-circle d-flex align-items-center justify-content-center"
+           style="width:38px;height:38px;background:#6366f1;flex-shrink:0;">
+        <i class="bi bi-person-fill text-white"></i>
+      </div>
+      <div class="flex-grow-1">
+        <div class="fw-semibold small">My Direct Sales</div>
+        <div class="text-muted" style="font-size:.75rem;">₹{{ "%.0f"|format(my_paid) }} collected · {{ "%.0f"|format(gen1_rate*100) }}% rate</div>
+      </div>
+      <div class="fw-bold text-primary">₹{{ "%.0f"|format(my_earn) }}</div>
+    </div>
+
+    <!-- Gen 1 -->
+    <div class="d-flex align-items-center gap-3 px-3 py-3 border-bottom">
+      <div class="rounded-circle d-flex align-items-center justify-content-center"
+           style="width:38px;height:38px;background:#0891b2;flex-shrink:0;">
+        <span class="text-white fw-bold" style="font-size:.7rem;">G1</span>
+      </div>
+      <div class="flex-grow-1">
+        <div class="fw-semibold small">Gen 1 Override <span class="text-muted fw-normal">({{ gen1_count }} members)</span></div>
+        <div class="text-muted" style="font-size:.75rem;">₹{{ "%.0f"|format(gen1_paid) }} collected · {{ "%.0f"|format(gen2_rate*100) }}% rate</div>
+      </div>
+      <div class="fw-bold text-info">₹{{ "%.0f"|format(gen1_earn) }}</div>
+    </div>
+
+    <!-- Gen 2 -->
+    <div class="d-flex align-items-center gap-3 px-3 py-3 border-bottom">
+      <div class="rounded-circle d-flex align-items-center justify-content-center"
+           style="width:38px;height:38px;background:#059669;flex-shrink:0;">
+        <span class="text-white fw-bold" style="font-size:.7rem;">G2</span>
+      </div>
+      <div class="flex-grow-1">
+        <div class="fw-semibold small">Gen 2 Override <span class="text-muted fw-normal">({{ gen2_count }} members)</span></div>
+        <div class="text-muted" style="font-size:.75rem;">₹{{ "%.0f"|format(gen2_paid) }} collected · {{ "%.0f"|format(gen3_rate*100) }}% rate</div>
+      </div>
+      <div class="fw-bold text-success">₹{{ "%.0f"|format(gen2_earn) }}</div>
+    </div>
+
+    <!-- Gen 3+ -->
+    <div class="d-flex align-items-center gap-3 px-3 py-3">
+      <div class="rounded-circle d-flex align-items-center justify-content-center"
+           style="width:38px;height:38px;background:#d97706;flex-shrink:0;">
+        <span class="text-white fw-bold" style="font-size:.7rem;">G3+</span>
+      </div>
+      <div class="flex-grow-1">
+        <div class="fw-semibold small">Gen 3+ Override <span class="text-muted fw-normal">({{ gen3_count }} members)</span></div>
+        <div class="text-muted" style="font-size:.75rem;">₹{{ "%.0f"|format(gen3_paid) }} collected · {{ "%.0f"|format(gen3_rate/2*100) }}% rate</div>
+      </div>
+      <div class="fw-bold" style="color:#d97706;">₹{{ "%.0f"|format(gen3_earn) }}</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Monthly breakdown -->
+{% if monthly %}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header py-2">
+    <span class="fw-semibold small"><i class="bi bi-calendar3 me-1"></i>My Monthly Payments</span>
+  </div>
+  <div class="card-body p-0">
+    {% for row in monthly %}
+    <div class="d-flex align-items-center gap-3 px-3 py-2 border-bottom">
+      <div class="text-muted small" style="min-width:70px;">{{ row.month }}</div>
+      <div class="flex-grow-1">
+        <div class="progress" style="height:6px;">
+          {% set max_amt = monthly|map(attribute='amount')|max %}
+          <div class="progress-bar bg-primary" style="width:{{ [(row.amount/max_amt*100)|int,100]|min }}%"></div>
+        </div>
+      </div>
+      <div class="text-end">
+        <div class="fw-semibold small">₹{{ "%.0f"|format(row.amount or 0) }}</div>
+        <div class="text-muted" style="font-size:.68rem;">{{ row.count }} paid</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<p class="text-muted text-center" style="font-size:.75rem;">
+  Commission rates set by admin · Contact admin for payout queries
+</p>
+
+{% endblock %}

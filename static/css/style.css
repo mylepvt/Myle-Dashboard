@@ -832,3 +832,13 @@ body {
 .net-gen-badge-5 { background:#7c3aed; color:#fff; }
 [data-theme="dark"] .net-gen-header { background:#1e2235; border-color:#2d3148; }
 [data-theme="dark"] .net-gen-header .badge.bg-light { background:#2d3148 !important; color:#e2e8f0 !important; }
+
+/* ── Activity Feed ───────────────────────────────── */
+@keyframes feedIn {
+  from { opacity:0; transform:translateY(-4px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+@keyframes pulse {
+  0%,100% { opacity:1; }
+  50%      { opacity:.5; }
+}

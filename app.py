@@ -115,8 +115,26 @@ RETARGET_TAGS = {
     'Call Not Picked', 'Phone Switched Off', 'Not Reachable',
     'Follow Up Later', 'Callback Requested'
 }
+FOLLOWUP_TAGS = ('Follow Up Later', 'Callback Requested', 'Call Not Picked',
+                 'Phone Switched Off', 'Not Reachable')
 SOURCES  = ['WhatsApp', 'Facebook', 'Instagram', 'LinkedIn',
             'Walk-in', 'Referral', 'YouTube', 'Cold Call', 'Meta', 'Other']
+BADGE_DEFS = {
+    'first_sale':   {'label': 'First Sale',      'icon': 'bi-trophy-fill',       'color': '#f59e0b',
+                     'desc': 'Convert your first lead'},
+    'ten_leads':    {'label': 'Getting Started',  'icon': 'bi-person-plus-fill',  'color': '#6366f1',
+                     'desc': 'Add 10 leads'},
+    'century':      {'label': 'Century',          'icon': 'bi-123',               'color': '#0891b2',
+                     'desc': 'Add 100 leads'},
+    'payment_10':   {'label': '₹1960 Club',       'icon': 'bi-cash-stack',        'color': '#059669',
+                     'desc': '10 payments collected'},
+    'seat_hold_5':  {'label': 'Seat Holder',      'icon': 'bi-shield-fill-check', 'color': '#7c3aed',
+                     'desc': '5 seat holds confirmed'},
+    'fully_conv_1': {'label': 'Track Master',     'icon': 'bi-star-fill',         'color': '#d97706',
+                     'desc': 'First fully converted lead'},
+    'streak_7':     {'label': '7-Day Streak',     'icon': 'bi-fire',              'color': '#ef4444',
+                     'desc': 'Submit daily report 7 days in a row'},
+}
 PAYMENT_AMOUNT = 196.0
 
 
@@ -200,6 +218,64 @@ def _log_activity(db, username, event_type, details=''):
         db.commit()
     except Exception:
         pass
+
+
+def _log_lead_event(db, lead_id, username, note):
+    """Insert a timeline entry for a lead."""
+    db.execute(
+        "INSERT INTO lead_notes (lead_id, username, note) VALUES (?,?,?)",
+        (lead_id, username, note)
+    )
+
+
+def _check_and_award_badges(db, username):
+    """Check thresholds and award new badges. Returns list of newly awarded badge keys."""
+    try:
+        m = _get_metrics(db, username)
+        existing = {r['badge_key'] for r in db.execute(
+            "SELECT badge_key FROM user_badges WHERE username=?", (username,)
+        ).fetchall()}
+
+        streak = db.execute("""
+            SELECT COUNT(*) FROM (
+                SELECT report_date FROM daily_reports
+                WHERE username=? ORDER BY report_date DESC LIMIT 7
+            ) t
+        """, (username,)).fetchone()[0]
+
+        seat_holds = db.execute(
+            "SELECT COUNT(*) FROM leads WHERE assigned_to=? AND status='Seat Hold Confirmed' AND in_pool=0",
+            (username,)
+        ).fetchone()[0]
+
+        to_award = []
+        checks = [
+            ('first_sale',   m.get('converted', 0) >= 1),
+            ('ten_leads',    m.get('total', 0) >= 10),
+            ('century',      m.get('total', 0) >= 100),
+            ('payment_10',   m.get('paid', 0) >= 10),
+            ('seat_hold_5',  seat_holds >= 5),
+            ('fully_conv_1', db.execute(
+                "SELECT COUNT(*) FROM leads WHERE assigned_to=? AND status='Fully Converted' AND in_pool=0",
+                (username,)).fetchone()[0] >= 1),
+            ('streak_7',     streak >= 7),
+        ]
+        for key, condition in checks:
+            if condition and key not in existing:
+                to_award.append(key)
+
+        for key in to_award:
+            try:
+                db.execute(
+                    "INSERT OR IGNORE INTO user_badges (username, badge_key) VALUES (?,?)",
+                    (username, key)
+                )
+            except Exception:
+                pass
+
+        return to_award
+    except Exception:
+        return []
 
 
 # Drill-down metric config
@@ -1232,7 +1308,8 @@ def team_dashboard():
     _rt_ph = ','.join('?' * len(RETARGET_TAGS))
     retarget_count = db.execute(
         f"SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' "
-        f"AND assigned_to=? AND (call_result IN ({_rt_ph}) OR status='Retarget')",
+        f"AND assigned_to=? AND status NOT IN ('Converted','Fully Converted','Lost') "
+        f"AND (call_result IN ({_rt_ph}) OR status='Retarget')",
         (username, *RETARGET_TAGS)
     ).fetchone()[0]
 
@@ -1282,6 +1359,43 @@ def team_dashboard():
         ).fetchall()
         funnel_leads[_mk] = [r['name'] for r in _rows]
 
+    # Follow-up queue count
+    fu_placeholders = ','.join('?' * len(FOLLOWUP_TAGS))
+    followup_count = db.execute(f"""
+        SELECT COUNT(*) FROM leads
+        WHERE in_pool=0 AND deleted_at=''
+          AND assigned_to=?
+          AND status NOT IN ('Converted','Fully Converted','Lost')
+          AND (
+            (follow_up_date != '' AND DATE(follow_up_date) <= DATE('now','localtime'))
+            OR call_result IN ({fu_placeholders})
+          )
+    """, [username] + list(FOLLOWUP_TAGS)).fetchone()[0]
+
+    # Monthly goals + actuals
+    current_month = datetime.datetime.now().strftime('%Y-%m')
+    target_rows = db.execute(
+        "SELECT metric, target_value FROM targets WHERE username=? AND month=?",
+        (username, current_month)
+    ).fetchall()
+    m = _get_metrics(db, username)
+    metric_actuals = {
+        'leads':       m.get('total', 0),
+        'payments':    m.get('paid', 0),
+        'conversions': m.get('converted', 0),
+        'revenue':     m.get('revenue', 0),
+    }
+    metric_labels = {'leads': 'Leads Added', 'payments': '₹196 Payments',
+                     'conversions': 'Conversions', 'revenue': 'Revenue ₹'}
+    targets_data = []
+    for tr in target_rows:
+        key    = tr['metric']
+        target = tr['target_value']
+        actual = metric_actuals.get(key, 0)
+        pct    = round(actual / target * 100, 1) if target else 0
+        targets_data.append({'label': metric_labels.get(key, key),
+                              'actual': actual, 'target': int(target), 'pct': pct})
+
     db.close()
     resp = make_response(render_template('dashboard.html',
                            metrics=metrics,
@@ -1299,6 +1413,8 @@ def team_dashboard():
                            notices=notices,
                            calling_reminder_time=calling_reminder_time,
                            retarget_count=retarget_count,
+                           followup_count=followup_count,
+                           targets_data=targets_data,
                            zoom_link=zoom_link,
                            zoom_title=zoom_title,
                            zoom_time=zoom_time,
@@ -1574,6 +1690,10 @@ def edit_lead(lead_id):
         "SELECT * FROM lead_notes WHERE lead_id=? ORDER BY created_at ASC",
         (lead_id,)
     ).fetchall()
+    timeline = db.execute(
+        "SELECT * FROM lead_notes WHERE lead_id=? ORDER BY created_at DESC LIMIT 50",
+        (lead_id,)
+    ).fetchall()
     db.close()
     return render_template('edit_lead.html',
                            lead=lead,
@@ -1581,12 +1701,79 @@ def edit_lead(lead_id):
                            team=team,
                            payment_amount=PAYMENT_AMOUNT,
                            lead_notes=lead_notes_rows,
+                           timeline=timeline,
                            call_result_tags=CALL_RESULT_TAGS)
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Retarget List
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+@app.route('/follow-up')
+@login_required
+def follow_up_queue():
+    db   = get_db()
+    role = session.get('role')
+    fu_placeholders = ','.join('?' * len(FOLLOWUP_TAGS))
+    query = f"""
+        SELECT * FROM leads
+        WHERE in_pool=0 AND deleted_at=''
+          AND status NOT IN ('Converted','Fully Converted','Lost')
+          AND (
+            (follow_up_date != '' AND DATE(follow_up_date) <= DATE('now','localtime'))
+            OR call_result IN ({fu_placeholders})
+          )
+    """
+    params = list(FOLLOWUP_TAGS)
+    if role != 'admin':
+        query += " AND assigned_to=?"
+        params.append(session['username'])
+    query += """
+        ORDER BY
+          CASE WHEN follow_up_date != '' AND DATE(follow_up_date) = DATE('now','localtime') THEN 0 ELSE 1 END,
+          follow_up_date ASC,
+          last_contacted ASC
+    """
+    leads_list = db.execute(query, params).fetchall()
+
+    now_date = datetime.datetime.now().strftime('%Y-%m-%d')
+    today_count    = sum(1 for l in leads_list
+                         if l['follow_up_date'] and l['follow_up_date'][:10] == now_date)
+    overdue_count  = sum(1 for l in leads_list
+                         if l['follow_up_date'] and l['follow_up_date'][:10] < now_date)
+
+    db.close()
+    return render_template('follow_up.html',
+                           leads=leads_list,
+                           today_count=today_count,
+                           overdue_count=overdue_count,
+                           now_date=now_date,
+                           statuses=STATUSES,
+                           call_result_tags=CALL_RESULT_TAGS)
+
+
+@app.route('/leads/<int:lead_id>/mark-called', methods=['POST'])
+@login_required
+def mark_called(lead_id):
+    db   = get_db()
+    lead = db.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone()
+    if not lead:
+        db.close()
+        return {'ok': False, 'error': 'not found'}, 404
+    if session.get('role') != 'admin' and lead['assigned_to'] != session['username']:
+        db.close()
+        return {'ok': False, 'error': 'forbidden'}, 403
+
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    db.execute("""
+        UPDATE leads SET last_contacted=?, contact_count=contact_count+1, updated_at=?
+        WHERE id=?
+    """, (now, now, lead_id))
+    _log_lead_event(db, lead_id, session['username'], 'Called / contacted')
+    db.commit()
+    db.close()
+    return {'ok': True}
+
 
 @app.route('/retarget')
 @login_required
@@ -1595,6 +1782,7 @@ def retarget():
     rt_placeholders = ','.join('?' * len(RETARGET_TAGS))
     query  = f"""SELECT * FROM leads
                 WHERE in_pool=0 AND deleted_at=''
+                AND status NOT IN ('Converted','Fully Converted','Lost')
                 AND (call_result IN ({rt_placeholders}) OR status='Retarget')"""
     params = list(RETARGET_TAGS)
     if session.get('role') != 'admin':
@@ -1616,38 +1804,45 @@ def retarget():
 @app.route('/leads/<int:lead_id>/status', methods=['POST'])
 @login_required
 def update_status(lead_id):
-    status = request.form.get('status')
+    new_status = request.form.get('status')
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
-    if status not in STATUSES:
+    if new_status not in STATUSES:
         if is_ajax:
             return {'ok': False, 'error': 'Invalid status'}, 400
         flash('Invalid status.', 'danger')
         return redirect(url_for('leads'))
 
     db = get_db()
+    lead = db.execute("SELECT * FROM leads WHERE id=? AND in_pool=0", (lead_id,)).fetchone()
+    if not lead:
+        db.close()
+        if is_ajax:
+            return {'ok': False, 'error': 'Not found'}, 404
+        flash('Lead not found.', 'danger')
+        return redirect(url_for('leads'))
 
-    if session.get('role') != 'admin':
-        lead = db.execute(
-            "SELECT id FROM leads WHERE id=? AND assigned_to=? AND in_pool=0",
-            (lead_id, session['username'])
-        ).fetchone()
-        if not lead:
-            db.close()
-            if is_ajax:
-                return {'ok': False, 'error': 'Access denied'}, 403
-            flash('Access denied.', 'danger')
-            return redirect(url_for('leads'))
+    if session.get('role') != 'admin' and lead['assigned_to'] != session['username']:
+        db.close()
+        if is_ajax:
+            return {'ok': False, 'error': 'Access denied'}, 403
+        flash('Access denied.', 'danger')
+        return redirect(url_for('leads'))
 
     db.execute(
         "UPDATE leads SET status=?, updated_at=datetime('now','localtime') WHERE id=? AND in_pool=0",
-        (status, lead_id)
+        (new_status, lead_id)
     )
+    _log_lead_event(db, lead_id, session['username'], f'Status → {new_status}')
+    _log_activity(db, session['username'], 'lead_status_change',
+                  f'{lead["name"]} → {new_status}')
+    new_badges = _check_and_award_badges(db, lead['assigned_to'])
     db.commit()
     db.close()
 
     if is_ajax:
-        return {'ok': True, 'status': status}
+        return {'ok': True, 'status': new_status,
+                'new_badges': [BADGE_DEFS[k]['label'] for k in new_badges if k in BADGE_DEFS]}
 
     flash('Status updated.', 'success')
     return redirect(request.referrer or url_for('leads'))
@@ -2288,6 +2483,57 @@ def admin_delete_member(username):
     db.close()
     flash(f'Member @{username} has been permanently deleted. Their leads have been returned to the pool.', 'success')
     return redirect(url_for('admin_members'))
+
+
+# ──────────────────────────────────────────────────────────────
+#  Admin – Monthly Targets
+# ──────────────────────────────────────────────────────────────
+
+@app.route('/admin/targets', methods=['GET', 'POST'])
+@admin_required
+def admin_targets():
+    db    = get_db()
+    month = request.args.get('month', datetime.datetime.now().strftime('%Y-%m'))
+
+    if request.method == 'POST':
+        month_p = request.form.get('month', month)
+        members = db.execute(
+            "SELECT username FROM users WHERE role='team' AND status='approved' ORDER BY username"
+        ).fetchall()
+        for m in members:
+            uname = m['username']
+            for metric in ('leads', 'payments', 'conversions', 'revenue'):
+                val = request.form.get(f'{uname}_{metric}', '').strip()
+                if val:
+                    try:
+                        db.execute("""
+                            INSERT INTO targets (username, metric, target_value, month, created_by)
+                            VALUES (?,?,?,?,?)
+                            ON CONFLICT(username, metric, month)
+                            DO UPDATE SET target_value=excluded.target_value
+                        """, (uname, metric, float(val), month_p, session['username']))
+                    except Exception:
+                        pass
+        db.commit()
+        flash('Targets saved!', 'success')
+        db.close()
+        return redirect(url_for('admin_targets', month=month_p))
+
+    members = db.execute(
+        "SELECT username FROM users WHERE role='team' AND status='approved' ORDER BY username"
+    ).fetchall()
+    targets_map = {}
+    rows = db.execute(
+        "SELECT username, metric, target_value FROM targets WHERE month=?", (month,)
+    ).fetchall()
+    for r in rows:
+        targets_map[(r['username'], r['metric'])] = r['target_value']
+
+    db.close()
+    return render_template('admin_targets.html',
+                           members=members,
+                           targets_map=targets_map,
+                           month=month)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -3251,6 +3497,153 @@ def profile_dp():
     return resp
 
 
+# ─────────────────────────────────────────────────────────────
+#  Profile – with earned badges
+# ─────────────────────────────────────────────────────────────
+
+@app.route('/profile/badges')
+@login_required
+def profile_badges():
+    """Return earned badges for the current user (JSON)."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT badge_key, unlocked_at FROM user_badges WHERE username=? ORDER BY unlocked_at",
+        (session['username'],)
+    ).fetchall()
+    db.close()
+    result = []
+    for r in rows:
+        d = BADGE_DEFS.get(r['badge_key'])
+        if d:
+            result.append({**d, 'key': r['badge_key'], 'unlocked_at': r['unlocked_at']})
+    return {'badges': result}
+
+
+# ─────────────────────────────────────────────────────────────
+#  Activity Feed API (polling)
+# ─────────────────────────────────────────────────────────────
+
+@app.route('/api/activity-feed')
+@login_required
+def api_activity_feed():
+    """Return recent activity from the user's network for the live feed."""
+    db       = get_db()
+    username = session['username']
+    since    = request.args.get('since', '')
+
+    network = _get_downline_usernames(db, username)
+    if not network:
+        db.close()
+        return {'events': [], 'latest': ''}
+
+    placeholders = ','.join('?' * len(network))
+    params = list(network)
+
+    if since:
+        rows = db.execute(
+            f"SELECT username, event_type, details, created_at FROM activity_log "
+            f"WHERE username IN ({placeholders}) AND created_at > ? "
+            f"ORDER BY created_at DESC LIMIT 20",
+            params + [since]
+        ).fetchall()
+    else:
+        rows = db.execute(
+            f"SELECT username, event_type, details, created_at FROM activity_log "
+            f"WHERE username IN ({placeholders}) "
+            f"ORDER BY created_at DESC LIMIT 20",
+            params
+        ).fetchall()
+
+    db.close()
+    events = [dict(r) for r in rows]
+    latest = events[0]['created_at'] if events else ''
+    return {'events': events, 'latest': latest}
+
+
+# ─────────────────────────────────────────────────────────────
+#  Earnings / Commission Calculator
+# ─────────────────────────────────────────────────────────────
+
+@app.route('/earnings')
+@login_required
+def earnings():
+    db       = get_db()
+    username = session['username']
+
+    # Commission rates from settings (admin configurable)
+    gen1_rate = float(_get_setting(db, 'commission_gen1', '10')) / 100
+    gen2_rate = float(_get_setting(db, 'commission_gen2', '5'))  / 100
+    gen3_rate = float(_get_setting(db, 'commission_gen3', '2'))  / 100
+
+    # My own payments
+    my_paid = db.execute(
+        "SELECT COALESCE(SUM(payment_amount),0) as total FROM leads "
+        "WHERE assigned_to=? AND payment_done=1 AND in_pool=0",
+        (username,)
+    ).fetchone()['total']
+
+    # Gen 1 downline usernames
+    gen1_users = [r['username'] for r in db.execute(
+        "SELECT username FROM users WHERE upline_name=? AND role='team' AND status='approved'",
+        (username,)
+    ).fetchall()]
+
+    gen2_users = []
+    for u in gen1_users:
+        gen2_users += [r['username'] for r in db.execute(
+            "SELECT username FROM users WHERE upline_name=? AND role='team' AND status='approved'",
+            (u,)
+        ).fetchall()]
+
+    gen3_users = []
+    for u in gen2_users:
+        gen3_users += [r['username'] for r in db.execute(
+            "SELECT username FROM users WHERE upline_name=? AND role='team' AND status='approved'",
+            (u,)
+        ).fetchall()]
+
+    def _sum_payments(users):
+        if not users:
+            return 0.0
+        ph = ','.join('?' * len(users))
+        return db.execute(
+            f"SELECT COALESCE(SUM(payment_amount),0) as t FROM leads "
+            f"WHERE assigned_to IN ({ph}) AND payment_done=1 AND in_pool=0",
+            users
+        ).fetchone()['t']
+
+    gen1_paid = _sum_payments(gen1_users)
+    gen2_paid = _sum_payments(gen2_users)
+    gen3_paid = _sum_payments(gen3_users)
+
+    my_earn   = my_paid  * gen1_rate
+    gen1_earn = gen1_paid * gen2_rate
+    gen2_earn = gen2_paid * gen3_rate
+    gen3_earn = gen3_paid * (gen3_rate / 2)   # half rate for gen 3+
+    total_earn = my_earn + gen1_earn + gen2_earn + gen3_earn
+
+    # Monthly breakdown (my own payments by month)
+    monthly = db.execute("""
+        SELECT strftime('%Y-%m', updated_at) as month,
+               COUNT(*) as count,
+               SUM(payment_amount) as amount
+        FROM leads
+        WHERE assigned_to=? AND payment_done=1 AND in_pool=0
+          AND deleted_at=''
+        GROUP BY month ORDER BY month DESC LIMIT 12
+    """, (username,)).fetchall()
+
+    db.close()
+    return render_template('earnings.html',
+                           my_paid=my_paid,   my_earn=my_earn,
+                           gen1_paid=gen1_paid, gen1_earn=gen1_earn, gen1_count=len(gen1_users),
+                           gen2_paid=gen2_paid, gen2_earn=gen2_earn, gen2_count=len(gen2_users),
+                           gen3_paid=gen3_paid, gen3_earn=gen3_earn, gen3_count=len(gen3_users),
+                           total_earn=total_earn,
+                           gen1_rate=gen1_rate, gen2_rate=gen2_rate, gen3_rate=gen3_rate,
+                           monthly=monthly)
+
+
 @app.route('/profile/change-username', methods=['POST'])
 @login_required
 def change_username():
@@ -3593,13 +3986,30 @@ def leaderboard():
         'revenue': sum(r['revenue'] or 0 for r in tree_rows),
     }
 
+    # Network growth by month
+    if tree_rows:
+        member_names = [r['uname'] for r in tree_rows]
+        placeholders_g = ','.join('?' for _ in member_names)
+        growth_rows = db.execute(f"""
+            SELECT strftime('%Y-%m', CASE WHEN joining_date!='' THEN joining_date ELSE created_at END) as month,
+                   COUNT(*) as new_members
+            FROM users
+            WHERE username IN ({placeholders_g})
+              AND role='team' AND status='approved'
+            GROUP BY month ORDER BY month ASC LIMIT 12
+        """, member_names).fetchall()
+        growth_data = [{'month': r['month'], 'count': r['new_members']} for r in growth_rows]
+    else:
+        growth_data = []
+
     db.close()
     return render_template('leaderboard.html',
                            rows=rows,
                            current_user=username,
                            role=session.get('role'),
                            network_by_gen=network_by_gen,
-                           net_summary=net_summary)
+                           net_summary=net_summary,
+                           growth_data=growth_data)
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -3728,6 +4138,39 @@ def bulk_action():
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Push Notification API
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+@app.route('/leads/bulk-update', methods=['POST'])
+@login_required
+def bulk_update_leads():
+    data       = request.get_json() or {}
+    ids        = data.get('ids', [])
+    new_status = data.get('status', '').strip()
+    if not ids or new_status not in STATUSES:
+        return {'ok': False, 'error': 'invalid'}, 400
+
+    db       = get_db()
+    username = session['username']
+    role     = session.get('role')
+    updated  = 0
+    now      = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    for lead_id in ids:
+        lead = db.execute("SELECT assigned_to FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''",
+                          (lead_id,)).fetchone()
+        if not lead:
+            continue
+        if role != 'admin' and lead['assigned_to'] != username:
+            continue
+        db.execute("UPDATE leads SET status=?, updated_at=? WHERE id=?",
+                   (new_status, now, lead_id))
+        _log_lead_event(db, lead_id, username, f'[Bulk] Status → {new_status}')
+        updated += 1
+
+    _check_and_award_badges(db, username)
+    db.commit()
+    db.close()
+    return {'ok': True, 'updated': updated}
+
 
 @app.route('/push/vapid-key')
 @login_required
