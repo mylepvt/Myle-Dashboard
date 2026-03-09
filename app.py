@@ -2529,6 +2529,18 @@ def import_lead_pool_csv():
         imported += 1
 
     db.commit()
+    if imported > 0:
+        def _bg_push_csv(count):
+            _db = get_db()
+            _push_all_team(
+                _db,
+                '🎯 New Leads Available!',
+                f'{count} new lead{"s" if count != 1 else ""} just added to the Lead Pool — claim yours now!',
+                url_for('lead_pool', _external=False)
+            )
+            _db.commit()
+            _db.close()
+        threading.Thread(target=_bg_push_csv, args=(imported,), daemon=True).start()
     db.close()
     flash(f'Imported {imported} leads into pool. Skipped {skipped} (duplicates/empty).', 'success')
     return redirect(url_for('admin_lead_pool'))
@@ -2591,6 +2603,18 @@ def import_lead_pool_pdf():
         imported += 1
 
     db.commit()
+    if imported > 0:
+        def _bg_push_pdf(count):
+            _db = get_db()
+            _push_all_team(
+                _db,
+                '🎯 New Leads Available!',
+                f'{count} new lead{"s" if count != 1 else ""} just added to the Lead Pool — claim yours now!',
+                url_for('lead_pool', _external=False)
+            )
+            _db.commit()
+            _db.close()
+        threading.Thread(target=_bg_push_pdf, args=(imported,), daemon=True).start()
     db.close()
     flash(f'PDF import: {imported} leads added to pool. Skipped {skipped} (duplicates/empty).', 'success')
     return redirect(url_for('admin_lead_pool'))
@@ -2619,6 +2643,17 @@ def add_to_pool():
         VALUES (?, ?, ?, '', ?, 'New', 1, ?, '')
     """, (name, phone, email, source, price))
     db.commit()
+    def _bg_push_single(lead_name):
+        _db = get_db()
+        _push_all_team(
+            _db,
+            '🎯 New Lead Available!',
+            f'A new lead "{lead_name}" has been added to the Lead Pool — claim it now!',
+            url_for('lead_pool', _external=False)
+        )
+        _db.commit()
+        _db.close()
+    threading.Thread(target=_bg_push_single, args=(name,), daemon=True).start()
     db.close()
     flash(f'Lead "{name}" added to pool.', 'success')
     return redirect(url_for('admin_lead_pool'))
