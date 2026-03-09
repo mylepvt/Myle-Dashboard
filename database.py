@@ -269,6 +269,7 @@ def migrate_db():
         # Contact tracking
         ("last_contacted",   "TEXT NOT NULL DEFAULT ''"),
         ("contact_count",    "INTEGER NOT NULL DEFAULT 0"),
+        ("follow_up_time",   "TEXT NOT NULL DEFAULT ''"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE leads ADD COLUMN {col} {definition}")

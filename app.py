@@ -1775,6 +1775,25 @@ def mark_called(lead_id):
     return {'ok': True}
 
 
+@app.route('/leads/<int:lead_id>/follow-up-time', methods=['POST'])
+@login_required
+def set_follow_up_time(lead_id):
+    db   = get_db()
+    lead = db.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone()
+    if not lead:
+        db.close()
+        return {'ok': False, 'error': 'not found'}, 404
+    if session.get('role') != 'admin' and lead['assigned_to'] != session['username']:
+        db.close()
+        return {'ok': False, 'error': 'forbidden'}, 403
+    data = request.get_json() or {}
+    t    = data.get('time', '')  # HH:MM format
+    db.execute("UPDATE leads SET follow_up_time=? WHERE id=?", (t, lead_id))
+    db.commit()
+    db.close()
+    return {'ok': True}
+
+
 @app.route('/retarget')
 @login_required
 def retarget():

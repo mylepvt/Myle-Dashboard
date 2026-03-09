@@ -23,7 +23,7 @@
 {% set is_overdue = lead.follow_up_date and lead.follow_up_date[:10] < now_date %}
 <div class="card border-0 shadow-sm mb-2 {% if is_overdue %}border-start border-danger border-3{% elif is_today %}border-start border-primary border-3{% endif %}">
   <div class="card-body py-2 px-3">
-    <div class="d-flex align-items-center gap-2">
+    <div class="d-flex align-items-start gap-2">
       <div class="flex-grow-1 min-w-0">
         <div class="fw-semibold text-truncate">{{ lead.name }}</div>
         <div class="text-muted small">
@@ -44,9 +44,21 @@
           {% if lead.contact_count %} · {{ lead.contact_count }}x{% endif %}
         </div>
         {% endif %}
+
+        <!-- Reminder time picker -->
+        <div class="d-flex align-items-center gap-1 mt-1">
+          <i class="bi bi-alarm text-primary" style="font-size:.75rem;"></i>
+          <input type="time" class="form-control form-control-sm reminder-time py-0"
+                 data-id="{{ lead.id }}"
+                 data-name="{{ lead.name | e }}"
+                 data-date="{{ lead.follow_up_date[:10] if lead.follow_up_date else now_date }}"
+                 value="{{ lead.follow_up_time or '' }}"
+                 style="width:110px;font-size:.72rem;height:24px;">
+          <span class="text-muted" style="font-size:.65rem;">Reminder</span>
+        </div>
       </div>
       <!-- Actions -->
-      <div class="d-flex gap-1 flex-shrink-0">
+      <div class="d-flex gap-1 flex-shrink-0 mt-1">
         <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary py-1 px-2">
           <i class="bi bi-telephone-fill"></i>
         </a>
@@ -54,11 +66,13 @@
            class="btn btn-sm py-1 px-2" style="background:#25D366;color:#fff;">
           <i class="bi bi-whatsapp"></i>
         </a>
-        <button class="btn btn-sm btn-outline-secondary py-1 px-2"
-                onclick="markCalled({{ lead.id }}, this)" title="Mark Called">
+        <button class="btn btn-sm btn-outline-secondary py-1 px-2 called-btn"
+                data-id="{{ lead.id }}"
+                data-called="0"
+                title="Mark Called">
           <i class="bi bi-check2"></i>
         </button>
-        <a href="/edit_lead/{{ lead.id }}" class="btn btn-sm btn-outline-dark py-1 px-2">
+        <a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-sm btn-outline-dark py-1 px-2">
           <i class="bi bi-pencil"></i>
         </a>
       </div>
@@ -75,17 +89,94 @@
 
 {% block scripts %}
 <script>
-function markCalled(leadId, btn) {
-  fetch('/leads/' + leadId + '/mark-called', {
-    method: 'POST',
-    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-  }).then(r => r.json()).then(d => {
-    if (d.ok) {
-      btn.innerHTML = '<i class="bi bi-check2-all"></i>';
-      btn.classList.replace('btn-outline-secondary', 'btn-success');
-      showToast('Marked as called', 'success');
+/* ── Mark Called toggle ───────────────────────────────── */
+document.querySelectorAll('.called-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const id     = this.dataset.id;
+    const called = this.dataset.called === '1';
+
+    if (called) {
+      /* Toggle OFF — just visual reset, no backend call */
+      this.dataset.called = '0';
+      this.innerHTML = '<i class="bi bi-check2"></i>';
+      this.classList.replace('btn-success', 'btn-outline-secondary');
+      return;
+    }
+
+    /* Mark as called → backend */
+    fetch('/leads/' + id + '/mark-called', {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(r => r.json()).then(d => {
+      if (d.ok) {
+        this.dataset.called = '1';
+        this.innerHTML = '<i class="bi bi-check2-all"></i>';
+        this.classList.replace('btn-outline-secondary', 'btn-success');
+        showToast('Marked as called', 'success');
+      }
+    });
+  });
+});
+
+/* ── Reminder time picker ─────────────────────────────── */
+document.querySelectorAll('.reminder-time').forEach(inp => {
+  inp.addEventListener('change', function() {
+    const id   = this.dataset.id;
+    const time = this.value;  /* HH:MM or '' */
+
+    fetch('/leads/' + id + '/follow-up-time', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ time })
+    }).then(r => r.json()).then(d => {
+      if (d.ok) {
+        showToast('Reminder set for ' + (time || 'cleared'), 'success');
+        if (time) _scheduleReminder(this);
+      }
+    });
+  });
+});
+
+/* ── Schedule client-side notification ───────────────── */
+function _scheduleReminder(inp) {
+  const time = inp.value;
+  const date = inp.dataset.date;   /* YYYY-MM-DD */
+  const name = inp.dataset.name;
+  if (!time || !date) return;
+
+  const fireAt = new Date(date + 'T' + time + ':00');
+  const msUntil = fireAt - Date.now();
+  if (msUntil <= 0) return;  /* already past */
+
+  setTimeout(() => {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.showNotification('Follow-up Reminder', {
+          body:  'Time to follow up with ' + name,
+          icon:  '/static/icon-192.png',
+          badge: '/static/icon-192.png',
+          data:  { url: '/follow-up' },
+          tag:   'followup-' + inp.dataset.id,
+          renotify: true
+        });
+      });
+    } else if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('Follow-up Reminder', {
+        body: 'Time to follow up with ' + name,
+        icon: '/static/icon-192.png'
+      });
+    }
+  }, msUntil);
+}
+
+/* Schedule all reminders on page load for today's leads */
+(function() {
+  const today = new Date().toISOString().slice(0, 10);
+  document.querySelectorAll('.reminder-time').forEach(inp => {
+    if (inp.value && inp.dataset.date === today) {
+      _scheduleReminder(inp);
     }
   });
-}
+})();
 </script>
 {% endblock %}
