@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}My Dashboard – Myle Community{% endblock %}
 {% block page_title %}My Dashboard{% endblock %}
-{% block extra_head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>{% endblock %}
+{% block extra_head %}<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>{% endblock %}
 
 {% block content %}
 
@@ -613,6 +613,13 @@ if (analyticsEl && chevron) {
   analyticsEl.addEventListener('show.bs.collapse', () => {
     if (chevron) chevron.className = 'bi bi-chevron-up ms-1';
     if (analyticsBtn) analyticsBtn.setAttribute('aria-expanded','true');
+  });
+  analyticsEl.addEventListener('shown.bs.collapse', () => {
+    // Resize charts after collapse animation completes so they fill the container
+    ['statusChart','revenueChart'].forEach(id => {
+      const c = Chart.getChart(id);
+      if (c) c.resize();
+    });
   });
   analyticsEl.addEventListener('hide.bs.collapse', () => {
     if (chevron) chevron.className = 'bi bi-chevron-down ms-1';
