@@ -281,10 +281,10 @@ function showDirectOnly() {
   new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: {{ growth_data | map(attribute='month') | list | tojson }},
+      labels: {{ growth_data | map(attribute='month') | list | tojson | safe }},
       datasets: [{
         label: 'New Members',
-        data: {{ growth_data | map(attribute='count') | list | tojson }},
+        data: {{ growth_data | map(attribute='count') | list | tojson | safe }},
         backgroundColor: 'rgba(99,102,241,0.7)',
         borderRadius: 4,
       }]

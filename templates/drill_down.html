@@ -201,7 +201,7 @@
 {% if trend %}
 <script>
 (function () {
-  const trendData = {{ trend | tojson }};
+  const trendData = {{ trend | tojson | safe }};
   const labels = trendData.map(r => r.d);
   const data   = trendData.map(r => r.cnt);
 
