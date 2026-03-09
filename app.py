@@ -2795,17 +2795,20 @@ def import_lead_pool_csv():
 
     db.commit()
     if imported > 0:
-        def _bg_push_csv(count):
+        _count = imported
+        def _bg_push_csv():
             _db = get_db()
-            _push_all_team(
-                _db,
-                '🎯 New Leads Available!',
-                f'{count} new lead{"s" if count != 1 else ""} just added to the Lead Pool — claim yours now!',
-                url_for('lead_pool', _external=False)
-            )
-            _db.commit()
-            _db.close()
-        threading.Thread(target=_bg_push_csv, args=(imported,), daemon=True).start()
+            try:
+                _push_all_team(
+                    _db,
+                    '🎯 New Leads Available!',
+                    f'{_count} new lead{"s" if _count != 1 else ""} just added to the Lead Pool — claim yours now!',
+                    '/lead-pool'
+                )
+                _db.commit()
+            finally:
+                _db.close()
+        threading.Thread(target=_bg_push_csv, daemon=True).start()
     db.close()
     flash(f'Imported {imported} leads into pool. Skipped {skipped} (duplicates/empty).', 'success')
     return redirect(url_for('admin_lead_pool'))
@@ -2869,17 +2872,20 @@ def import_lead_pool_pdf():
 
     db.commit()
     if imported > 0:
-        def _bg_push_pdf(count):
+        _count = imported
+        def _bg_push_pdf():
             _db = get_db()
-            _push_all_team(
-                _db,
-                '🎯 New Leads Available!',
-                f'{count} new lead{"s" if count != 1 else ""} just added to the Lead Pool — claim yours now!',
-                url_for('lead_pool', _external=False)
-            )
-            _db.commit()
-            _db.close()
-        threading.Thread(target=_bg_push_pdf, args=(imported,), daemon=True).start()
+            try:
+                _push_all_team(
+                    _db,
+                    '🎯 New Leads Available!',
+                    f'{_count} new lead{"s" if _count != 1 else ""} just added to the Lead Pool — claim yours now!',
+                    '/lead-pool'
+                )
+                _db.commit()
+            finally:
+                _db.close()
+        threading.Thread(target=_bg_push_pdf, daemon=True).start()
     db.close()
     flash(f'PDF import: {imported} leads added to pool. Skipped {skipped} (duplicates/empty).', 'success')
     return redirect(url_for('admin_lead_pool'))
@@ -2908,17 +2914,20 @@ def add_to_pool():
         VALUES (?, ?, ?, '', ?, 'New', 1, ?, '')
     """, (name, phone, email, source, price))
     db.commit()
-    def _bg_push_single(lead_name):
+    _lead_name = name
+    def _bg_push_single():
         _db = get_db()
-        _push_all_team(
-            _db,
-            '🎯 New Lead Available!',
-            f'A new lead "{lead_name}" has been added to the Lead Pool — claim it now!',
-            url_for('lead_pool', _external=False)
-        )
-        _db.commit()
-        _db.close()
-    threading.Thread(target=_bg_push_single, args=(name,), daemon=True).start()
+        try:
+            _push_all_team(
+                _db,
+                '🎯 New Lead Available!',
+                f'A new lead "{_lead_name}" has been added to the Lead Pool — claim it now!',
+                '/lead-pool'
+            )
+            _db.commit()
+        finally:
+            _db.close()
+    threading.Thread(target=_bg_push_single, daemon=True).start()
     db.close()
     flash(f'Lead "{name}" added to pool.', 'success')
     return redirect(url_for('admin_lead_pool'))
@@ -4311,16 +4320,60 @@ init_db()
 migrate_db()
 seed_users()
 
-# Start scheduler \u2014 guard against Flask reloader double-start
-if SCHEDULER_AVAILABLE and not os.environ.get('SCHEDULER_STARTED'):
-    os.environ['SCHEDULER_STARTED'] = '1'
+# ── Scheduler startup ───────────────────────────────────────────────────────
+# start_scheduler() uses a file lock so exactly ONE worker process runs it.
+# gunicorn.conf.py post_fork hook calls this after each fork.
+
+_scheduler = None
+
+
+def start_scheduler():
+    """Start APScheduler (idempotent, file-lock guarded for multi-worker gunicorn)."""
+    global _scheduler
+    if not SCHEDULER_AVAILABLE:
+        app.logger.warning('[Scheduler] APScheduler not available — reminders disabled.')
+        return
+    if _scheduler is not None and _scheduler.running:
+        return
+
+    import fcntl
+    lock_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.scheduler.lock')
+    try:
+        lock_fd = open(lock_path, 'w')
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        lock_fd.write(str(os.getpid()))
+        lock_fd.flush()
+    except OSError:
+        app.logger.info('[Scheduler] Another worker owns the scheduler lock — skipping.')
+        return
+
     _scheduler = BackgroundScheduler(timezone='Asia/Kolkata')
     _scheduler.add_job(job_followup_reminders, 'cron', hour=9, minute=0,
                        id='followup_reminders', replace_existing=True)
     _scheduler.add_job(job_calling_reminder, 'interval', minutes=1,
                        id='calling_reminder', replace_existing=True)
     _scheduler.start()
-    atexit.register(lambda: _scheduler.shutdown(wait=False))
+    app.logger.info(f'[Scheduler] Started in PID {os.getpid()}')
+
+    def _shutdown():
+        try:
+            _scheduler.shutdown(wait=False)
+        except Exception:
+            pass
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            lock_fd.close()
+            os.unlink(lock_path)
+        except Exception:
+            pass
+
+    atexit.register(_shutdown)
+
+
+# Auto-start for Flask dev server / single-worker gunicorn.
+# Multi-worker gunicorn uses gunicorn.conf.py post_fork hook instead.
+if not os.environ.get('GUNICORN_MULTI_WORKER'):
+    start_scheduler()
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
