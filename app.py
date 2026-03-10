@@ -226,8 +226,8 @@ def _log_activity(db, username, event_type, details=''):
         ip = ''
     try:
         db.execute(
-            "INSERT INTO activity_log (username, event_type, details, ip_address) VALUES (?, ?, ?, ?)",
-            (username, event_type, details, ip)
+            "INSERT INTO activity_log (username, event_type, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?)",
+            (username, event_type, details, ip, _now_ist().strftime('%Y-%m-%d %H:%M:%S'))
         )
         db.commit()
     except Exception:
@@ -237,8 +237,8 @@ def _log_activity(db, username, event_type, details=''):
 def _log_lead_event(db, lead_id, username, note):
     """Insert a timeline entry for a lead."""
     db.execute(
-        "INSERT INTO lead_notes (lead_id, username, note) VALUES (?,?,?)",
-        (lead_id, username, note)
+        "INSERT INTO lead_notes (lead_id, username, note, created_at) VALUES (?,?,?,?)",
+        (lead_id, username, note, _now_ist().strftime('%Y-%m-%d %H:%M:%S'))
     )
 
 
@@ -1681,13 +1681,14 @@ def edit_lead(lead_id):
                 day1_done=?, day2_done=?, interview_done=?,
                 follow_up_date=?, call_result=?, notes=?, city=?,
                 track_selected=?, track_price=?, seat_hold_amount=?, pending_amount=?,
-                updated_at=datetime('now','localtime')
+                updated_at=?
             WHERE id=?
         """, (name, phone, email, referred_by, assigned_to, status,
               payment_done, payment_amount,
               day1_done, day2_done, interview_done,
               follow_up_date, call_result, notes, city,
               track_selected_val, track_price_val, seat_hold_amount_val, pending_amount_val,
+              _now_ist().strftime('%Y-%m-%d %H:%M:%S'),
               lead_id))
         db.commit()
         try:
@@ -1863,8 +1864,8 @@ def update_status(lead_id):
         return redirect(url_for('leads'))
 
     db.execute(
-        "UPDATE leads SET status=?, updated_at=datetime('now','localtime') WHERE id=? AND in_pool=0",
-        (new_status, lead_id)
+        "UPDATE leads SET status=?, updated_at=? WHERE id=? AND in_pool=0",
+        (new_status, _now_ist().strftime('%Y-%m-%d %H:%M:%S'), lead_id)
     )
     _log_lead_event(db, lead_id, session['username'], f'Status → {new_status}')
     _log_activity(db, session['username'], 'lead_status_change',
@@ -1901,8 +1902,8 @@ def update_call_result(lead_id):
             db.close()
             return {'ok': False, 'error': 'Access denied'}, 403
     db.execute(
-        "UPDATE leads SET call_result=?, updated_at=datetime('now','localtime') WHERE id=? AND in_pool=0",
-        (tag, lead_id)
+        "UPDATE leads SET call_result=?, updated_at=? WHERE id=? AND in_pool=0",
+        (tag, _now_ist().strftime('%Y-%m-%d %H:%M:%S'), lead_id)
     )
     db.commit()
     db.close()
@@ -1931,7 +1932,7 @@ def delete_lead(lead_id):
 
     if lead:
         db.execute(
-            "UPDATE leads SET deleted_at=datetime('now','localtime') WHERE id=?", (lead_id,)
+            "UPDATE leads SET deleted_at=? WHERE id=?", (_now_ist().strftime('%Y-%m-%d %H:%M:%S'), lead_id)
         )
         db.commit()
         flash(f'Lead "{lead["name"]}" moved to Recycle Bin.', 'warning')
@@ -2107,7 +2108,7 @@ def report_submit():
                  calls_picked, wrong_numbers, enrollments_done, pending_enroll,
                  underage, leads_educated, plan_2cc, seat_holdings, remarks,
                  submitted_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'))
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(username, report_date) DO UPDATE SET
                 upline_name=excluded.upline_name,
                 total_calling=excluded.total_calling,
@@ -2121,10 +2122,11 @@ def report_submit():
                 plan_2cc=excluded.plan_2cc,
                 seat_holdings=excluded.seat_holdings,
                 remarks=excluded.remarks,
-                submitted_at=datetime('now','localtime')
+                submitted_at=?
         """, (username, upline_name, report_date, total_calling, pdf_covered,
               calls_picked, wrong_numbers, enrollments_done, pending_enroll,
-              underage, leads_educated, plan_2cc, seat_holdings, remarks))
+              underage, leads_educated, plan_2cc, seat_holdings, remarks,
+              _now_ist().strftime('%Y-%m-%d %H:%M:%S'), _now_ist().strftime('%Y-%m-%d %H:%M:%S')))
         db.commit()
         _log_activity(db, username, 'report_submit', f"Date: {today}")
         db.close()
@@ -3001,8 +3003,8 @@ def approve_recharge(req_id):
     if recharge:
         db.execute(
             "UPDATE wallet_recharges SET status='approved', "
-            "processed_at=datetime('now','localtime') WHERE id=?",
-            (req_id,)
+            "processed_at=? WHERE id=?",
+            (_now_ist().strftime('%Y-%m-%d %H:%M:%S'), req_id)
         )
         db.commit()
         flash(f'Recharge of \u20b9{recharge["amount"]:.0f} for @{recharge["username"]} approved!', 'success')
@@ -3032,8 +3034,8 @@ def reject_recharge(req_id):
     if recharge:
         db.execute(
             "UPDATE wallet_recharges SET status='rejected', "
-            "processed_at=datetime('now','localtime'), admin_note=? WHERE id=?",
-            (admin_note, req_id)
+            "processed_at=?, admin_note=? WHERE id=?",
+            (_now_ist().strftime('%Y-%m-%d %H:%M:%S'), admin_note, req_id)
         )
         db.commit()
         flash(f'Recharge request from @{recharge["username"]} rejected.', 'warning')
@@ -3063,9 +3065,8 @@ def admin_wallet_adjust(username):
     db.execute(
         "INSERT INTO wallet_recharges (username, amount, utr_number, status, "
         "requested_at, processed_at, admin_note) "
-        "VALUES (?, ?, 'ADMIN-ADJUST', 'approved', "
-        "datetime('now','localtime'), datetime('now','localtime'), ?)",
-        (username, amount, note)
+        "VALUES (?, ?, 'ADMIN-ADJUST', 'approved', ?, ?, ?)",
+        (username, amount, _now_ist().strftime('%Y-%m-%d %H:%M:%S'), _now_ist().strftime('%Y-%m-%d %H:%M:%S'), note)
     )
     db.commit()
     db.close()
@@ -4148,8 +4149,8 @@ def bulk_action():
 
     if action == 'delete':
         db.execute(
-            f"UPDATE leads SET deleted_at=datetime('now','localtime') WHERE {where}",
-            params
+            f"UPDATE leads SET deleted_at=? WHERE {where}",
+            [_now_ist().strftime('%Y-%m-%d %H:%M:%S')] + params
         )
         db.commit()
         flash(f'Moved {len(lead_ids)} leads to Recycle Bin.', 'warning')
@@ -4158,8 +4159,8 @@ def bulk_action():
         new_status = action.split(':', 1)[1]
         if new_status in STATUSES:
             db.execute(
-                f"UPDATE leads SET status=?, updated_at=datetime('now','localtime') WHERE {where}",
-                [new_status] + params
+                f"UPDATE leads SET status=?, updated_at=? WHERE {where}",
+                [new_status, _now_ist().strftime('%Y-%m-%d %H:%M:%S')] + params
             )
             db.commit()
             flash(f'Status updated to "{new_status}" for {len(lead_ids)} leads.', 'success')
@@ -4167,8 +4168,8 @@ def bulk_action():
     elif action == 'mark_paid':
         db.execute(
             f"UPDATE leads SET payment_done=1, payment_amount=?, "
-            f"updated_at=datetime('now','localtime') WHERE {where}",
-            [PAYMENT_AMOUNT] + params
+            f"updated_at=? WHERE {where}",
+            [PAYMENT_AMOUNT, _now_ist().strftime('%Y-%m-%d %H:%M:%S')] + params
         )
         db.commit()
         flash(f'Marked {len(lead_ids)} leads as paid (\u20b9{PAYMENT_AMOUNT:.0f} each).', 'success')
