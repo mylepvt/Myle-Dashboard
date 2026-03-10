@@ -300,7 +300,7 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow">
       <form method="post" action="{{ url_for('admin_wallet_adjust', username=member.username) }}">
-        <div class="modal-header text-white" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);">
+        <div class="modal-header modal-header-indigo">
           <h5 class="modal-title" id="walletAdjustLabel">
             <i class="bi bi-wallet2 me-2"></i>Adjust Wallet — @{{ member.username }}
           </h5>
@@ -351,7 +351,7 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <form method="post" action="{{ url_for('admin_edit_member', username=member.username) }}">
-        <div class="modal-header" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);">
+        <div class="modal-header modal-header-indigo">
           <h5 class="modal-title text-white"><i class="bi bi-pencil me-2"></i>Edit Member — @{{ member.username }}</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
