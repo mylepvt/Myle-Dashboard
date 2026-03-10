@@ -377,6 +377,66 @@ body {
 }
 
 /* ── CARDS — Glossy glass surfaces ─────────────────────────────── */
+/* ── Gradient hero cards — override card !important ─────────── */
+/* These classes MUST appear before .card to win specificity via !important */
+
+/* Blue — wallet balance, lead pool */
+.card-gradient-blue {
+  background: linear-gradient(135deg, #0f2b5b 0%, #1060c8 60%, #1a73e8 100%) !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+  box-shadow: 0 8px 32px rgba(0,100,220,0.30), inset 0 1px 0 rgba(255,255,255,0.22) !important;
+}
+/* Green — training complete */
+.card-gradient-green {
+  background: linear-gradient(135deg, #145a2e 0%, #1a8c3a 60%, #20c997 100%) !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  box-shadow: 0 8px 32px rgba(30,140,70,0.28), inset 0 1px 0 rgba(255,255,255,0.2) !important;
+}
+/* Red — debt / negative wallet */
+.card-gradient-red {
+  background: linear-gradient(135deg, #7a0e0e 0%, #c62828 60%, #e53935 100%) !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  box-shadow: 0 8px 32px rgba(200,40,40,0.28), inset 0 1px 0 rgba(255,255,255,0.2) !important;
+}
+/* Indigo/purple — earnings, commissions */
+.card-gradient-indigo {
+  background: linear-gradient(135deg, #2e1f6e 0%, #4f46e5 60%, #6366f1 100%) !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  box-shadow: 0 8px 32px rgba(99,102,241,0.28), inset 0 1px 0 rgba(255,255,255,0.2) !important;
+}
+/* Modal headers with gradients */
+.modal-header-indigo {
+  background: linear-gradient(135deg, #3730a3, #6366f1) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.15) !important;
+}
+
+/* Any element with these gradient classes: force white text on all children */
+.card-gradient-blue *,
+.card-gradient-green *,
+.card-gradient-red *,
+.card-gradient-indigo *,
+.modal-header-indigo,
+.modal-header-indigo * { color: #fff !important; }
+
+/* Light button sitting on gradient */
+.card-gradient-blue .btn-light,
+.card-gradient-green .btn-light,
+.card-gradient-red .btn-light,
+.card-gradient-indigo .btn-light {
+  background: rgba(255,255,255,0.92) !important;
+  border: none !important;
+  font-weight: 700;
+}
+.card-gradient-blue .btn-light { color: #0f2b5b !important; }
+.card-gradient-green .btn-light { color: #145a2e !important; }
+.card-gradient-red .btn-light   { color: #7a0e0e !important; }
+.card-gradient-indigo .btn-light{ color: #2e1f6e !important; }
+
+/* Alias for backwards compat */
+.card-wallet-gradient { background: linear-gradient(135deg, #0f2b5b 0%, #1060c8 60%, #1a73e8 100%) !important; border: 1px solid rgba(255,255,255,0.18) !important; }
+.card-wallet-gradient * { color: #fff !important; }
+.card-wallet-gradient .btn-light { color: #0f2b5b !important; background: #fff !important; font-weight:700; }
+
 .card {
   background: var(--bg-card) !important;
   border: 1px solid var(--glass-border) !important;
