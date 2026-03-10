@@ -16,6 +16,20 @@ try:
 except ImportError:
     pytz = None
     _IST = None
+
+
+def _now_ist():
+    """Current datetime in IST as a naive datetime (safe for DB storage & strptime comparisons)."""
+    if _IST:
+        return datetime.datetime.now(_IST).replace(tzinfo=None)
+    return _now_ist()   # fallback: server local time
+
+
+def _today_ist():
+    """Current date in IST."""
+    if _IST:
+        return datetime.datetime.now(_IST).date()
+    return _today_ist()     # fallback
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from functools import wraps
@@ -883,7 +897,7 @@ def register():
         flash('Registration submitted! Your account is pending admin approval.', 'success')
         return redirect(url_for('login'))
 
-    today = datetime.date.today().isoformat()
+    today = _today_ist().isoformat()
     return render_template('register.html', today=today)
 
 
@@ -973,7 +987,7 @@ def forgot_password():
             ).fetchone()
             if user:
                 token      = secrets.token_urlsafe(32)
-                expires_at = (datetime.datetime.now() + datetime.timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')
+                expires_at = (_now_ist() + datetime.timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')
                 db.execute(
                     "INSERT INTO password_reset_tokens (username, token, expires_at) VALUES (?,?,?)",
                     (user['username'], token, expires_at)
@@ -1006,7 +1020,7 @@ def reset_password(token):
         return redirect(url_for('login'))
 
     expires_at = datetime.datetime.strptime(row['expires_at'], '%Y-%m-%d %H:%M:%S')
-    if datetime.datetime.now() > expires_at:
+    if _now_ist() > expires_at:
         db.close()
         flash('This password reset link has expired. Please request a new one.', 'danger')
         return redirect(url_for('forgot_password'))
@@ -1202,7 +1216,7 @@ def admin_dashboard():
         "SELECT * FROM users WHERE status='pending' ORDER BY created_at DESC"
     ).fetchall()
 
-    today = datetime.date.today().isoformat()
+    today = _today_ist().isoformat()
     today_reports = db.execute(
         "SELECT * FROM daily_reports WHERE report_date=? ORDER BY submitted_at DESC",
         (today,)
@@ -1297,7 +1311,7 @@ def team_dashboard():
         LIMIT 6
     """, (username,)).fetchall()
 
-    today = datetime.date.today().isoformat()
+    today = _today_ist().isoformat()
     today_report = db.execute(
         "SELECT * FROM daily_reports WHERE username=? AND report_date=?",
         (username, today)
@@ -1373,7 +1387,7 @@ def team_dashboard():
     """, [username] + list(FOLLOWUP_TAGS)).fetchone()[0]
 
     # Monthly goals + actuals
-    current_month = datetime.datetime.now().strftime('%Y-%m')
+    current_month = _now_ist().strftime('%Y-%m')
     target_rows = db.execute(
         "SELECT metric, target_value FROM targets WHERE username=? AND month=?",
         (username, current_month)
@@ -1736,7 +1750,7 @@ def follow_up_queue():
     """
     leads_list = db.execute(query, params).fetchall()
 
-    now_date = datetime.datetime.now().strftime('%Y-%m-%d')
+    now_date = _now_ist().strftime('%Y-%m-%d')
     today_count    = sum(1 for l in leads_list
                          if l['follow_up_date'] and l['follow_up_date'][:10] == now_date)
     overdue_count  = sum(1 for l in leads_list
@@ -1764,7 +1778,7 @@ def mark_called(lead_id):
         db.close()
         return {'ok': False, 'error': 'forbidden'}, 403
 
-    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    now = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
     db.execute("""
         UPDATE leads SET last_contacted=?, contact_count=contact_count+1, updated_at=?
         WHERE id=?
@@ -2057,7 +2071,7 @@ def delete_team_member(member_id):
 @login_required
 def report_submit():
     username = session['username']
-    today    = datetime.date.today().isoformat()
+    today    = _today_ist().isoformat()
     db       = get_db()
 
     existing = db.execute(
@@ -2164,7 +2178,7 @@ def reports_admin():
         "SELECT DISTINCT username FROM daily_reports ORDER BY username"
     ).fetchall()
 
-    today = datetime.date.today().isoformat()
+    today = _today_ist().isoformat()
     submitted_today = [r['username'] for r in db.execute(
         "SELECT username FROM daily_reports WHERE report_date=?", (today,)
     ).fetchall()]
@@ -2396,7 +2410,7 @@ def admin_test_calling_reminder():
         return redirect(url_for('admin_settings'))
     try:
         job_calling_reminder()
-        ist_now = datetime.datetime.now(_IST)
+        ist_now = _now_ist()
         flash(
             f'Calling reminder job executed at {ist_now.strftime("%H:%M")} IST. '
             'If any users had this time set as their reminder, they received a notification.',
@@ -2512,7 +2526,7 @@ def admin_delete_member(username):
 @admin_required
 def admin_targets():
     db    = get_db()
-    month = request.args.get('month', datetime.datetime.now().strftime('%Y-%m'))
+    month = request.args.get('month', _now_ist().strftime('%Y-%m'))
 
     if request.method == 'POST':
         month_p = request.form.get('month', month)
@@ -3252,7 +3266,7 @@ def claim_leads():
                   f'Please recharge your wallet.', 'danger')
             return redirect(url_for('lead_pool'))
 
-        now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        now = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
         for row in available:
             db.execute(
                 "UPDATE leads SET assigned_to=?, in_pool=0, claimed_at=?, "
@@ -3755,7 +3769,7 @@ def export_leads():
         writer.writerow([r[c] for c in cols])
 
     buf.seek(0)
-    fname = f"leads_{datetime.date.today().isoformat()}.csv"
+    fname = f"leads_{_today_ist().isoformat()}.csv"
     return Response(buf.getvalue(), mimetype='text/csv',
                     headers={'Content-Disposition': f'attachment; filename={fname}'})
 
@@ -4180,7 +4194,7 @@ def bulk_update_leads():
     username = session['username']
     role     = session.get('role')
     updated  = 0
-    now      = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    now      = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
 
     for lead_id in ids:
         lead = db.execute("SELECT assigned_to FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''",
@@ -4242,7 +4256,7 @@ def push_subscribe():
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 def _reminder_lock(db, key):
-    today = datetime.datetime.now(_IST).strftime('%Y-%m-%d')   # IST date
+    today = _today_ist().isoformat()   # IST date
     lock_key = f'{key}_{today}'
     cur = db.execute(
         "INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, 'sent')",
@@ -4258,7 +4272,7 @@ def job_followup_reminders():
     try:
         if not _reminder_lock(db, 'followup_reminder'):
             return
-        today = datetime.date.today().isoformat()
+        today = _today_ist().isoformat()
         rows = db.execute("""
             SELECT assigned_to, COUNT(*) as cnt
             FROM leads
@@ -4285,9 +4299,9 @@ def job_calling_reminder():
     Minutely job: push calling reminder to each user whose calling_reminder_time
     matches the current HH:MM (IST). Per-user per-day lock prevents duplicates.
     """
-    ist_now  = datetime.datetime.now(_IST)
+    ist_now  = _now_ist()
     now_hhmm = ist_now.strftime('%H:%M')
-    today    = ist_now.strftime('%Y-%m-%d')   # IST date — must match IST time, not server UTC
+    today    = _today_ist().isoformat()   # IST date — must match IST time, not server UTC
     db = get_db()
     try:
         users = db.execute(
@@ -4847,7 +4861,7 @@ def training_complete_day():
             flash('Please complete previous days first.', 'warning')
             return redirect(url_for('training_home'))
 
-    now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
     db.execute(
         "INSERT INTO training_progress (username, day_number, completed, completed_at) "
         "VALUES (?, ?, 1, ?) ON CONFLICT(username, day_number) DO UPDATE SET completed=1, completed_at=?",
@@ -4902,7 +4916,7 @@ def training_certificate():
         except Exception:
             completion_date = day7['completed_at'][:10]
 
-    cert_number = f"MYLE-{datetime.date.today().year}-{username.upper()}"
+    cert_number = f"MYLE-{_today_ist().year}-{username.upper()}"
 
     return render_template('training_certificate.html',
                            username=username,
