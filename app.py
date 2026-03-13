@@ -70,13 +70,24 @@ try:
 except ImportError:
     SCHEDULER_AVAILABLE = False
 
-# Optional Anthropic AI (Maya assistant)
+# Optional Anthropic AI (Maya assistant — fallback)
 try:
     import anthropic as _anthropic_lib
     ANTHROPIC_AVAILABLE = True
 except ImportError:
     _anthropic_lib = None
     ANTHROPIC_AVAILABLE = False
+
+# Optional Google Gemini AI (Maya assistant — primary, free tier)
+try:
+    import google.generativeai as _gemini_lib
+    import PIL.Image as _PIL_Image
+    import io as _io_lib
+    GEMINI_AVAILABLE = True
+except ImportError:
+    _gemini_lib  = None
+    _PIL_Image   = None
+    GEMINI_AVAILABLE = False
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -2362,6 +2373,9 @@ def admin_settings():
             _set_setting(db, 'smtp_password', smtp_password)
         if anthropic_key:
             _set_setting(db, 'anthropic_api_key', anthropic_key)
+        gemini_key_input = request.form.get('gemini_api_key', '').strip()
+        if gemini_key_input:
+            _set_setting(db, 'gemini_api_key', gemini_key_input)
         db.commit()
         db.close()
         flash('Settings saved successfully.', 'success')
@@ -2376,7 +2390,8 @@ def admin_settings():
         'smtp_port':            _get_setting(db, 'smtp_port', '587'),
         'smtp_user':            _get_setting(db, 'smtp_user'),
         'smtp_from_name':       _get_setting(db, 'smtp_from_name', 'Myle Community'),
-        'smtp_password_set':    bool(_get_setting(db, 'smtp_password')),
+        'smtp_password_set':     bool(_get_setting(db, 'smtp_password')),
+        'gemini_api_key_set':    bool(_get_setting(db, 'gemini_api_key')   or os.environ.get('GEMINI_API_KEY')),
         'anthropic_api_key_set': bool(_get_setting(db, 'anthropic_api_key') or os.environ.get('ANTHROPIC_API_KEY')),
     }
     db.close()
@@ -5520,77 +5535,107 @@ def training_signature_preview():
 @app.route('/api/chat', methods=['POST'])
 @login_required
 def api_chat():
-    if not ANTHROPIC_AVAILABLE:
-        return {'error': 'Anthropic library not installed on server.'}, 503
-
     data = request.get_json(silent=True) or {}
     message    = (data.get('message') or '').strip()
-    image_data = data.get('image')   # base64 data URL or raw base64
+    image_data = data.get('image')   # base64 data URL
 
     if not message and not image_data:
         return {'error': 'Empty message.'}, 400
 
-    # Resolve API key: DB setting first, then env var
-    db      = get_db()
-    api_key = _get_setting(db, 'anthropic_api_key', '').strip()
+    # ── Resolve provider & API key (Gemini first, then Anthropic) ──
+    db           = get_db()
+    gemini_key   = (_get_setting(db, 'gemini_api_key', '') or '').strip()   or os.environ.get('GEMINI_API_KEY', '').strip()
+    anthropic_key= (_get_setting(db, 'anthropic_api_key', '') or '').strip() or os.environ.get('ANTHROPIC_API_KEY', '').strip()
     db.close()
-    if not api_key:
-        api_key = os.environ.get('ANTHROPIC_API_KEY', '').strip()
-    if not api_key:
-        return {'error': 'AI assistant is not configured yet. Admin ko Settings mein Anthropic API key add karni hogi.'}, 503
 
-    # Build content for current message
-    content = []
+    use_gemini   = bool(gemini_key   and GEMINI_AVAILABLE)
+    use_anthropic= bool(anthropic_key and ANTHROPIC_AVAILABLE)
+
+    if not use_gemini and not use_anthropic:
+        return {'error': 'AI assistant configure nahi hua. Admin → Settings mein Gemini ya Anthropic API key add karo.'}, 503
+
+    # ── Conversation history from session ──────────────────────────
+    history = list(session.get('maya_history', []))   # [{'role':'user'|'assistant','content':str}]
+
+    # ── Decode image if provided ────────────────────────────────────
+    b64_data   = None
+    media_type = 'image/jpeg'
     if image_data:
-        # Strip "data:image/jpeg;base64," prefix if present
         if ',' in image_data:
-            header, b64 = image_data.split(',', 1)
-            media_type  = header.split(';')[0].split(':')[1] if ':' in header else 'image/jpeg'
+            header, b64_data = image_data.split(',', 1)
+            media_type = header.split(';')[0].split(':')[1] if ':' in header else 'image/jpeg'
         else:
-            b64, media_type = image_data, 'image/jpeg'
-        content.append({
-            'type': 'image',
-            'source': {'type': 'base64', 'media_type': media_type, 'data': b64}
-        })
+            b64_data = image_data
 
-    if message:
-        content.append({'type': 'text', 'text': message})
-    elif image_data:
-        content.append({'type': 'text', 'text': 'Screenshot dekho aur mujhe specific, actionable advice do iske baare mein.'})
+    text_for_ai = message or 'Is screenshot ko dekho aur specific, actionable advice do.'
 
-    # Conversation history from session (text only — no images stored)
-    history = list(session.get('maya_history', []))
+    # ── Call Gemini (primary, free) ─────────────────────────────────
+    if use_gemini:
+        try:
+            _gemini_lib.configure(api_key=gemini_key)
+            model = _gemini_lib.GenerativeModel(
+                model_name       = 'gemini-1.5-flash',
+                system_instruction = MAYA_SYSTEM_PROMPT
+            )
+            # Build Gemini history (role: 'user'|'model')
+            gem_history = []
+            for h in history:
+                gem_history.append({
+                    'role'  : 'model' if h['role'] == 'assistant' else 'user',
+                    'parts' : [h['content']]
+                })
+            chat = model.start_chat(history=gem_history)
 
-    # Add current user turn
-    history.append({'role': 'user', 'content': content})
+            # Build parts for current turn
+            parts = []
+            if b64_data:
+                import base64 as _b64
+                img_bytes = _b64.b64decode(b64_data)
+                img = _PIL_Image.open(_io_lib.BytesIO(img_bytes))
+                parts.append(img)
+            parts.append(text_for_ai)
 
-    # Keep last 16 turns (8 pairs) to avoid token overflow
-    if len(history) > 16:
-        history = history[-16:]
+            response = chat.send_message(parts)
+            reply    = response.text
+        except Exception as e:
+            return {'error': f'Gemini error: {str(e)}'}, 500
 
-    try:
-        client   = _anthropic_lib.Anthropic(api_key=api_key)
-        response = client.messages.create(
-            model      = 'claude-3-5-haiku-20241022',
-            max_tokens = 1024,
-            system     = MAYA_SYSTEM_PROMPT,
-            messages   = history
-        )
-        reply = response.content[0].text
-    except Exception as e:
-        return {'error': f'AI error: {str(e)}'}, 500
+    # ── Call Anthropic (fallback) ────────────────────────────────────
+    else:
+        content = []
+        if b64_data:
+            content.append({'type': 'image', 'source': {'type': 'base64', 'media_type': media_type, 'data': b64_data}})
+        content.append({'type': 'text', 'text': text_for_ai})
 
-    # Save to session history (store image turns as text summary to keep session small)
+        ant_history = []
+        for h in history:
+            ant_history.append({'role': h['role'], 'content': h['content']})
+        ant_history.append({'role': 'user', 'content': content})
+        if len(ant_history) > 16:
+            ant_history = ant_history[-16:]
+        try:
+            client   = _anthropic_lib.Anthropic(api_key=anthropic_key)
+            response = client.messages.create(
+                model='claude-3-5-haiku-20241022', max_tokens=1024,
+                system=MAYA_SYSTEM_PROMPT, messages=ant_history
+            )
+            reply = response.content[0].text
+        except Exception as e:
+            return {'error': f'AI error: {str(e)}'}, 500
+
+    # ── Save history (text only) ────────────────────────────────────
     if image_data and not message:
         user_hist = '📸 [Screenshot shared]'
-    elif image_data and message:
-        user_hist = f'📸 [Screenshot + message]: {message}'
+    elif image_data:
+        user_hist = f'📸 {message}'
     else:
         user_hist = message
-    session['maya_history'] = history[:-1] + [
-        {'role': 'user',      'content': user_hist},
-        {'role': 'assistant', 'content': reply}
-    ]
+
+    history.append({'role': 'user',      'content': user_hist})
+    history.append({'role': 'assistant', 'content': reply})
+    if len(history) > 16:
+        history = history[-16:]
+    session['maya_history'] = history
     session.modified = True
 
     return {'reply': reply}
