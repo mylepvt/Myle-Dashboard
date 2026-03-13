@@ -653,3 +653,186 @@ def seed_users():
 
         conn.commit()
     conn.close()
+
+
+def seed_training_questions():
+    """Insert the 20 MCQ training test questions if none exist yet."""
+    conn = get_db()
+    cursor = conn.cursor()
+    count = cursor.execute("SELECT COUNT(*) FROM training_questions").fetchone()[0]
+    if count > 0:
+        conn.close()
+        return
+
+    questions = [
+        {
+            "q": "Tumhara WHY genuinely powerful hai ya sirf sunne mein achha lagta hai — kaise identify karoge?",
+            "a": "Jab WHY ek weapon ki tarah kaam kare — mushkil waqt mein bhi tumhe uthake khada kar de (yeh powerful WHY ki pehchaan hai)",
+            "b": "Jab WHY sunne mein inspiring lage aur logo ko motivate kare",
+            "c": "Jab WHY clearly aur logically express ho sake",
+            "d": "Jab WHY realistic aur achievable goals pe based ho",
+            "ans": "a",
+        },
+        {
+            "q": "Invitation call mein 'Please dekh lena' bolne se kya exactly galat hota hai — psychology explain karo",
+            "a": "Tone weak lagti hai aur professional nahi lagta",
+            "b": "Prospect ko lagta hai tum desperate ho aur business mein vishwaas nahi",
+            "c": "Yeh Beggar mindset hai — value maangna nahi chahiye, value dena chahiye. Selector ban ke chalo — serious logon ko hi opportunity do",
+            "d": "Isse prospect pe zyada pressure padta hai",
+            "ans": "c",
+        },
+        {
+            "q": "Prospect ne 'Thoda baad mein batata hoon' bola — training ke hisaab se step by step exactly kya karna hai?",
+            "a": "Sirf ek baar 24 ghante baad remind karo phir chhod do",
+            "b": "2 follow-ups karo — pehle agle din, doosra 2-3 din baad — agar phir bhi na, toh move on",
+            "c": "Roz follow-up karo jab tak jawab na aaye",
+            "d": "Seedha poochho 'Haan ya Na?' — ek baar mein decision lo",
+            "ans": "b",
+        },
+        {
+            "q": "Law of Average ke hisaab se 10 invite ke baad sirf 1 payment aaya — kya yeh failure hai? Numbers se justify karo.",
+            "a": "Haan — improve karna chahiye, average 3-4 mein se 1 hona chahiye",
+            "b": "Depends — quality of invitation zyada important hai quantity se",
+            "c": "Nahi — starting average 10 mein se 1 hi hota hai. Yeh normal hai, Law of Average kaam kar raha hai",
+            "d": "Nahi, lekin improve karna chahiye — 5 mein se 1 target banana chahiye",
+            "ans": "c",
+        },
+        {
+            "q": "10 invitations bheje, 9 'Na' bola, partner bolta hai 'Aaj waste gaya.' Colonel Sanders example se connect karke kya bologe?",
+            "a": "Colonel Sanders ne bhi bahut struggle kiya — hum bhi try karte rahenge, result zaroor aayega",
+            "b": "Ek positive lead kaafi hai — Colonel Sanders ne bhi ek chance se company shuru ki",
+            "c": "Colonel Sanders ka example alag situation tha — hum smarter approach lenge",
+            "d": "Colonel Sanders ne 1009 baar rejection li. 9 Na = failure nahi — rejection statistical hai, personal nahi. 9 Na = 9 steps complete, average improve ho raha hai",
+            "ans": "d",
+        },
+        {
+            "q": "Rs.196 payment ke baad maximum kitne ghante mein call karni chahiye — aur rule toota toh kya galat hoga?",
+            "a": "24 ghante ke andar — prospect ko settle hone ka time chahiye",
+            "b": "12 ghante ke andar — same day mein karo",
+            "c": "2 ghante ke andar — payment ke turant baad excitement peak hota hai, zyada der = excitement khatam",
+            "d": "Koi specific time limit nahi — jab convenient ho tab karo",
+            "ans": "c",
+        },
+        {
+            "q": "Day 1 call mein 'Teen Verbal YES' lene ka exactly kya psychological reason hai? Sirf ek baar 'haan' kaafi nahi?",
+            "a": "Formal agreement feel hoti hai teen baar agree karne se",
+            "b": "Teen baar 'haan' kehne se prospect ka psychological ownership ban jaata hai — commitment ek baar se zyada deeper hoti hai",
+            "c": "Senior ko confirm karna hota hai ki prospect genuinely ready hai",
+            "d": "Day 2 ke liye formality complete karna zaroori hai",
+            "ans": "b",
+        },
+        {
+            "q": "Prospect ne Day 1 ke baad 'Day 1 Ready' message nahi bheja — exactly kya karoge? Ek reminder ke baad bhi response nahi aaya toh?",
+            "a": "Ek reminder bhejo. Agar phir bhi response nahi — prospect unserious hai, track karo aur aage badho",
+            "b": "Seedha call karo aur poochho kyon message nahi aaya",
+            "c": "2-3 baar remind karo — prospect busy ho sakta hai",
+            "d": "Day 2 pe directly senior ke saath connect karo, message ki zaroorat nahi",
+            "ans": "a",
+        },
+        {
+            "q": "Day 2 mein senior poori handling karti hain — phir bhi tumhara ek specific critical kaam kya hai?",
+            "a": "Prospect ko motivate karte rehna aur positive rakhna",
+            "b": "Brief banana — exactly 3 points mein: tumhara journey, results, aur belief statement. Galat ya lamba brief = Day 3 pe weak closing",
+            "c": "Notes lena aur Day 3 ke liye questions prepare karna",
+            "d": "Payment confirmation aur Day 3 timing confirm karna",
+            "ans": "b",
+        },
+        {
+            "q": "Day 3 interview mein senior teesra sawaal poochti hain — 'Pehle 30 dinon mein kya ek result chahiye?' — yeh kyun?",
+            "a": "Prospect ka short-term goal samajhne ke liye taaki training customize ho sake",
+            "b": "Prospect ki seriousness aur readiness test karne ke liye",
+            "c": "Training plan ke hisaab se targets set karne ke liye",
+            "d": "Specific target + senior ka confirmation — closing mein senior usi specific target se connect karti hain, commitment concrete hoti hai",
+            "ans": "d",
+        },
+        {
+            "q": "Seat Holding ke time prospect hesitate karta hai — senior exactly kya poochhegi aur woh Day 2 se kaise connect hoga?",
+            "a": "'Kya paisa nahi hai?' — directly financial barrier puchha jaata hai",
+            "b": "'Tum serious ho ya nahi?' — commitment check kiya jaata hai",
+            "c": "Day 2 mein prospect ne jo dream/problem share ki thi, usi se connect karegi — 'Tune bataya tha [X] chahiye — kya woh abhi bhi important hai?'",
+            "d": "'Kyun hesitate kar rahe ho?' — objection explore ki jaati hai",
+            "ans": "c",
+        },
+        {
+            "q": "'Jo pehle bolta hai woh haarta hai' — yeh rule exactly kab apply hota hai? Prospect 3 minute chup rahe toh kya karna chahiye?",
+            "a": "Hamesha apply hota hai — har conversation mein chup rehna powerful hota hai",
+            "b": "Seat Hold amount maangne ke baad silence mein apply hota hai — prospect 3 minute bhi chup rahe, BILKUL mat bolo. Silence unhe uncomfortable lagti hai, tumhe nahi",
+            "c": "Sirf objection handling mein apply hota hai",
+            "d": "Jab prospect confused lag raha ho tab chup rehna best hai",
+            "ans": "b",
+        },
+        {
+            "q": "Prospect genuinely 'Na' bolta hai Day 3 par — exactly kya bolna hai aur door kyun nahi bandhni chahiye?",
+            "a": "Ek baar aur convince karne ki koshish karo — last attempt zaroori hai",
+            "b": "Seedha poochho kya problem hai aur real objection solve karo",
+            "c": "'Bilkul theek hai — koi baat nahi. Door hamesha open hai.' Best members woh hote hain jo pehle Na bolte hain — door band karna permanently lose karna hai",
+            "d": "Senior ko handle karne do — unhe zyada experience hai",
+            "ans": "c",
+        },
+        {
+            "q": "Prospect bolta hai 'Paisa nahi hai.' Training ka exact sawaal-jawab technique use karke poori conversation kaise hogi?",
+            "a": "Sequence: 'Income kahan se aati hai?' → 'Kitna kaafi feel hota hai?' → 'Pehle 30 dinon mein ek plan kya hai?' — prospect khud apna solution nikalta hai",
+            "b": "EMI ya installment ka option de do — financial barrier remove karo",
+            "c": "Sympathy dikhao aur kaho 'Theek hai, jab ready ho tab baat karte hain'",
+            "d": "'Agar paisa hota toh kya karte?' — aspiration unlock karo",
+            "ans": "a",
+        },
+        {
+            "q": "'Ghar wale nahi maanenge' — ghar waalon ko villain banana kyun galat hai? Exact alternative framing kya hai?",
+            "a": "Isse family relationship kharab hoti hai — prospect defensive ho jaata hai",
+            "b": "Villain banana galat hai — ghar waale Motivator ban sakte hain. Framing: 'Ghar waale chahte hain tumhara acha ho — agar yeh unke liye bhi benefit hai, toh woh support zaroor karenge'",
+            "c": "Prospect ka confidence aur zyada girta hai jab family ko involve karo",
+            "d": "Isse conversation negative ho jaati hai — topic change karna better hai",
+            "ans": "b",
+        },
+        {
+            "q": "Objection handling mein sabse powerful rule ek hi hai — woh kya hai? Sirf objection handling mein ya aur bhi kaam aata hai?",
+            "a": "Prospect ko pehle acknowledge karo phir counter karo — empathy first",
+            "b": "'Jo pehle bolta hai woh haarta hai' — yeh Seat Hold silence mein bhi apply hota hai aur Day 3 closing mein bhi",
+            "c": "3 objections ke baad chhod do — zyada push karna backfire karta hai",
+            "d": "Pehle agree karo phir gently reframe karo",
+            "ans": "b",
+        },
+        {
+            "q": "Social media pe teen types ki content ka exactly kya psychological purpose hai prospect ke mind mein?",
+            "a": "Zyada variety se zyada reach aur engagement milti hai",
+            "b": "Algorithm ke liye variety important hai — ek type ki content pe reach drop hoti hai",
+            "c": "Journey = prospect relatable feel karta hai; Value = trust banta hai; Social Proof = FOMO create hoti hai — teeno milke prospect ke mind mein belief system banta hai",
+            "d": "Alag alag logon ko alag content appeal karti hai — har type ek alag prospect target karta hai",
+            "ans": "c",
+        },
+        {
+            "q": "Day 12, sirf 1 join, 30-day target 10 — 300 invitations formula se check karo kya galat ho raha hai?",
+            "a": "Follow-up weak hai — zyada consistent follow-up karo",
+            "b": "Day 12 tak 120 invites hone chahiye the, 36 watches, 12 serious. Agar nahi hua — invitation volume bahut kam hai. Roz 10 invitations pakka karo, numbers khud theek ho jaayenge",
+            "c": "Quality of invitation improve karo — random logon ko nahi, targeted logon ko invite karo",
+            "d": "Target unrealistic hai — 10 joins in 30 days adjust karo",
+            "ans": "b",
+        },
+        {
+            "q": "'Aaj mood nahi, kal karunga' — training mein is exact situation ke liye kya solution diya gaya hai aur kaam kyun karta hai?",
+            "a": "Rest karo — forced kaam ka result achha nahi hota, mood mein kaam better hota hai",
+            "b": "Motivation video dekho phir karo — energy aayegi",
+            "c": "Partner ya upline se baat karo — accountability se mood aata hai",
+            "d": "Consistency ka matlab perfection nahi — sirf 1 chota action aaj karo. Ek action chain nahi todta, aur karne ke baad mood khud aata hai",
+            "ans": "d",
+        },
+        {
+            "q": "Is poori training ki chain kya hai — ek link bhi toota toh system fail. Woh complete chain kya hai?",
+            "a": "Invitation → Law of Average → 3-Day Process (Day 1, Day 2 senior, Day 3 closing) → Objection Handling → Social Media → Tracker — har link connected hai, ek toota toh poora result nahi aata",
+            "b": "Product Knowledge → Confidence → Invitation → Follow-up → Objection Handling → Closing",
+            "c": "Mindset → WHY → Invitation → Payment → Training → Certificate",
+            "d": "WHY → Goal Setting → Daily Action → Law of Average → Result → Duplication",
+            "ans": "a",
+        },
+    ]
+
+    for i, q in enumerate(questions, start=1):
+        cursor.execute(
+            """INSERT INTO training_questions
+               (question, option_a, option_b, option_c, option_d, correct_answer, sort_order)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (q["q"], q["a"], q["b"], q["c"], q["d"], q["ans"], i)
+        )
+    conn.commit()
+    conn.close()
