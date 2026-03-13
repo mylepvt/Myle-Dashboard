@@ -93,9 +93,13 @@
 
               <!-- Edit form (collapsible) -->
               <div class="collapse mt-2" id="editDay{{ d }}">
-                <form method="post" action="{{ url_for('admin_training_save_video') }}" class="border-top pt-2">
+                <form method="post" action="{{ url_for('admin_training_save_video') }}"
+                      enctype="multipart/form-data" class="border-top pt-2">
                   <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
                   <input type="hidden" name="day_number" value="{{ d }}">
+                  <!-- Keep existing podcast/pdf paths as fallback -->
+                  <input type="hidden" name="podcast_url_existing" value="{{ vid.podcast_url if vid else '' }}">
+                  <input type="hidden" name="pdf_url_existing" value="{{ vid.pdf_url if vid else '' }}">
                   <div class="mb-2">
                     <label class="form-label small fw-semibold mb-1">Title</label>
                     <input type="text" name="title" class="form-control form-control-sm"
@@ -110,21 +114,37 @@
                   </div>
                   <div class="mb-2">
                     <label class="form-label small fw-semibold mb-1">
-                      <i class="bi bi-mic-fill text-info me-1"></i>Podcast URL
-                      <span class="text-muted fw-normal">(Google Drive / SoundCloud)</span>
+                      <i class="bi bi-mic-fill text-info me-1"></i>Podcast Audio
+                      <span class="text-muted fw-normal">(MP3, M4A, etc.)</span>
                     </label>
-                    <input type="url" name="podcast_url" class="form-control form-control-sm"
-                           placeholder="https://drive.google.com/... ya SoundCloud link"
-                           value="{{ vid.podcast_url if vid else '' }}">
+                    {% if vid and vid.podcast_url and not vid.podcast_url.startswith('http') %}
+                    <div class="alert alert-info py-1 px-2 small border-0 mb-1">
+                      <i class="bi bi-check-circle me-1"></i>Current: {{ vid.podcast_url.split('/')[-1] }}
+                    </div>
+                    {% elif vid and vid.podcast_url %}
+                    <div class="alert alert-info py-1 px-2 small border-0 mb-1">
+                      <i class="bi bi-link me-1"></i>External URL set
+                    </div>
+                    {% endif %}
+                    <input type="file" name="podcast_file" class="form-control form-control-sm"
+                           accept="audio/*,.mp3,.m4a,.ogg,.wav">
+                    <div class="form-text">Upload new file to replace. Leave empty to keep existing.</div>
                   </div>
                   <div class="mb-2">
                     <label class="form-label small fw-semibold mb-1">
-                      <i class="bi bi-file-earmark-pdf text-danger me-1"></i>PDF URL
-                      <span class="text-muted fw-normal">(Google Drive)</span>
+                      <i class="bi bi-file-earmark-pdf text-danger me-1"></i>PDF Resource
                     </label>
-                    <input type="url" name="pdf_url" class="form-control form-control-sm"
-                           placeholder="https://drive.google.com/file/d/..."
-                           value="{{ vid.pdf_url if vid else '' }}">
+                    {% if vid and vid.pdf_url and not vid.pdf_url.startswith('http') %}
+                    <div class="alert alert-danger py-1 px-2 small border-0 mb-1" style="background:#fff0f0;">
+                      <i class="bi bi-check-circle me-1"></i>Current: {{ vid.pdf_url.split('/')[-1] }}
+                    </div>
+                    {% elif vid and vid.pdf_url %}
+                    <div class="alert alert-danger py-1 px-2 small border-0 mb-1" style="background:#fff0f0;">
+                      <i class="bi bi-link me-1"></i>External URL set
+                    </div>
+                    {% endif %}
+                    <input type="file" name="pdf_file" class="form-control form-control-sm" accept=".pdf">
+                    <div class="form-text">Upload new file to replace. Leave empty to keep existing.</div>
                   </div>
                   <div class="mb-2">
                     <label class="form-label small fw-semibold mb-1">Description</label>
@@ -145,8 +165,8 @@
 
       <div class="mt-4 alert alert-info border-0 rounded-3 small">
         <i class="bi bi-lightbulb me-1"></i>
-        <strong>Tip:</strong> Har din ke liye YouTube URL zaroori hai. Podcast aur PDF optional hain — Google Drive ke shareable links paste karo.
-        Videos me skip nahi kar sakte members — poora video dekhna padega.
+        <strong>Tip:</strong> Har din ke liye YouTube URL zaroori hai. Podcast aur PDF files seedha app me upload kar sakte ho.
+        Members video skip nahi kar sakte — poora video dekhna padega.
       </div>
     </div>
 
