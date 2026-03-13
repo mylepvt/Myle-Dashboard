@@ -5000,7 +5000,7 @@ def training_certificate():
             completion_date = day7['completed_at'][:10]
 
     cert_number = f"MYLE-{_today_ist().year}-{username.upper()}"
-    sig_url = url_for('training_signature_preview') if sig_file else ''
+    sig_url = url_for('training_signature_preview')
 
     return render_template('training_certificate.html',
                            username=username,
@@ -5387,10 +5387,14 @@ def training_signature_preview():
     db = get_db()
     sig_file = _get_setting(db, 'admin_signature_file', '')
     db.close()
-    if not sig_file:
-        return '', 404
     upload_dir = os.path.join(os.path.dirname(__file__), 'uploads', 'admin')
-    return send_from_directory(upload_dir, sig_file)
+    if sig_file and os.path.exists(os.path.join(upload_dir, sig_file)):
+        return send_from_directory(upload_dir, sig_file)
+    # Fallback to static default signature
+    static_dir = os.path.join(os.path.dirname(__file__), 'static')
+    if os.path.exists(os.path.join(static_dir, 'admin_signature.png')):
+        return send_from_directory(static_dir, 'admin_signature.png')
+    return '', 404
 
 
 @app.route('/health')
