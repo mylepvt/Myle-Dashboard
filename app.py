@@ -5569,51 +5569,60 @@ def api_chat():
 
     text_for_ai = message or 'Is screenshot ko dekho aur specific, actionable advice do.'
 
-    # ── Call Gemini (primary, free) ─────────────────────────────────
+    # ── Call Gemini (primary) — try flash then flash-lite ────────────
+    reply       = None
+    last_err    = ''
+    is_rate_limit = False
+
     if use_gemini:
-        try:
-            _gemini_lib.configure(api_key=gemini_key)
-            model = _gemini_lib.GenerativeModel(
-                model_name       = 'gemini-2.0-flash',
-                system_instruction = MAYA_SYSTEM_PROMPT
-            )
-            # Build Gemini history (role: 'user'|'model')
-            gem_history = []
-            for h in history:
-                gem_history.append({
-                    'role'  : 'model' if h['role'] == 'assistant' else 'user',
-                    'parts' : [h['content']]
-                })
-            chat = model.start_chat(history=gem_history)
+        _gemini_lib.configure(api_key=gemini_key)
+        for gem_model in ('gemini-2.0-flash', 'gemini-2.0-flash-lite'):
+            try:
+                model = _gemini_lib.GenerativeModel(
+                    model_name        = gem_model,
+                    system_instruction= MAYA_SYSTEM_PROMPT
+                )
+                gem_history = []
+                for h in history:
+                    gem_history.append({
+                        'role'  : 'model' if h['role'] == 'assistant' else 'user',
+                        'parts' : [h['content']]
+                    })
+                chat  = model.start_chat(history=gem_history)
+                parts = []
+                if b64_data:
+                    import base64 as _b64
+                    img_bytes = _b64.b64decode(b64_data)
+                    img = _PIL_Image.open(_io_lib.BytesIO(img_bytes))
+                    parts.append(img)
+                parts.append(text_for_ai)
+                response  = chat.send_message(parts)
+                reply     = response.text
+                break  # success — stop trying other models
+            except Exception as e:
+                last_err = str(e)
+                is_rate_limit = ('429' in last_err or 'quota' in last_err.lower())
+                # If rate-limited, try next smaller model; otherwise bail
+                if is_rate_limit:
+                    continue
+                break  # non-rate-limit error — don't retry with another model
 
-            # Build parts for current turn
-            parts = []
+    # ── Anthropic fallback (if Gemini failed or not configured) ──────
+    if reply is None and use_anthropic:
+        try:
+            content = []
             if b64_data:
-                import base64 as _b64
-                img_bytes = _b64.b64decode(b64_data)
-                img = _PIL_Image.open(_io_lib.BytesIO(img_bytes))
-                parts.append(img)
-            parts.append(text_for_ai)
+                content.append({'type': 'image', 'source': {
+                    'type': 'base64', 'media_type': media_type, 'data': b64_data}})
+            content.append({'type': 'text', 'text': text_for_ai})
 
-            response = chat.send_message(parts)
-            reply    = response.text
-        except Exception as e:
-            return {'error': f'Gemini error: {str(e)}'}, 500
+            ant_history = []
+            for h in history:
+                ant_history.append({'role': h['role'], 'content': h['content']})
+            ant_history.append({'role': 'user', 'content': content})
+            if len(ant_history) > 16:
+                ant_history = ant_history[-16:]
 
-    # ── Call Anthropic (fallback) ────────────────────────────────────
-    else:
-        content = []
-        if b64_data:
-            content.append({'type': 'image', 'source': {'type': 'base64', 'media_type': media_type, 'data': b64_data}})
-        content.append({'type': 'text', 'text': text_for_ai})
-
-        ant_history = []
-        for h in history:
-            ant_history.append({'role': h['role'], 'content': h['content']})
-        ant_history.append({'role': 'user', 'content': content})
-        if len(ant_history) > 16:
-            ant_history = ant_history[-16:]
-        try:
             client   = _anthropic_lib.Anthropic(api_key=anthropic_key)
             response = client.messages.create(
                 model='claude-3-5-haiku-20241022', max_tokens=1024,
@@ -5621,7 +5630,18 @@ def api_chat():
             )
             reply = response.content[0].text
         except Exception as e:
-            return {'error': f'AI error: {str(e)}'}, 500
+            last_err = str(e)
+
+    # ── No provider succeeded ────────────────────────────────────────
+    if reply is None:
+        if is_rate_limit:
+            return {'error': (
+                'Maya thodi busy hai 🙏 Free tier limit hit ho gayi hai. '
+                '1-2 minute baad dobara try karo!'
+            )}, 429
+        if '401' in last_err or '403' in last_err or 'API key' in last_err:
+            return {'error': 'AI key invalid hai — Admin se contact karo.'}, 401
+        return {'error': 'Maya abhi available nahi hai. Thodi der baad try karo.'}, 503
 
     # ── Save history (text only) ────────────────────────────────────
     if image_data and not message:
