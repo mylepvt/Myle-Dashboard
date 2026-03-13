@@ -50,9 +50,12 @@
             <div class="d-flex flex-column gap-2">
               {% if vid.podcast_url %}
               {% set purl = url_for('training_media', filename=vid.podcast_url) if not vid.podcast_url.startswith('http') else vid.podcast_url %}
-              <a href="{{ purl }}" target="_blank" class="ap-resource-btn podcast">
-                <i class="bi bi-headphones me-2"></i>Listen Podcast
-              </a>
+              <div class="ap-podcast-wrap">
+                <button type="button" class="ap-resource-btn podcast" onclick="togglePodcast(this, '{{ purl }}', {{ 'true' if not vid.podcast_url.startswith('http') else 'false' }})">
+                  <i class="bi bi-headphones me-2"></i>Listen Podcast
+                </button>
+                <div class="ap-audio-player" style="display:none;margin-top:.5rem;"></div>
+              </div>
               {% endif %}
               {% if vid.pdf_url %}
               {% set durl = url_for('training_media', filename=vid.pdf_url) if not vid.pdf_url.startswith('http') else vid.pdf_url %}
@@ -369,9 +372,12 @@
     <div class="d-flex gap-2 flex-wrap">
       {% if vid.podcast_url %}
       {% set purl = url_for('training_media', filename=vid.podcast_url) if not vid.podcast_url.startswith('http') else vid.podcast_url %}
-      <a href="{{ purl }}" target="_blank" class="ap-resource-btn podcast">
-        <i class="bi bi-headphones me-2"></i>Listen Podcast
-      </a>
+      <div class="ap-podcast-wrap">
+        <button type="button" class="ap-resource-btn podcast" onclick="togglePodcast(this, '{{ purl }}', {{ 'true' if not vid.podcast_url.startswith('http') else 'false' }})">
+          <i class="bi bi-headphones me-2"></i>Listen Podcast
+        </button>
+        <div class="ap-audio-player" style="display:none;margin-top:.5rem;"></div>
+      </div>
       {% endif %}
       {% if vid.pdf_url %}
       {% set durl = url_for('training_media', filename=vid.pdf_url) if not vid.pdf_url.startswith('http') else vid.pdf_url %}
@@ -460,6 +466,47 @@
 {% endif %}{# end is_viewer #}
 
 </div>
+
+<script>
+/* ── Inline podcast player toggle ─────────────────────────── */
+function togglePodcast(btn, url, isLocal) {
+  var wrap   = btn.nextElementSibling;   /* .ap-audio-player div */
+  var isOpen = wrap.style.display !== 'none';
+
+  if (isOpen) {
+    /* Close: pause + hide */
+    var aud = wrap.querySelector('audio');
+    if (aud) aud.pause();
+    wrap.style.display = 'none';
+    btn.innerHTML = '<i class="bi bi-headphones me-2"></i>Listen Podcast';
+  } else {
+    /* Open: inject player once */
+    if (!wrap.dataset.loaded) {
+      if (isLocal) {
+        wrap.innerHTML =
+          '<audio controls style="width:100%;border-radius:10px;outline:none;" preload="none">' +
+          '<source src="' + url + '">' +
+          'Your browser does not support audio.' +
+          '</audio>';
+      } else {
+        /* External URL — open in new window, no navigation in app */
+        wrap.innerHTML =
+          '<a href="' + url + '" onclick="window.open(this.href,\'_blank\');return false;" ' +
+          'class="small" style="color:#007AFF;text-decoration:none;">' +
+          '<i class="bi bi-box-arrow-up-right me-1"></i>Open podcast in new tab' +
+          '</a>';
+      }
+      wrap.dataset.loaded = '1';
+    }
+    wrap.style.display = 'block';
+    btn.innerHTML = '<i class="bi bi-x-circle me-2"></i>Close Podcast';
+    /* Auto-play local audio */
+    var aud = wrap.querySelector('audio');
+    if (aud) aud.play().catch(function(){});
+  }
+}
+</script>
+
 {% endblock %}
 
 {% block extra_head %}

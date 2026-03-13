@@ -999,10 +999,11 @@
   border: 1.5px solid #E5E5EA;
   border-radius: 20px;
   padding: .45rem .85rem;
-  font-size: .88rem;
+  font-size: 16px;   /* ≥16px prevents iOS auto-zoom on focus */
   outline: none;
   transition: border-color .15s;
   background: #F9F9F9;
+  touch-action: manipulation;
 }
 .maya-text-input:focus { border-color: #007AFF; background: #fff; }
 .maya-send-btn {
