@@ -70,6 +70,14 @@ try:
 except ImportError:
     SCHEDULER_AVAILABLE = False
 
+# Optional Anthropic AI (Maya assistant)
+try:
+    import anthropic as _anthropic_lib
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    _anthropic_lib = None
+    ANTHROPIC_AVAILABLE = False
+
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
@@ -104,6 +112,80 @@ TRACKS = {
     'Medium Track': {'price': 18000, 'seat_hold': 4000},
     'Fast Track':   {'price': 38000, 'seat_hold': 5000},
 }
+
+# ── Maya AI System Prompt ─────────────────────────────────────
+MAYA_SYSTEM_PROMPT = """You are Maya — the AI assistant for Myle Community, a network marketing team management platform.
+
+You help team members (and admins) with:
+1. WhatsApp scripts for inviting prospects
+2. Objection handling — professional, empathetic responses to common objections
+3. Lead management and follow-up advice
+4. Training guidance (7-day program, test prep)
+5. App usage help (leads, wallet, daily reports, training)
+6. Network marketing Q&A and motivation
+
+## About Myle Community
+- Network marketing business based on product sales (Forever Living)
+- Members invite prospects and guide them through a conversion journey
+- 3 investment tracks: Slow Track (₹8,000), Medium Track (₹18,000), Fast Track (₹38,000)
+- ₹196 initial payment gives prospect access to a presentation video
+- 3-day enrollment window after video to commit to a track
+- Seat Hold deposit collected before full track payment
+
+## About the App
+- **Leads page**: Add prospects, track them by status (New Lead → Contacted → Invited → Video Sent → Video Watched → Paid ₹196 → Mindset Lock → Day 1 → Day 2 → Interview → Track Selected → Seat Hold Confirmed → Fully Converted)
+- **Wallet**: Team members recharge via UPI QR code, spend on claiming leads from pool
+- **Training**: 7-day video training + MCQ test (60/100 pass mark) → certificate → app unlocked
+- **Daily Reports**: Submit daily KPIs every day
+- **Lead Pool**: Admin imports or adds leads; team claims them by spending wallet balance
+
+## WhatsApp Scripts
+
+### First Approach
+"Hey [Name]! 👋 Ek exciting business opportunity hai jo main share karna chahta/chahti tha. Kya 10 minute milenge ek quick call ke liye? Properly explain karta/karti hoon — koi pressure nahi, bas ek conversation."
+
+### After Adding to Leads / Sending Video
+"Hey [Name]! Ek short presentation bheja/bheja hai — sirf 20-25 minute ka hai. Dekh lena jab time mile. Uske baad 3 din ka window hota hai decide karne ke liye. Koi bhi question ho toh seedha poochh lena! 😊"
+
+### 24-Hour Follow-up
+"Hey [Name]! Bas check karne ke liye — kya time mila presentation dekhne ka? Koi questions? Main hoon yahan. 🙏"
+
+### 3-Day Follow-up
+"Hey [Name]! Presentation ke baare mein kuch thoughts? Aaj window ka last day hai actually. No pressure — seedha bata do. 👍"
+
+### After Video Watched — Invitation
+"Hey! Video dekha toh laga? Main chahta/chahti hoon tum sach mein samjho sab — kab ek 15-minute call kar sakte ho? Main sab doubts clear kar deta/deti hoon. 🎯"
+
+## Common Objections & Answers
+
+### "Mujhe time nahi hai"
+"Bilkul samjha/samjhi! Aaj kal sab busy hain. Actually, iss business ki khoobsoorat yahi hai — tum apna time khud set karte ho. Part-time se start karo, sirf 1-2 ghante daily bhi kafi hai shuruat mein. Ek 15-minute call pe puri picture clear kar deta/deti hoon — kab free ho thoda?"
+
+### "Ye sab fraud/MLM/pyramid scheme hai"
+"Bilkul valid concern hai, seriously! Direct selling aur illegal pyramid scheme mein bahut fark hai. Yahan actual products sell hote hain, aur income product sales se aati hai — kisi ko sirf 'join' karne ke paise nahi milte. Ye industry India mein government-regulated hai (IDSA registered). Ek legit comparison share karoon kya?"
+
+### "Kaafi mehnga hai / paisa nahi hai"
+"Samajh sakta/sakti hoon. Isko ek investment ki tarah dekho — koi bhi offline business start karne mein lakhs lagte hain, yahan starting bahut kam hai. Aur agar seriously kaam karo toh 2-3 mahine mein investment waapas aa jata hai. Numbers dekhna chahoge ek baar?"
+
+### "Soch ke batata/batati hoon"
+"Bilkul! Sochna important hai. Main bas jaanna chahta/chahti tha — specifically kya soch rahe/rahi ho? Koi ek main concern ho toh seedha bata do, main directly address kar sakta/sakti hoon. Zyada helpful hoga woh."
+
+### "Mera koi network nahi hai"
+"Ye sabse common misconception hai actually! Network marketing ka matlab sirf family/friends nahi — aaj digital marketing se complete strangers bhi join karte hain. Humara training specifically sikhata hai kaise strangers se baat karein. Aur genuinely 5-7 seriously interested log toh milte hi hain shuruat mein."
+
+### "Maine pehle kisi aur company mein try kiya tha, nahi hua"
+"Honest feedback ke liye shukriya! Kisi bhi business mein success system + mentorship pe depend karti hai. Yahan specific daily training, personal guidance, aur proper follow-up system hai. Kya jaanna chahoge kya alag hai is baar?"
+
+### "Ye sirf upar walon ke liye hai"
+"Samjha/Samjhi! Ye ek common doubt hai. Actually iss model mein jo aaj start karta hai wo bhi same earning potential rakhta hai — kyunki earnings apni team ki performance se aati hai, na kisi ke 'upar' hone se. Main numbers ke saath explain karta/karti hoon?"
+
+## Communication Style
+- Reply in Hinglish (Hindi + English mix) — casual, warm, and professional
+- Be encouraging, empathetic, and solution-focused
+- Keep answers concise unless a full script is requested
+- When user shares a screenshot, analyze it carefully and give specific, actionable advice
+- Use emojis occasionally to keep the tone friendly but not excessive
+- Always address the emotional side of objections before giving logical answers"""
 
 CALL_RESULT_TAGS = [
     '',
@@ -2256,15 +2338,16 @@ def reports_admin():
 def admin_settings():
     db = get_db()
     if request.method == 'POST':
-        upi_id          = request.form.get('upi_id', '').strip()
-        lead_price      = request.form.get('lead_price', '50').strip()
-        webhook_token   = request.form.get('webhook_token', '').strip()
-        meta_page_token = request.form.get('meta_page_token', '').strip()
-        smtp_host       = request.form.get('smtp_host', '').strip()
-        smtp_port       = request.form.get('smtp_port', '587').strip()
-        smtp_user       = request.form.get('smtp_user', '').strip()
-        smtp_from_name  = request.form.get('smtp_from_name', 'Myle Community').strip()
-        smtp_password   = request.form.get('smtp_password', '').strip()
+        upi_id           = request.form.get('upi_id', '').strip()
+        lead_price       = request.form.get('lead_price', '50').strip()
+        webhook_token    = request.form.get('webhook_token', '').strip()
+        meta_page_token  = request.form.get('meta_page_token', '').strip()
+        smtp_host        = request.form.get('smtp_host', '').strip()
+        smtp_port        = request.form.get('smtp_port', '587').strip()
+        smtp_user        = request.form.get('smtp_user', '').strip()
+        smtp_from_name   = request.form.get('smtp_from_name', 'Myle Community').strip()
+        smtp_password    = request.form.get('smtp_password', '').strip()
+        anthropic_key    = request.form.get('anthropic_api_key', '').strip()
 
         _qr_cache.clear()
         _set_setting(db, 'upi_id', upi_id)
@@ -2277,21 +2360,24 @@ def admin_settings():
         _set_setting(db, 'smtp_from_name', smtp_from_name)
         if smtp_password:
             _set_setting(db, 'smtp_password', smtp_password)
+        if anthropic_key:
+            _set_setting(db, 'anthropic_api_key', anthropic_key)
         db.commit()
         db.close()
         flash('Settings saved successfully.', 'success')
         return redirect(url_for('admin_settings'))
 
     settings = {
-        'upi_id':             _get_setting(db, 'upi_id'),
-        'default_lead_price': _get_setting(db, 'default_lead_price', '50'),
-        'meta_webhook_token': _get_setting(db, 'meta_webhook_token'),
-        'meta_page_token':    _get_setting(db, 'meta_page_token'),
-        'smtp_host':          _get_setting(db, 'smtp_host', 'smtp.gmail.com'),
-        'smtp_port':          _get_setting(db, 'smtp_port', '587'),
-        'smtp_user':          _get_setting(db, 'smtp_user'),
-        'smtp_from_name':     _get_setting(db, 'smtp_from_name', 'Myle Community'),
-        'smtp_password_set':  bool(_get_setting(db, 'smtp_password')),
+        'upi_id':               _get_setting(db, 'upi_id'),
+        'default_lead_price':   _get_setting(db, 'default_lead_price', '50'),
+        'meta_webhook_token':   _get_setting(db, 'meta_webhook_token'),
+        'meta_page_token':      _get_setting(db, 'meta_page_token'),
+        'smtp_host':            _get_setting(db, 'smtp_host', 'smtp.gmail.com'),
+        'smtp_port':            _get_setting(db, 'smtp_port', '587'),
+        'smtp_user':            _get_setting(db, 'smtp_user'),
+        'smtp_from_name':       _get_setting(db, 'smtp_from_name', 'Myle Community'),
+        'smtp_password_set':    bool(_get_setting(db, 'smtp_password')),
+        'anthropic_api_key_set': bool(_get_setting(db, 'anthropic_api_key') or os.environ.get('ANTHROPIC_API_KEY')),
     }
     db.close()
     return render_template('admin_settings.html', settings=settings)
@@ -5425,6 +5511,97 @@ def training_signature_preview():
     if os.path.exists(os.path.join(static_dir, 'admin_signature.png')):
         return send_from_directory(static_dir, 'admin_signature.png')
     return '', 404
+
+
+# ──────────────────────────────────────────────────────────────
+#  Maya AI Chat API
+# ──────────────────────────────────────────────────────────────
+
+@app.route('/api/chat', methods=['POST'])
+@login_required
+def api_chat():
+    if not ANTHROPIC_AVAILABLE:
+        return {'error': 'Anthropic library not installed on server.'}, 503
+
+    data = request.get_json(silent=True) or {}
+    message    = (data.get('message') or '').strip()
+    image_data = data.get('image')   # base64 data URL or raw base64
+
+    if not message and not image_data:
+        return {'error': 'Empty message.'}, 400
+
+    # Resolve API key: DB setting first, then env var
+    db      = get_db()
+    api_key = _get_setting(db, 'anthropic_api_key', '').strip()
+    db.close()
+    if not api_key:
+        api_key = os.environ.get('ANTHROPIC_API_KEY', '').strip()
+    if not api_key:
+        return {'error': 'AI assistant is not configured yet. Admin ko Settings mein Anthropic API key add karni hogi.'}, 503
+
+    # Build content for current message
+    content = []
+    if image_data:
+        # Strip "data:image/jpeg;base64," prefix if present
+        if ',' in image_data:
+            header, b64 = image_data.split(',', 1)
+            media_type  = header.split(';')[0].split(':')[1] if ':' in header else 'image/jpeg'
+        else:
+            b64, media_type = image_data, 'image/jpeg'
+        content.append({
+            'type': 'image',
+            'source': {'type': 'base64', 'media_type': media_type, 'data': b64}
+        })
+
+    if message:
+        content.append({'type': 'text', 'text': message})
+    elif image_data:
+        content.append({'type': 'text', 'text': 'Screenshot dekho aur mujhe specific, actionable advice do iske baare mein.'})
+
+    # Conversation history from session (text only — no images stored)
+    history = list(session.get('maya_history', []))
+
+    # Add current user turn
+    history.append({'role': 'user', 'content': content})
+
+    # Keep last 16 turns (8 pairs) to avoid token overflow
+    if len(history) > 16:
+        history = history[-16:]
+
+    try:
+        client   = _anthropic_lib.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model      = 'claude-3-5-haiku-20241022',
+            max_tokens = 1024,
+            system     = MAYA_SYSTEM_PROMPT,
+            messages   = history
+        )
+        reply = response.content[0].text
+    except Exception as e:
+        return {'error': f'AI error: {str(e)}'}, 500
+
+    # Save to session history (store image turns as text summary to keep session small)
+    if image_data and not message:
+        user_hist = '📸 [Screenshot shared]'
+    elif image_data and message:
+        user_hist = f'📸 [Screenshot + message]: {message}'
+    else:
+        user_hist = message
+    session['maya_history'] = history[:-1] + [
+        {'role': 'user',      'content': user_hist},
+        {'role': 'assistant', 'content': reply}
+    ]
+    session.modified = True
+
+    return {'reply': reply}
+
+
+@app.route('/api/chat/clear', methods=['POST'])
+@login_required
+def api_chat_clear():
+    session.pop('maya_history', None)
+    session.modified = True
+    return {'ok': True}
 
 
 @app.route('/health')

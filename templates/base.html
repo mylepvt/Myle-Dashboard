@@ -775,5 +775,395 @@
   }
 </script>
 {% block extra_scripts %}{% endblock %}
+
+{% if session.get('username') %}
+<!-- ╔══════════════════════════════════════════════╗
+     ║  Maya AI — Floating Chat Assistant           ║
+     ╚══════════════════════════════════════════════╝ -->
+
+<!-- Bubble button -->
+<div id="mayaBubble" onclick="mayaToggle()" title="Maya AI Assistant" aria-label="Open AI Assistant">
+  <i class="bi bi-robot"></i>
+  <span class="maya-unread" id="mayaUnreadDot" style="display:none;"></span>
+</div>
+
+<!-- Chat window -->
+<div id="mayaWindow" class="maya-hidden" role="dialog" aria-label="Maya AI Chat">
+
+  <!-- Header -->
+  <div class="maya-header">
+    <div class="d-flex align-items-center gap-2">
+      <div class="maya-avatar">🤖</div>
+      <div>
+        <div class="maya-name">Maya AI</div>
+        <div class="maya-status" id="mayaStatus">Online · Myle Community</div>
+      </div>
+    </div>
+    <div class="d-flex gap-1 align-items-center">
+      <button class="maya-icon-btn" onclick="mayaClear()" title="Clear chat"><i class="bi bi-arrow-counterclockwise"></i></button>
+      <button class="maya-icon-btn" onclick="mayaToggle()" title="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div id="mayaMessages" class="maya-messages">
+    <div class="maya-msg ai">
+      <div class="maya-bubble-msg">
+        Namaste! Main <strong>Maya</strong> hoon — aapki Myle Community AI assistant. 👋<br><br>
+        Main help kar sakti hoon:<br>
+        📱 <strong>WhatsApp scripts</strong> banane mein<br>
+        🛡️ <strong>Objections handle</strong> karne mein<br>
+        📸 <strong>Screenshot dekh</strong> ke advice dene mein<br>
+        📚 <strong>Training</strong> aur app se related sawaal<br><br>
+        Poochho kuch bhi! 😊
+      </div>
+    </div>
+  </div>
+
+  <!-- Input area -->
+  <div class="maya-input-area">
+    <!-- Image preview strip -->
+    <div id="mayaImgPreview" class="maya-img-strip" style="display:none;">
+      <img id="mayaImgThumb" src="" alt="screenshot">
+      <button onclick="mayaRemoveImg()" class="maya-img-remove"><i class="bi bi-x"></i></button>
+      <span class="maya-img-label">Screenshot ready</span>
+    </div>
+    <div class="maya-input-row">
+      <label for="mayaImgFile" class="maya-icon-btn-dark" title="Attach screenshot">
+        <i class="bi bi-image"></i>
+      </label>
+      <input type="file" id="mayaImgFile" accept="image/*" style="display:none;" onchange="mayaPreviewImg(this)">
+      <input type="text" id="mayaTextInput" class="maya-text-input"
+             placeholder="Message karo..." autocomplete="off"
+             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();mayaSend();}">
+      <button class="maya-send-btn" onclick="mayaSend()" id="mayaSendBtn" title="Send">
+        <i class="bi bi-arrow-up-short" style="font-size:1.2rem;"></i>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<style>
+/* ── Maya AI Chat Widget ──────────────────────────── */
+#mayaBubble {
+  position: fixed;
+  bottom: 76px; right: 16px;
+  width: 54px; height: 54px;
+  background: linear-gradient(135deg, #007AFF, #5856D6);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 1.45rem;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0,122,255,.45);
+  z-index: 1055;
+  transition: transform .2s, box-shadow .2s;
+  user-select: none;
+}
+#mayaBubble:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(0,122,255,.55); }
+.maya-unread {
+  position: absolute; top: 2px; right: 2px;
+  width: 12px; height: 12px;
+  background: #ff3b30;
+  border-radius: 50%;
+  border: 2px solid #fff;
+}
+#mayaWindow {
+  position: fixed;
+  bottom: 140px; right: 16px;
+  width: 340px;
+  max-height: 540px;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 12px 48px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.08);
+  display: flex; flex-direction: column;
+  z-index: 1054;
+  overflow: hidden;
+  transform-origin: bottom right;
+  transition: opacity .2s, transform .2s;
+  opacity: 1;
+  transform: scale(1);
+}
+#mayaWindow.maya-hidden {
+  display: none;
+  opacity: 0;
+  transform: scale(.9);
+}
+.maya-header {
+  background: linear-gradient(135deg, #007AFF, #5856D6);
+  color: #fff;
+  padding: .85rem 1rem;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.maya-avatar { font-size: 1.6rem; line-height: 1; }
+.maya-name   { font-weight: 700; font-size: .95rem; letter-spacing: -.01em; }
+.maya-status { font-size: .7rem; opacity: .8; margin-top: 1px; }
+.maya-icon-btn {
+  background: rgba(255,255,255,.2);
+  border: none; border-radius: 8px;
+  color: #fff; cursor: pointer;
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .85rem;
+  transition: background .15s;
+  flex-shrink: 0;
+}
+.maya-icon-btn:hover { background: rgba(255,255,255,.35); }
+.maya-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: .85rem .75rem;
+  display: flex; flex-direction: column; gap: .55rem;
+  background: #F2F2F7;
+  scroll-behavior: smooth;
+}
+.maya-msg { display: flex; }
+.maya-msg.user { justify-content: flex-end; }
+.maya-msg.ai   { justify-content: flex-start; }
+.maya-bubble-msg {
+  max-width: 84%;
+  padding: .6rem .85rem;
+  border-radius: 16px;
+  font-size: .87rem;
+  line-height: 1.55;
+  word-break: break-word;
+}
+.maya-msg.user .maya-bubble-msg {
+  background: #007AFF;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.maya-msg.ai .maya-bubble-msg {
+  background: #fff;
+  color: #1c1c1e;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+/* Typing dots */
+.maya-typing-wrap { display: flex; gap: 5px; align-items: center; padding: .5rem .4rem; }
+.maya-dot {
+  width: 7px; height: 7px;
+  background: #8e8e93;
+  border-radius: 50%;
+  animation: mayaBounce 1.2s infinite;
+}
+.maya-dot:nth-child(2) { animation-delay: .15s; }
+.maya-dot:nth-child(3) { animation-delay: .3s; }
+@keyframes mayaBounce {
+  0%,60%,100% { transform: translateY(0); }
+  30%         { transform: translateY(-5px); }
+}
+/* Input area */
+.maya-input-area {
+  background: #fff;
+  border-top: 1px solid #E5E5EA;
+  padding: .55rem .65rem;
+  flex-shrink: 0;
+}
+.maya-img-strip {
+  display: flex; align-items: center; gap: .5rem;
+  background: #F2F2F7;
+  border-radius: 10px;
+  padding: .4rem .6rem;
+  margin-bottom: .45rem;
+  font-size: .8rem;
+  color: #8e8e93;
+}
+.maya-img-strip img { height: 42px; border-radius: 7px; object-fit: cover; flex-shrink: 0; }
+.maya-img-remove {
+  background: rgba(0,0,0,.35); color: #fff;
+  border: none; border-radius: 50%;
+  width: 18px; height: 18px;
+  font-size: .6rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.maya-img-label { color: #34c759; font-weight: 600; font-size: .78rem; }
+.maya-input-row {
+  display: flex; align-items: center; gap: .4rem;
+}
+.maya-icon-btn-dark {
+  background: #F2F2F7;
+  border: none; border-radius: 10px;
+  color: #3c3c43; cursor: pointer;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .95rem;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.maya-icon-btn-dark:hover { background: #E5E5EA; }
+.maya-text-input {
+  flex: 1;
+  border: 1.5px solid #E5E5EA;
+  border-radius: 20px;
+  padding: .45rem .85rem;
+  font-size: .88rem;
+  outline: none;
+  transition: border-color .15s;
+  background: #F9F9F9;
+}
+.maya-text-input:focus { border-color: #007AFF; background: #fff; }
+.maya-send-btn {
+  width: 36px; height: 36px;
+  background: #007AFF; color: #fff;
+  border: none; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+  flex-shrink: 0;
+}
+.maya-send-btn:hover   { background: #0066db; transform: scale(1.06); }
+.maya-send-btn:disabled { background: #8e8e93; cursor: default; transform: none; }
+/* Mobile */
+@media (max-width: 500px) {
+  #mayaWindow {
+    bottom: 0; right: 0; left: 0; width: 100%;
+    max-height: 82vh;
+    border-radius: 20px 20px 0 0;
+  }
+  #mayaBubble { bottom: 72px; right: 14px; }
+}
+</style>
+
+<script>
+(function() {
+  var mayaImgData  = null;
+  var mayaIsOpen   = false;
+
+  window.mayaToggle = function() {
+    mayaIsOpen = !mayaIsOpen;
+    var win = document.getElementById('mayaWindow');
+    win.classList.toggle('maya-hidden', !mayaIsOpen);
+    document.getElementById('mayaUnreadDot').style.display = 'none';
+    if (mayaIsOpen) {
+      setTimeout(function() {
+        var inp = document.getElementById('mayaTextInput');
+        if (inp) inp.focus();
+        mayaScrollBottom();
+      }, 80);
+    }
+  };
+
+  window.mayaPreviewImg = function(input) {
+    if (!input.files || !input.files[0]) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      mayaImgData = e.target.result;
+      document.getElementById('mayaImgThumb').src = mayaImgData;
+      document.getElementById('mayaImgPreview').style.display = 'flex';
+    };
+    reader.readAsDataURL(input.files[0]);
+  };
+
+  window.mayaRemoveImg = function() {
+    mayaImgData = null;
+    var f = document.getElementById('mayaImgFile');
+    if (f) f.value = '';
+    document.getElementById('mayaImgPreview').style.display = 'none';
+  };
+
+  function mayaScrollBottom() {
+    var msgs = document.getElementById('mayaMessages');
+    if (msgs) msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function mayaAddMsg(role, html) {
+    var msgs = document.getElementById('mayaMessages');
+    var div  = document.createElement('div');
+    div.className = 'maya-msg ' + role;
+    var bub = document.createElement('div');
+    bub.className = 'maya-bubble-msg';
+    bub.innerHTML = html;
+    div.appendChild(bub);
+    msgs.appendChild(div);
+    mayaScrollBottom();
+    return bub;
+  }
+
+  function mayaShowTyping() {
+    var msgs = document.getElementById('mayaMessages');
+    var div  = document.createElement('div');
+    div.className = 'maya-msg ai';
+    div.id = 'mayaTypingIndicator';
+    div.innerHTML = '<div class="maya-bubble-msg"><div class="maya-typing-wrap"><div class="maya-dot"></div><div class="maya-dot"></div><div class="maya-dot"></div></div></div>';
+    msgs.appendChild(div);
+    mayaScrollBottom();
+  }
+
+  function mayaHideTyping() {
+    var el = document.getElementById('mayaTypingIndicator');
+    if (el) el.remove();
+  }
+
+  function mayaEscape(text) {
+    // Convert markdown-like bold and newlines to HTML
+    text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    text = text.replace(/\n/g, '<br>');
+    return text;
+  }
+
+  window.mayaSend = async function() {
+    var inp  = document.getElementById('mayaTextInput');
+    var btn  = document.getElementById('mayaSendBtn');
+    var msg  = inp.value.trim();
+    if (!msg && !mayaImgData) return;
+
+    // Disable inputs
+    btn.disabled = true;
+    inp.disabled = true;
+
+    // Show user message
+    var display = msg ? mayaEscape(msg) : '📸 <em>Screenshot</em>';
+    if (mayaImgData && msg) display = '📸 ' + mayaEscape(msg);
+    mayaAddMsg('user', display);
+    inp.value = '';
+
+    // Show typing
+    mayaShowTyping();
+    document.getElementById('mayaStatus').textContent = 'Maya is typing...';
+
+    var imgToSend = mayaImgData;
+    mayaRemoveImg();
+
+    try {
+      var body = { message: msg };
+      if (imgToSend) body.image = imgToSend;
+
+      var res  = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      var data = await res.json();
+      mayaHideTyping();
+
+      if (data.reply) {
+        mayaAddMsg('ai', mayaEscape(data.reply));
+      } else {
+        mayaAddMsg('ai', '⚠️ ' + mayaEscape(data.error || 'Kuch error aa gaya. Dobara try karo.'));
+      }
+    } catch(e) {
+      mayaHideTyping();
+      mayaAddMsg('ai', '⚠️ Connection error. Please try again.');
+    }
+
+    document.getElementById('mayaStatus').textContent = 'Online · Myle Community';
+    btn.disabled = false;
+    inp.disabled = false;
+    inp.focus();
+  };
+
+  window.mayaClear = async function() {
+    try { await fetch('/api/chat/clear', { method: 'POST' }); } catch(e) {}
+    var msgs = document.getElementById('mayaMessages');
+    msgs.innerHTML = '<div class="maya-msg ai"><div class="maya-bubble-msg">Chat clear ho gaya! Kuch aur poochna hai? 😊</div></div>';
+  };
+})();
+</script>
+{% endif %}
 </body>
 </html>
