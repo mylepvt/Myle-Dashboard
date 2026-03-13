@@ -5574,7 +5574,7 @@ def api_chat():
         try:
             _gemini_lib.configure(api_key=gemini_key)
             model = _gemini_lib.GenerativeModel(
-                model_name       = 'gemini-1.5-flash',
+                model_name       = 'gemini-2.0-flash',
                 system_instruction = MAYA_SYSTEM_PROMPT
             )
             # Build Gemini history (role: 'user'|'model')
