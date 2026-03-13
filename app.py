@@ -5102,19 +5102,48 @@ def admin_training():
                            sig_file=sig_file)
 
 
+@app.route('/training/media/<path:filename>')
+@login_required
+def training_media(filename):
+    """Serve uploaded training podcast audio / PDF files."""
+    media_dir = os.path.join(os.path.dirname(__file__), 'uploads', 'training')
+    return send_from_directory(media_dir, filename)
+
+
 @app.route('/admin/training/save-video', methods=['POST'])
 @admin_required
 def admin_training_save_video():
-    day         = request.form.get('day_number', type=int)
-    title       = request.form.get('title', '').strip()
-    url         = request.form.get('youtube_url', '').strip()
-    podcast_url = request.form.get('podcast_url', '').strip()
-    pdf_url     = request.form.get('pdf_url', '').strip()
-    desc        = request.form.get('description', '').strip()
+    day   = request.form.get('day_number', type=int)
+    title = request.form.get('title', '').strip()
+    url   = request.form.get('youtube_url', '').strip()
+    desc  = request.form.get('description', '').strip()
 
     if not day or day < 1 or day > 7:
         flash('Invalid day number.', 'danger')
         return redirect(url_for('admin_training'))
+
+    # Keep existing values as fallback if no new file uploaded
+    podcast_url = request.form.get('podcast_url_existing', '').strip()
+    pdf_url     = request.form.get('pdf_url_existing', '').strip()
+
+    media_dir = os.path.join(os.path.dirname(__file__), 'uploads', 'training')
+    audio_dir = os.path.join(media_dir, 'audio')
+    pdf_dir   = os.path.join(media_dir, 'pdf')
+    os.makedirs(audio_dir, exist_ok=True)
+    os.makedirs(pdf_dir,   exist_ok=True)
+
+    podcast_file = request.files.get('podcast_file')
+    if podcast_file and podcast_file.filename:
+        ext   = podcast_file.filename.rsplit('.', 1)[-1].lower() if '.' in podcast_file.filename else 'mp3'
+        fname = f'day{day}_podcast.{ext}'
+        podcast_file.save(os.path.join(audio_dir, fname))
+        podcast_url = f'audio/{fname}'
+
+    pdf_file = request.files.get('pdf_file')
+    if pdf_file and pdf_file.filename:
+        fname = f'day{day}_resource.pdf'
+        pdf_file.save(os.path.join(pdf_dir, fname))
+        pdf_url = f'pdf/{fname}'
 
     db = get_db()
     db.execute(

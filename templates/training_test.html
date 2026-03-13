@@ -3,99 +3,82 @@
 {% block page_title %}Training Test{% endblock %}
 
 {% block content %}
-<div class="container-fluid p-3 p-md-4" style="max-width:800px;">
+<div class="tq-page">
 
-  <!-- Header -->
-  <div class="card border-0 shadow-sm rounded-3 mb-4"
-       style="background:linear-gradient(135deg,#0d6efd,#6610f2);color:#fff;">
-    <div class="card-body p-4 text-center">
-      <div style="font-size:2.5rem;" class="mb-2">📝</div>
-      <h4 class="fw-bold mb-1">Training Test</h4>
-      <p class="opacity-90 small mb-1">
-        {{ questions|length }} questions · Pass mark: <strong>60/100</strong>
-      </p>
-      {% if test_attempts > 0 %}
-      <span class="badge bg-light text-dark">Attempt #{{ test_attempts + 1 }}</span>
+  <!-- Header card -->
+  <div class="tq-header mb-4">
+    <div class="tq-header-icon">📝</div>
+    <h4 class="tq-header-title">Training Test</h4>
+    <p class="tq-header-sub">{{ questions|length }} questions &nbsp;·&nbsp; Pass mark: 60/100</p>
+    {% if test_attempts > 0 %}
+    <div class="tq-header-badges">
+      <span class="tq-pill">Attempt #{{ test_attempts + 1 }}</span>
       {% if test_score >= 0 %}
-      <span class="badge {{ 'bg-success' if test_score >= 60 else 'bg-danger' }} ms-1">
+      <span class="tq-pill {{ 'pass' if test_score >= 60 else 'fail' }}">
         Last score: {{ test_score }}/100
       </span>
       {% endif %}
-      {% endif %}
     </div>
+    {% endif %}
   </div>
 
   {% if not questions %}
-  <!-- No questions yet -->
-  <div class="card border-0 shadow-sm rounded-3">
-    <div class="card-body p-5 text-center text-muted">
-      <i class="bi bi-patch-question fs-1 d-block mb-3 opacity-40"></i>
-      <h5 class="fw-bold">Abhi koi questions add nahi hain</h5>
-      <p class="small">Admin ne abhi test questions add nahi kiye hain. Thodi der baad dobara try karo.</p>
-      <a href="{{ url_for('training_home') }}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left me-1"></i> Training pe wapas jao
-      </a>
-    </div>
+  <!-- No questions -->
+  <div class="tq-card text-center py-5">
+    <i class="bi bi-patch-question tq-empty-icon"></i>
+    <h5 class="fw-bold mt-3 mb-2">No questions added yet</h5>
+    <p class="tq-subdesc">Admin hasn't added test questions. Check back later.</p>
+    <a href="{{ url_for('training_home') }}" class="tq-btn outline mt-2">
+      <i class="bi bi-arrow-left me-1"></i>Back to Training
+    </a>
   </div>
 
   {% else %}
-  <!-- Test form -->
+  <!-- Question form -->
   <form method="post" action="{{ url_for('training_test_submit') }}" id="testForm">
     <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
 
     {% for q in questions %}
-    <div class="card border-0 shadow-sm rounded-3 mb-3" id="qcard_{{ loop.index }}">
-      <div class="card-body p-4">
-        <div class="d-flex gap-3 align-items-start">
-          <span class="badge bg-primary rounded-pill flex-shrink-0" style="min-width:32px;text-align:center;">
-            {{ loop.index }}
-          </span>
-          <div class="flex-grow-1">
-            <p class="fw-semibold mb-3">{{ q.question }}</p>
-
-            <div class="d-flex flex-column gap-2">
-              {% for opt, label in [('option_a','a'), ('option_b','b'), ('option_c','c'), ('option_d','d')] %}
-              {% if q[opt] %}
-              <label class="option-label d-flex align-items-center gap-3 p-3 rounded-3 border cursor-pointer"
-                     for="q{{ q.id }}_{{ label }}"
-                     onclick="selectOption(this)">
-                <input type="radio" name="q_{{ q.id }}" id="q{{ q.id }}_{{ label }}"
-                       value="{{ label }}" class="form-check-input flex-shrink-0 mt-0" required
-                       style="width:18px;height:18px;">
-                <span>
-                  <span class="fw-semibold text-muted me-2">{{ label.upper() }}.</span>
-                  {{ q[opt] }}
-                </span>
-              </label>
-              {% endif %}
-              {% endfor %}
-            </div>
-          </div>
-        </div>
+    <div class="tq-card mb-3" id="qcard_{{ loop.index }}">
+      <!-- Question header -->
+      <div class="tq-q-header">
+        <div class="tq-q-num">{{ loop.index }}</div>
+        <p class="tq-q-text">{{ q.question }}</p>
+      </div>
+      <!-- Options -->
+      <div class="tq-options" role="radiogroup">
+        {% for opt, label in [('option_a','a'), ('option_b','b'), ('option_c','c'), ('option_d','d')] %}
+        {% if q[opt] %}
+        <label class="tq-option" for="q{{ q.id }}_{{ label }}" onclick="selectOption(this, {{ q.id }})">
+          <input type="radio" name="q_{{ q.id }}" id="q{{ q.id }}_{{ label }}"
+                 value="{{ label }}" class="tq-radio" required>
+          <span class="tq-opt-letter">{{ label|upper }}</span>
+          <span class="tq-opt-text">{{ q[opt] }}</span>
+        </label>
+        {% endif %}
+        {% endfor %}
       </div>
     </div>
     {% endfor %}
 
-    <!-- Submit -->
-    <div class="card border-0 shadow-sm rounded-3 mb-4">
-      <div class="card-body p-4 text-center">
-        <p class="text-muted small mb-3">
-          Saare {{ questions|length }} questions ka jawab do, phir submit karo.<br>
-          <strong>Pass mark: 60/100 ya zyada.</strong>
-        </p>
-        <div id="answerWarning" class="alert alert-warning border-0 small py-2 mb-3 d-none">
-          <i class="bi bi-exclamation-triangle me-1"></i>
-          Kuch questions ka jawab nahi diya. Submit karne se pehle check karo.
-        </div>
-        <button type="button" class="btn btn-primary fw-semibold px-5"
-                onclick="submitTest()">
-          <i class="bi bi-check2-circle me-2"></i>Test Submit Karo
-        </button>
-        <div class="mt-3">
-          <a href="{{ url_for('training_home') }}" class="text-muted small">
-            <i class="bi bi-arrow-left me-1"></i>Baad me aaunga
-          </a>
-        </div>
+    <!-- Submit card -->
+    <div class="tq-card mb-4 text-center">
+      <p class="tq-subdesc mb-1">Answer all {{ questions|length }} questions, then submit.</p>
+      <p class="tq-subdesc mb-4"><strong>Pass mark: 60 / 100</strong></p>
+
+      <div id="answerWarning" class="tq-warning d-none mb-3">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        Some questions are unanswered. Please go back and answer them all.
+      </div>
+
+      <button type="button" class="tq-btn primary px-5" onclick="submitTest()">
+        <i class="bi bi-check2-circle me-2"></i>Submit Test
+      </button>
+
+      <div class="mt-4">
+        <a href="{{ url_for('training_home') }}" class="tq-subdesc" style="text-decoration:none;">
+          <i class="bi bi-arrow-left me-1"></i>Come back later
+        </a>
       </div>
     </div>
   </form>
@@ -104,67 +87,215 @@
 </div>
 
 <script>
-function selectOption(label) {
-  // Highlight selected option per question card
-  var name = label.querySelector('input').name;
-  document.querySelectorAll('input[name="' + name + '"]').forEach(function(inp) {
-    inp.closest('.option-label').classList.remove('selected');
+function selectOption(label, qId) {
+  // Remove selected from all options in this question
+  var group = label.closest('.tq-options');
+  group.querySelectorAll('.tq-option').forEach(function(el) {
+    el.classList.remove('selected');
   });
   label.classList.add('selected');
 }
 
 function submitTest() {
-  var form  = document.getElementById('testForm');
-  var total = {{ questions|length }};
-  var answered = 0;
-  for (var i = 0; i < form.elements.length; i++) {
-    if (form.elements[i].type === 'radio' && form.elements[i].checked) {
-      // Count unique answered questions
-    }
-  }
-  // Check each question has an answer
   var qIds = [];
   {% for q in questions %}
   qIds.push({{ q.id }});
   {% endfor %}
+
   var unanswered = [];
   qIds.forEach(function(id) {
-    var checked = document.querySelector('input[name="q_' + id + '"]:checked');
-    if (!checked) unanswered.push(id);
+    if (!document.querySelector('input[name="q_' + id + '"]:checked')) {
+      unanswered.push(id);
+    }
   });
+
   if (unanswered.length > 0) {
     document.getElementById('answerWarning').classList.remove('d-none');
-    // Scroll to first unanswered
-    window.scrollTo({top: 0, behavior: 'smooth'});
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
   }
-  form.submit();
+  document.getElementById('testForm').submit();
 }
 
-// Mark selected radio on page load (if navigating back)
+// Restore selection on back-nav
 document.querySelectorAll('input[type="radio"]:checked').forEach(function(inp) {
-  inp.closest('.option-label').classList.add('selected');
+  inp.closest('.tq-option').classList.add('selected');
 });
 </script>
 {% endblock %}
 
 {% block extra_head %}
 <style>
-.option-label {
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+/* ═══════════════════════════════════════════════
+   Apple-style Test UI
+   ═══════════════════════════════════════════════ */
+:root {
+  --tq-blue:   #007AFF;
+  --tq-green:  #34C759;
+  --tq-red:    #FF3B30;
+  --tq-gray1:  #F2F2F7;
+  --tq-gray2:  #E5E5EA;
+  --tq-gray3:  #8E8E93;
+  --tq-label:  #1C1C1E;
+  --tq-radius: 14px;
+  --tq-shadow: 0 2px 16px rgba(0,0,0,.06), 0 1px 4px rgba(0,0,0,.04);
+  --tq-font:   -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+}
+
+.tq-page {
+  font-family: var(--tq-font);
+  max-width: 720px;
+}
+
+/* Header */
+.tq-header {
+  background: linear-gradient(135deg, #1d4ed8, #7c3aed);
+  border-radius: var(--tq-radius);
+  padding: 2rem 1.5rem;
+  text-align: center;
+  color: #fff;
+}
+.tq-header-icon   { font-size: 2.5rem; margin-bottom: .5rem; }
+.tq-header-title  { font-size: 1.4rem; font-weight: 700; margin-bottom: .3rem; }
+.tq-header-sub    { font-size: .9rem; opacity: .85; margin-bottom: .75rem; }
+.tq-header-badges { display: flex; justify-content: center; gap: .5rem; flex-wrap: wrap; }
+
+.tq-pill {
+  background: rgba(255,255,255,.2);
+  border-radius: 20px;
+  padding: .25rem .75rem;
+  font-size: .8rem;
+  font-weight: 600;
+}
+.tq-pill.pass { background: rgba(52,199,89,.35); }
+.tq-pill.fail { background: rgba(255,59,48,.35); }
+
+/* Card */
+.tq-card {
   background: #fff;
+  border-radius: var(--tq-radius);
+  box-shadow: var(--tq-shadow);
+  padding: 1.25rem 1.25rem 1rem;
 }
-.option-label:hover {
-  background: #f0f4ff;
-  border-color: #0d6efd !important;
+
+/* Question */
+.tq-q-header {
+  display: flex;
+  align-items: flex-start;
+  gap: .85rem;
+  margin-bottom: 1rem;
 }
-.option-label.selected {
-  background: #e8f0fe;
-  border-color: #0d6efd !important;
+.tq-q-num {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--tq-blue);
+  color: #fff;
+  font-size: .82rem;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: .05rem;
 }
-.option-label.selected .fw-semibold.text-muted {
-  color: #0d6efd !important;
+.tq-q-text {
+  font-size: .97rem;
+  font-weight: 600;
+  color: var(--tq-label);
+  margin: 0;
+  line-height: 1.5;
 }
+
+/* Options */
+.tq-options {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  padding-left: calc(30px + .85rem); /* align under question text */
+}
+
+.tq-option {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .75rem 1rem;
+  border-radius: 10px;
+  border: 1.5px solid var(--tq-gray2);
+  background: var(--tq-gray1);
+  cursor: pointer;
+  transition: border-color .15s, background .15s, transform .1s;
+  user-select: none;
+}
+.tq-option:hover {
+  border-color: rgba(0,122,255,.4);
+  background: rgba(0,122,255,.05);
+  transform: translateX(2px);
+}
+.tq-option.selected {
+  border-color: var(--tq-blue);
+  background: rgba(0,122,255,.08);
+}
+.tq-option.selected .tq-opt-letter {
+  background: var(--tq-blue);
+  color: #fff;
+  border-color: var(--tq-blue);
+}
+
+/* Hide the actual radio (we style the label) */
+.tq-radio {
+  position: absolute;
+  opacity: 0;
+  width: 0; height: 0;
+  pointer-events: none;
+}
+
+.tq-opt-letter {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid var(--tq-gray3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--tq-gray3);
+  flex-shrink: 0;
+  transition: all .15s;
+}
+.tq-opt-text {
+  font-size: .9rem;
+  color: var(--tq-label);
+  line-height: 1.4;
+}
+
+/* Buttons */
+.tq-btn {
+  display: inline-flex; align-items: center;
+  border-radius: 10px;
+  padding: .65rem 1.4rem;
+  font-size: .92rem;
+  font-weight: 600;
+  border: none; cursor: pointer;
+  text-decoration: none;
+  transition: opacity .15s, transform .12s;
+}
+.tq-btn:hover { opacity: .88; transform: scale(1.02); }
+.tq-btn.primary { background: var(--tq-blue); color: #fff; }
+.tq-btn.outline {
+  background: transparent;
+  border: 1.5px solid var(--tq-gray2);
+  color: var(--tq-gray3);
+}
+
+/* Warning */
+.tq-warning {
+  background: rgba(255,149,0,.1);
+  border: 1px solid rgba(255,149,0,.3);
+  border-radius: 10px;
+  padding: .65rem 1rem;
+  font-size: .87rem;
+  color: #8a5c00;
+  display: flex; align-items: center;
+}
+
+/* Misc */
+.tq-subdesc   { font-size: .85rem; color: var(--tq-gray3); }
+.tq-empty-icon { font-size: 3rem; opacity: .35; }
 </style>
 {% endblock %}

@@ -3,26 +3,21 @@
 {% block page_title %}7-Day Training{% endblock %}
 
 {% block content %}
-<div class="container-fluid p-3 p-md-4">
+<div class="ap-page">
 
 {% if is_viewer %}
   <!-- ══════════════════════════════════════════════
        VIEW MODE — Old member: videos + downline progress
        ══════════════════════════════════════════════ -->
 
-  <!-- Tabs -->
-  <ul class="nav nav-tabs mb-4" id="viewerTabs" role="tablist">
-    <li class="nav-item">
-      <button class="nav-link active fw-semibold" data-bs-toggle="tab" data-bs-target="#videosTabPane">
-        <i class="bi bi-play-circle me-1"></i> Training Videos
-      </button>
-    </li>
-    <li class="nav-item">
-      <button class="nav-link fw-semibold" data-bs-toggle="tab" data-bs-target="#teamTabPane">
-        <i class="bi bi-people me-1"></i> Team Progress
-      </button>
-    </li>
-  </ul>
+  <div class="ap-seg mb-4" role="tablist" id="viewerTabs">
+    <button class="ap-seg-btn active" data-bs-toggle="tab" data-bs-target="#videosTabPane">
+      <i class="bi bi-play-circle me-1"></i>Training Videos
+    </button>
+    <button class="ap-seg-btn" data-bs-toggle="tab" data-bs-target="#teamTabPane">
+      <i class="bi bi-people me-1"></i>Team Progress
+    </button>
+  </div>
 
   <div class="tab-content">
 
@@ -41,58 +36,49 @@
             {% set yt_id = yt_url.split('v=')[1].split('&')[0] %}
           {% endif %}
         <div class="col-12 col-md-6 col-lg-4">
-          <div class="card border-0 shadow-sm rounded-3 h-100">
-            <div class="card-body p-3">
-              <div class="d-flex align-items-center gap-2 mb-2">
-                <span class="badge bg-primary rounded-pill">Day {{ d }}</span>
-                <span class="fw-semibold small text-truncate">{{ vid.title or 'Training Video' }}</span>
-              </div>
-              {% if yt_id %}
-              <div class="ratio ratio-16x9 rounded-2 overflow-hidden mb-2">
-                <iframe src="https://www.youtube.com/embed/{{ yt_id }}?rel=0&modestbranding=1"
-                        allowfullscreen loading="lazy" class="rounded-2"></iframe>
-              </div>
-              {% endif %}
+          <div class="ap-card h-100">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <span class="ap-badge-day">Day {{ d }}</span>
+              <span class="fw-semibold text-truncate" style="font-size:.95rem;">{{ vid.title or 'Training Video' }}</span>
+            </div>
+            {% if yt_id %}
+            <div class="ap-video-wrap mb-3">
+              <iframe src="https://www.youtube.com/embed/{{ yt_id }}?rel=0&modestbranding=1"
+                      allowfullscreen loading="lazy"></iframe>
+            </div>
+            {% endif %}
+            <div class="d-flex flex-column gap-2">
               {% if vid.podcast_url %}
-              <div class="mt-2">
-                <a href="{{ vid.podcast_url }}" target="_blank" class="btn btn-sm btn-outline-info w-100">
-                  <i class="bi bi-mic-fill me-1"></i> Podcast Audio Suno
-                </a>
-              </div>
+              {% set purl = url_for('training_media', filename=vid.podcast_url) if not vid.podcast_url.startswith('http') else vid.podcast_url %}
+              <a href="{{ purl }}" target="_blank" class="ap-resource-btn podcast">
+                <i class="bi bi-headphones me-2"></i>Listen Podcast
+              </a>
               {% endif %}
               {% if vid.pdf_url %}
-              <div class="mt-1">
-                <a href="{{ vid.pdf_url }}" target="_blank" class="btn btn-sm btn-outline-danger w-100">
-                  <i class="bi bi-file-earmark-pdf me-1"></i> PDF Download Karo
-                </a>
-              </div>
-              {% endif %}
-              {% if vid.description %}
-              <p class="text-muted small mb-0 mt-2">{{ vid.description }}</p>
+              {% set durl = url_for('training_media', filename=vid.pdf_url) if not vid.pdf_url.startswith('http') else vid.pdf_url %}
+              <a href="{{ durl }}" target="_blank" class="ap-resource-btn pdf">
+                <i class="bi bi-file-earmark-pdf me-2"></i>Download PDF
+              </a>
               {% endif %}
             </div>
+            {% if vid.description %}
+            <p class="ap-desc mt-2 mb-0">{{ vid.description }}</p>
+            {% endif %}
           </div>
         </div>
         {% endif %}
         {% endfor %}
       </div>
-      {% if not videos.values()|list %}
-      <div class="text-center py-5 text-muted">
-        <i class="bi bi-camera-video-off fs-1 d-block mb-2 opacity-50"></i>
-        <p>Admin ne abhi koi video configure nahi ki hai.</p>
-      </div>
-      {% endif %}
       {% else %}
-      <div class="text-center py-5 text-muted">
-        <i class="bi bi-camera-video-off fs-1 d-block mb-2 opacity-50"></i>
-        <p>Admin ne abhi koi video configure nahi ki hai.</p>
+      <div class="ap-empty">
+        <i class="bi bi-camera-video-off"></i>
+        <p>No videos configured yet.</p>
       </div>
       {% endif %}
 
       <!-- Bonus Videos (viewer mode) -->
       {% if bonus_videos %}
-      <hr class="my-4">
-      <h6 class="fw-bold mb-3"><i class="bi bi-stars me-2 text-warning"></i>Additional / Bonus Videos</h6>
+      <div class="ap-section-label mt-4 mb-3"><i class="bi bi-stars me-2"></i>Bonus Videos</div>
       <div class="row g-3">
         {% for bv in bonus_videos %}
         {% set byt = bv.youtube_url %}
@@ -100,20 +86,18 @@
         {% if 'youtu.be/' in byt %}{% set byt_id = byt.split('youtu.be/')[1].split('?')[0] %}
         {% elif 'v=' in byt %}{% set byt_id = byt.split('v=')[1].split('&')[0] %}{% endif %}
         <div class="col-12 col-md-6 col-lg-4">
-          <div class="card border-0 shadow-sm rounded-3 h-100">
-            <div class="card-body p-3">
-              <div class="d-flex align-items-center gap-2 mb-2">
-                <span class="badge bg-warning text-dark rounded-pill">Bonus</span>
-                <span class="fw-semibold small text-truncate">{{ bv.title }}</span>
-              </div>
-              {% if byt_id %}
-              <div class="ratio ratio-16x9 rounded-2 overflow-hidden mb-2">
-                <iframe src="https://www.youtube.com/embed/{{ byt_id }}?rel=0&modestbranding=1"
-                        allowfullscreen loading="lazy"></iframe>
-              </div>
-              {% endif %}
-              {% if bv.description %}<p class="text-muted small mb-0">{{ bv.description }}</p>{% endif %}
+          <div class="ap-card h-100">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <span class="ap-badge-bonus">Bonus</span>
+              <span class="fw-semibold text-truncate" style="font-size:.95rem;">{{ bv.title }}</span>
             </div>
+            {% if byt_id %}
+            <div class="ap-video-wrap">
+              <iframe src="https://www.youtube.com/embed/{{ byt_id }}?rel=0&modestbranding=1"
+                      allowfullscreen loading="lazy"></iframe>
+            </div>
+            {% endif %}
+            {% if bv.description %}<p class="ap-desc mt-2 mb-0">{{ bv.description }}</p>{% endif %}
           </div>
         </div>
         {% endfor %}
@@ -124,73 +108,69 @@
     <!-- ── Team Progress Tab ── -->
     <div class="tab-pane fade" id="teamTabPane">
       {% if downline %}
-      <div class="card border-0 shadow-sm rounded-3">
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-              <thead class="table-light">
-                <tr>
-                  <th class="ps-3">Member</th>
-                  <th>Joining Date</th>
-                  <th style="min-width:180px;">Progress</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for m in downline %}
-                <tr>
-                  <td class="ps-3 fw-semibold">
-                    <i class="bi bi-person-circle me-1 text-muted"></i>{{ m.username }}
-                  </td>
-                  <td class="small text-muted">{{ m.joining_date or '—' }}</td>
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="d-flex gap-1">
-                        {% for d in days %}
-                          {% if m.days_done >= d %}
-                            <div style="width:18px;height:18px;border-radius:50%;background:#198754;display:flex;align-items:center;justify-content:center;">
-                              <i class="bi bi-check2" style="font-size:0.55rem;color:#fff;"></i>
-                            </div>
-                          {% elif m.days_done + 1 == d %}
-                            <div style="width:18px;height:18px;border-radius:50%;background:#0d6efd;display:flex;align-items:center;justify-content:center;font-size:0.55rem;color:#fff;font-weight:700;">{{ d }}</div>
-                          {% else %}
-                            <div style="width:18px;height:18px;border-radius:50%;background:#dee2e6;display:flex;align-items:center;justify-content:center;font-size:0.55rem;color:#6c757d;font-weight:700;">{{ d }}</div>
-                          {% endif %}
-                        {% endfor %}
-                      </div>
-                      <span class="small text-muted" style="white-space:nowrap;">{{ m.days_done }}/7</span>
+      <div class="ap-card p-0 overflow-hidden">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead style="background:#F2F2F7;">
+              <tr>
+                <th class="ps-4 py-3" style="font-size:.8rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:.05em;">Member</th>
+                <th class="py-3" style="font-size:.8rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:.05em;">Joining</th>
+                <th class="py-3" style="font-size:.8rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:.05em;min-width:180px;">Progress</th>
+                <th class="py-3" style="font-size:.8rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:.05em;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for m in downline %}
+              <tr>
+                <td class="ps-4 fw-semibold">
+                  <i class="bi bi-person-circle me-1 text-muted"></i>{{ m.username }}
+                </td>
+                <td class="small text-muted">{{ m.joining_date or '—' }}</td>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex gap-1">
+                      {% for d in days %}
+                        {% if m.days_done >= d %}
+                          <div class="ap-day-dot done"><i class="bi bi-check2"></i></div>
+                        {% elif m.days_done + 1 == d %}
+                          <div class="ap-day-dot current">{{ d }}</div>
+                        {% else %}
+                          <div class="ap-day-dot locked">{{ d }}</div>
+                        {% endif %}
+                      {% endfor %}
                     </div>
-                  </td>
-                  <td>
-                    {% if m.training_status == 'unlocked' %}
-                      <span class="badge bg-success">Unlocked ✓</span>
-                    {% elif m.training_status == 'completed' %}
-                      <span class="badge bg-info text-dark">Cert Pending</span>
-                    {% elif m.training_status == 'in_progress' %}
-                      <span class="badge bg-warning text-dark">In Progress</span>
-                    {% elif m.training_status == 'pending' %}
-                      <span class="badge bg-danger">Not Started</span>
-                    {% else %}
-                      <span class="badge bg-secondary">{{ m.training_status }}</span>
-                    {% endif %}
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
+                    <span class="small text-muted" style="white-space:nowrap;">{{ m.days_done }}/7</span>
+                  </div>
+                </td>
+                <td>
+                  {% if m.training_status == 'unlocked' %}
+                    <span class="ap-status-badge success">Unlocked ✓</span>
+                  {% elif m.training_status == 'completed' %}
+                    <span class="ap-status-badge info">Cert Pending</span>
+                  {% elif m.training_status == 'in_progress' %}
+                    <span class="ap-status-badge warning">In Progress</span>
+                  {% elif m.training_status == 'pending' %}
+                    <span class="ap-status-badge danger">Not Started</span>
+                  {% else %}
+                    <span class="ap-status-badge secondary">{{ m.training_status }}</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
       </div>
-      <div class="mt-3 d-flex flex-wrap gap-3 small text-muted">
-        <span><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#198754;vertical-align:middle;"></span> Day complete</span>
-        <span><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#0d6efd;vertical-align:middle;"></span> Current day</span>
-        <span><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#dee2e6;vertical-align:middle;"></span> Locked</span>
+      <div class="mt-3 d-flex flex-wrap gap-3" style="font-size:.8rem;color:#6c757d;">
+        <span><span class="ap-day-dot done d-inline-flex" style="width:14px;height:14px;vertical-align:middle;"></span> Done</span>
+        <span><span class="ap-day-dot current d-inline-flex" style="width:14px;height:14px;vertical-align:middle;"></span> Current</span>
+        <span><span class="ap-day-dot locked d-inline-flex" style="width:14px;height:14px;vertical-align:middle;"></span> Locked</span>
       </div>
       {% else %}
-      <div class="text-center py-5 text-muted">
-        <i class="bi bi-people fs-1 d-block mb-2 opacity-50"></i>
-        <p class="fw-semibold">Koi downline member training me nahi hai abhi.</p>
-        <p class="small">Jab aapke koi team member new joining ke saath register karenge, unki progress yahan dikhi jayegi.</p>
+      <div class="ap-empty">
+        <i class="bi bi-people"></i>
+        <p class="fw-semibold">No downline members in training yet.</p>
+        <p class="small text-muted">When your team members register, their progress will show here.</p>
       </div>
       {% endif %}
     </div>
@@ -203,291 +183,277 @@
        ══════════════════════════════════════════════ -->
 
   <!-- Top banner -->
-  <div class="alert alert-warning border-0 rounded-3 mb-4 d-flex align-items-center gap-2 py-2">
-    <i class="bi bi-mortarboard-fill fs-5"></i>
-    <span class="small fw-semibold">Complete all 7 days of training to unlock the full app.</span>
+  <div class="ap-notice mb-4">
+    <i class="bi bi-mortarboard-fill"></i>
+    <span>Complete all 7 days of training to unlock the full app.</span>
   </div>
 
   {% if all_done and training_status == 'completed' %}
     {% if test_score >= 60 %}
     <!-- ── All done + test passed → Certificate ── -->
-    <div class="card border-0 shadow-sm rounded-3 mb-4" style="background:linear-gradient(135deg,#198754,#20c997);color:#fff;">
-      <div class="card-body p-4 text-center">
-        <div class="mb-2" style="font-size:3rem;">🎉</div>
-        <h4 class="fw-bold mb-1">Test Pass! Certificate Ready!</h4>
-        <p class="mb-3 opacity-90 small">Score: <strong>{{ test_score }}/100</strong>. Ab apna certificate download karo, phir upload karo.</p>
-        <a href="{{ url_for('training_certificate') }}" target="_blank"
-           class="btn btn-light fw-semibold me-2 mb-2">
-          <i class="bi bi-award-fill me-1 text-warning"></i> View &amp; Print Certificate
-        </a>
-      </div>
+    <div class="ap-hero success mb-4">
+      <div class="ap-hero-icon">🎉</div>
+      <h4 class="fw-bold mb-1">Test Passed! Certificate Ready!</h4>
+      <p class="mb-3 opacity-90 small">Score: <strong>{{ test_score }}/100</strong> — Download your certificate below.</p>
+      <a href="{{ url_for('training_certificate') }}" target="_blank" class="ap-btn-white">
+        <i class="bi bi-award-fill me-2" style="color:#f59e0b;"></i>View &amp; Print Certificate
+      </a>
     </div>
     <!-- Upload certificate -->
-    <div class="card border-0 shadow-sm rounded-3 mb-4">
-      <div class="card-body p-4">
-        <h6 class="fw-bold mb-1"><i class="bi bi-upload me-2 text-primary"></i>Certificate Upload Karo → App Unlock Hoga</h6>
-        <p class="text-muted small mb-3">Certificate print karo (Ctrl+P → Save as PDF), phir yahan upload karo.</p>
-        <form method="post" action="{{ url_for('training_upload_certificate') }}" enctype="multipart/form-data">
-          <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
-          <div class="d-flex gap-2 align-items-center flex-wrap">
-            <input type="file" name="certificate_file" class="form-control form-control-sm"
-                   accept=".pdf,.jpg,.jpeg,.png" style="max-width:320px;" required>
-            <button type="submit" class="btn btn-primary btn-sm fw-semibold">
-              <i class="bi bi-unlock-fill me-1"></i> Upload &amp; Unlock
-            </button>
-          </div>
-          <div class="form-text mt-1">Accepted: PDF, JPG, PNG · Max 5 MB</div>
-        </form>
+    <div class="ap-card mb-4">
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="ap-icon-circle primary"><i class="bi bi-upload"></i></div>
+        <div>
+          <div class="fw-bold">Upload Certificate → Unlock App</div>
+          <div class="ap-desc">Print as PDF (Ctrl+P → Save as PDF), then upload below.</div>
+        </div>
       </div>
+      <form method="post" action="{{ url_for('training_upload_certificate') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+          <input type="file" name="certificate_file" class="form-control"
+                 accept=".pdf,.jpg,.jpeg,.png" style="max-width:320px;" required>
+          <button type="submit" class="ap-btn primary">
+            <i class="bi bi-unlock-fill me-2"></i>Upload &amp; Unlock
+          </button>
+        </div>
+        <div class="ap-desc mt-2">Accepted: PDF, JPG, PNG · Max 5 MB</div>
+      </form>
     </div>
+
     {% else %}
     <!-- ── All done → Must take test ── -->
-    <div class="card border-0 shadow-sm rounded-3 mb-4" style="background:linear-gradient(135deg,#0d6efd,#6610f2);color:#fff;">
-      <div class="card-body p-4 text-center">
-        <div class="mb-2" style="font-size:3rem;">🎓</div>
-        <h4 class="fw-bold mb-1">7 Din Complete! Ab Test Do</h4>
-        <p class="mb-1 opacity-90 small">Certificate ke liye training test pass karna zaroori hai.</p>
-        <p class="mb-3 opacity-75 small">60/100 ya zyada score karo.</p>
-        {% if test_score >= 0 %}
-        <div class="alert alert-danger border-0 mb-3 py-2 small">
-          <i class="bi bi-x-circle me-1"></i> Last attempt: <strong>{{ test_score }}/100</strong>. Dobara try karo!
-        </div>
-        {% endif %}
-        <a href="{{ url_for('training_test') }}" class="btn btn-light fw-semibold">
-          <i class="bi bi-patch-question me-1 text-primary"></i>
-          {% if test_score >= 0 %}Dobara Test Do{% else %}Test Shuru Karo{% endif %}
-        </a>
+    <div class="ap-hero purple mb-4">
+      <div class="ap-hero-icon">🎓</div>
+      <h4 class="fw-bold mb-1">7 Days Done! Now Take the Test</h4>
+      <p class="mb-1 opacity-90 small">You must pass the training test to get your certificate.</p>
+      <p class="mb-3 opacity-75 small">Score 60/100 or above to pass.</p>
+      {% if test_score >= 0 %}
+      <div class="ap-fail-badge mb-3">
+        <i class="bi bi-x-circle me-1"></i> Last attempt: <strong>{{ test_score }}/100</strong> — Try again!
       </div>
+      {% endif %}
+      <a href="{{ url_for('training_test') }}" class="ap-btn-white">
+        <i class="bi bi-patch-question me-2" style="color:#6366f1;"></i>
+        {% if test_score >= 0 %}Retake Test{% else %}Start Test{% endif %}
+      </a>
     </div>
     {% endif %}
 
   {% elif training_status == 'unlocked' %}
-  <div class="alert alert-success border-0 rounded-3 d-flex align-items-center gap-2">
-    <i class="bi bi-check-circle-fill fs-5"></i>
-    <span class="fw-semibold">Training complete &amp; certificate uploaded! Full app access granted.</span>
-    <a href="{{ url_for('team_dashboard') }}" class="btn btn-sm btn-success ms-auto">Go to Dashboard →</a>
+  <div class="ap-hero success mb-4" style="background:linear-gradient(135deg,#16a34a,#22c55e);">
+    <div class="ap-hero-icon">✅</div>
+    <h4 class="fw-bold mb-1">Training Complete!</h4>
+    <p class="mb-3 opacity-90 small">Certificate uploaded. Full app access granted.</p>
+    <a href="{{ url_for('team_dashboard') }}" class="ap-btn-white">
+      <i class="bi bi-arrow-right me-1"></i>Go to Dashboard
+    </a>
   </div>
 
   {% else %}
   <!-- ── Current day video ── -->
   {% set vid = current_video %}
-  <div class="card border-0 shadow-sm rounded-3 mb-4">
-    <div class="card-body p-3 p-md-4">
-      <div class="d-flex align-items-center gap-2 mb-3">
-        <span class="badge bg-primary rounded-pill px-3 py-2 fs-6">Day {{ current_day }}</span>
-        <h5 class="mb-0 fw-bold">
-          {% if vid %}{{ vid.title or 'Training Video' }}{% else %}Day {{ current_day }} – Coming Soon{% endif %}
-        </h5>
+  <div class="ap-card mb-4">
+    <div class="d-flex align-items-center gap-3 mb-4">
+      <div class="ap-day-big">Day {{ current_day }}</div>
+      <h5 class="mb-0 fw-bold" style="font-size:1.1rem;">
+        {% if vid %}{{ vid.title or 'Training Video' }}{% else %}Day {{ current_day }} – Coming Soon{% endif %}
+      </h5>
+    </div>
+
+    {% if vid and vid.youtube_url %}
+      {% set yt_url = vid.youtube_url %}
+      {% set yt_id = '' %}
+      {% if 'youtu.be/' in yt_url %}
+        {% set yt_id = yt_url.split('youtu.be/')[1].split('?')[0] %}
+      {% elif 'v=' in yt_url %}
+        {% set yt_id = yt_url.split('v=')[1].split('&')[0] %}
+      {% endif %}
+
+      {% if yt_id %}
+      <div class="ap-video-wrap mb-3">
+        <div id="ytPlayer"></div>
       </div>
 
-      {% if vid and vid.youtube_url %}
-        {# Extract YouTube video ID from URL #}
-        {% set yt_url = vid.youtube_url %}
-        {% set yt_id = '' %}
-        {% if 'youtu.be/' in yt_url %}
-          {% set yt_id = yt_url.split('youtu.be/')[1].split('?')[0] %}
-        {% elif 'v=' in yt_url %}
-          {% set yt_id = yt_url.split('v=')[1].split('&')[0] %}
-        {% endif %}
+      <div id="watchNotice" class="ap-watch-notice">
+        <i class="bi bi-lock-fill me-2"></i>
+        Watch the full video — seeking forward is disabled. Complete button appears when video ends.
+      </div>
 
-        {% if yt_id %}
-        <!-- Video wrapper (no-skip) -->
-        <div class="video-responsive mb-3 rounded-3 overflow-hidden shadow-sm">
-          <div id="ytPlayer"></div>
-        </div>
+      <form method="post" action="{{ url_for('training_complete_day') }}" id="completeForm">
+        <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
+        <input type="hidden" name="day_number" value="{{ current_day }}">
+        <button type="submit" id="completeBtn" class="ap-btn success mt-3" disabled>
+          <i class="bi bi-check-circle-fill me-2"></i>Mark Day {{ current_day }} Complete
+        </button>
+        <span id="completingHint" class="ap-desc ms-2 mt-3 d-inline-block">Finish the video first</span>
+      </form>
 
-        <div id="watchNotice" class="alert alert-info border-0 py-2 small d-flex align-items-center gap-2">
-          <i class="bi bi-info-circle-fill"></i>
-          Watch the full video — seeking forward is disabled. The button appears when the video ends.
-        </div>
+      <script>
+      var tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(tag);
 
-        <form method="post" action="{{ url_for('training_complete_day') }}" id="completeForm">
-          <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
-          <input type="hidden" name="day_number" value="{{ current_day }}">
-          <button type="submit" id="completeBtn" class="btn btn-success fw-semibold" disabled>
-            <i class="bi bi-check-circle-fill me-1"></i> Mark Day {{ current_day }} Complete
-          </button>
-          <span id="completingHint" class="text-muted small ms-2">Finish the video to enable this button</span>
-        </form>
+      var ytPlayer, lastTime = 0, videoEnded = false, lastTrackedTime = 0;
+      var YT_VIDEO_ID = "{{ yt_id }}";
 
-        <script>
-        // ── YouTube IFrame no-skip player ─────────────────────────
-        var tag = document.createElement('script');
-        tag.src = "https://www.youtube.com/iframe_api";
-        document.head.appendChild(tag);
+      function onYouTubeIframeAPIReady() {
+        ytPlayer = new YT.Player('ytPlayer', {
+          height: '100%', width: '100%',
+          videoId: YT_VIDEO_ID,
+          playerVars: { rel: 0, modestbranding: 1, fs: 1, disablekb: 1, controls: 1 },
+          events: { 'onStateChange': onPlayerStateChange }
+        });
+      }
 
-        var ytPlayer, lastTime = 0, videoEnded = false;
-        var YT_VIDEO_ID = "{{ yt_id }}";
-
-        function onYouTubeIframeAPIReady() {
-          ytPlayer = new YT.Player('ytPlayer', {
-            height: '100%', width: '100%',
-            videoId: YT_VIDEO_ID,
-            playerVars: {
-              rel: 0, modestbranding: 1, fs: 1,
-              disablekb: 0, controls: 1
-            },
-            events: {
-              'onStateChange': onPlayerStateChange
-            }
-          });
-        }
-
-        function onPlayerStateChange(event) {
-          if (event.data === YT.PlayerState.ENDED) {
-            videoEnded = true;
-            var btn = document.getElementById('completeBtn');
-            var hint = document.getElementById('completingHint');
-            var notice = document.getElementById('watchNotice');
-            btn.disabled = false;
-            btn.classList.add('pulse-btn');
-            if (hint) hint.style.display = 'none';
-            if (notice) {
-              notice.className = 'alert alert-success border-0 py-2 small d-flex align-items-center gap-2';
-              notice.innerHTML = '<i class="bi bi-check-circle-fill"></i> Great job! You can now mark this day as complete.';
-            }
+      function onPlayerStateChange(event) {
+        if (event.data === YT.PlayerState.ENDED) {
+          videoEnded = true;
+          var btn    = document.getElementById('completeBtn');
+          var hint   = document.getElementById('completingHint');
+          var notice = document.getElementById('watchNotice');
+          btn.disabled = false;
+          btn.classList.add('pulse-btn');
+          if (hint) hint.style.display = 'none';
+          if (notice) {
+            notice.className = 'ap-watch-notice success';
+            notice.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Video complete! Click "Mark Complete" below.';
           }
         }
-
-        // Anti-skip: check every 1s if user jumped forward
-        setInterval(function() {
-          if (!ytPlayer || videoEnded || typeof ytPlayer.getCurrentTime !== 'function') return;
+        if (event.data === YT.PlayerState.PLAYING && !videoEnded) {
           try {
-            var state = ytPlayer.getPlayerState();
-            if (state !== 1) return; // only when playing
             var ct = ytPlayer.getCurrentTime();
-            if (ct > lastTime + 3.5) {
-              ytPlayer.seekTo(lastTime, true);
-            } else {
-              lastTime = ct;
-            }
+            if (ct > lastTrackedTime + 2) { ytPlayer.seekTo(lastTrackedTime, true); }
           } catch(e) {}
-        }, 1000);
-        </script>
+        }
+      }
 
-        {% else %}
-        <div class="alert alert-warning border-0">
-          <i class="bi bi-exclamation-triangle me-2"></i>
-          Video URL is not configured correctly. Please contact the admin.
-        </div>
-        {% endif %}
+      setInterval(function() {
+        if (!ytPlayer || videoEnded || typeof ytPlayer.getCurrentTime !== 'function') return;
+        try {
+          var state = ytPlayer.getPlayerState();
+          var ct = ytPlayer.getCurrentTime();
+          if (state === 1) {
+            if (ct > lastTrackedTime + 2) { ytPlayer.seekTo(lastTrackedTime, true); }
+            else { lastTime = ct; lastTrackedTime = ct; }
+          }
+        } catch(e) {}
+      }, 500);
+      </script>
 
       {% else %}
-      <div class="alert alert-secondary border-0 d-flex align-items-center gap-2">
-        <i class="bi bi-hourglass-split fs-4 text-muted"></i>
-        <div>
-          <div class="fw-semibold">Day {{ current_day }} video coming soon</div>
-          <div class="small text-muted">Admin hasn't uploaded this video yet. Check back later.</div>
-        </div>
+      <div class="ap-notice warning">
+        <i class="bi bi-exclamation-triangle"></i>
+        <span>Video URL is not configured correctly. Please contact the admin.</span>
       </div>
       {% endif %}
 
-      {% if vid and vid.description %}
-      <hr class="my-3">
-      <p class="small text-muted mb-0"><i class="bi bi-info-circle me-1"></i>{{ vid.description }}</p>
-      {% endif %}
-
-      <!-- Podcast & PDF for current day -->
-      {% if vid %}
-      {% if vid.podcast_url or vid.pdf_url %}
-      <hr class="my-3">
-      <div class="d-flex gap-2 flex-wrap">
-        {% if vid.podcast_url %}
-        <a href="{{ vid.podcast_url }}" target="_blank" class="btn btn-sm btn-outline-info">
-          <i class="bi bi-mic-fill me-1"></i> Podcast Audio Suno
-        </a>
-        {% endif %}
-        {% if vid.pdf_url %}
-        <a href="{{ vid.pdf_url }}" target="_blank" class="btn btn-sm btn-outline-danger">
-          <i class="bi bi-file-earmark-pdf me-1"></i> PDF Download Karo
-        </a>
-        {% endif %}
+    {% else %}
+    <div class="ap-notice">
+      <i class="bi bi-hourglass-split"></i>
+      <div>
+        <div class="fw-semibold">Day {{ current_day }} video coming soon</div>
+        <div class="ap-desc">Admin hasn't uploaded this video yet. Check back later.</div>
       </div>
+    </div>
+    {% endif %}
+
+    {% if vid and vid.description %}
+    <div class="ap-divider"></div>
+    <p class="ap-desc mb-0"><i class="bi bi-info-circle me-1"></i>{{ vid.description }}</p>
+    {% endif %}
+
+    <!-- Podcast & PDF for current day -->
+    {% if vid and (vid.podcast_url or vid.pdf_url) %}
+    <div class="ap-divider"></div>
+    <div class="d-flex gap-2 flex-wrap">
+      {% if vid.podcast_url %}
+      {% set purl = url_for('training_media', filename=vid.podcast_url) if not vid.podcast_url.startswith('http') else vid.podcast_url %}
+      <a href="{{ purl }}" target="_blank" class="ap-resource-btn podcast">
+        <i class="bi bi-headphones me-2"></i>Listen Podcast
+      </a>
       {% endif %}
+      {% if vid.pdf_url %}
+      {% set durl = url_for('training_media', filename=vid.pdf_url) if not vid.pdf_url.startswith('http') else vid.pdf_url %}
+      <a href="{{ durl }}" target="_blank" class="ap-resource-btn pdf">
+        <i class="bi bi-file-earmark-pdf me-2"></i>Download PDF
+      </a>
       {% endif %}
     </div>
+    {% endif %}
   </div>
   {% endif %}
 
   <!-- ── Progress tracker ── -->
-  <div class="card border-0 shadow-sm rounded-3 mb-4">
-    <div class="card-body p-3">
-      <h6 class="fw-bold mb-3"><i class="bi bi-list-check me-2 text-success"></i>Your Progress</h6>
-      <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-        {% for d in days %}
-          {% set done = progress.get(d, 0) %}
-          {% set is_active = (d == current_day and not all_done) %}
-          {% set unlock_date = unlock_dates.get(d, '') %}
-          <div class="d-flex flex-column align-items-center gap-1" style="min-width:44px;">
-            <div class="training-day-step {% if done %}done{% elif is_active %}active{% else %}locked{% endif %}"
-                 {% if not done and not is_active and unlock_date %}
-                 title="Available from: {{ unlock_date }}"
-                 {% endif %}>
-              {% if done %}<i class="bi bi-check2"></i>{% else %}{{ d }}{% endif %}
-            </div>
-            <span style="font-size:0.6rem;color:#6c757d;">Day {{ d }}</span>
-            {% if not done and not is_active and unlock_date %}
-            <span style="font-size:0.55rem;color:#dc3545;text-align:center;line-height:1.2;max-width:50px;">{{ unlock_date }}</span>
-            {% endif %}
+  <div class="ap-card mb-4">
+    <div class="fw-bold mb-3" style="font-size:.95rem;">
+      <i class="bi bi-list-check me-2" style="color:#34c759;"></i>Your Progress
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-start mb-3">
+      {% for d in days %}
+        {% set done = progress.get(d, 0) %}
+        {% set is_active = (d == current_day and not all_done) %}
+        {% set unlock_date = unlock_dates.get(d, '') %}
+        <div class="d-flex flex-column align-items-center gap-1" style="min-width:44px;">
+          <div class="ap-day-dot {% if done %}done{% elif is_active %}current{% else %}locked{% endif %}"
+               {% if not done and not is_active and unlock_date %}title="Available from: {{ unlock_date }}"{% endif %}>
+            {% if done %}<i class="bi bi-check2"></i>{% else %}{{ d }}{% endif %}
           </div>
-        {% endfor %}
-        {% if all_done %}
-        <div class="ms-2 text-success fw-bold small">
-          <i class="bi bi-trophy-fill me-1"></i> All Done!
+          <span style="font-size:.6rem;color:#8e8e93;">Day {{ d }}</span>
+          {% if not done and not is_active and unlock_date %}
+          <span style="font-size:.55rem;color:#ff3b30;text-align:center;line-height:1.2;max-width:50px;">{{ unlock_date }}</span>
+          {% endif %}
         </div>
-        {% endif %}
-      </div>
-      <!-- Progress bar -->
-      {% set done_count = progress.values()|list|sum %}
-      <div class="progress" style="height:8px;border-radius:99px;">
-        <div class="progress-bar bg-success" style="width:{{ (done_count / 7 * 100)|int }}%;border-radius:99px;transition:width 0.6s;"></div>
-      </div>
-      <div class="d-flex justify-content-between mt-1">
-        <span class="text-muted" style="font-size:0.72rem;">{{ done_count }} / 7 days complete</span>
-        <span class="text-muted" style="font-size:0.72rem;">{{ (done_count / 7 * 100)|int }}%</span>
-      </div>
-
-      {% if unlock_dates %}
-      <div class="mt-2 alert alert-warning border-0 py-2 small">
-        <i class="bi bi-calendar-lock me-1"></i>
-        <strong>7-day rule:</strong> Har din ek alag calendar date pe complete hoga.
-        Agla din wali date neeche dikh rahi hai.
+      {% endfor %}
+      {% if all_done %}
+      <div class="ms-2 d-flex align-items-center" style="color:#34c759;font-weight:700;font-size:.9rem;">
+        <i class="bi bi-trophy-fill me-1"></i>All Done!
       </div>
       {% endif %}
     </div>
+
+    {% set done_count = progress.values()|list|sum %}
+    <div class="ap-progress-bar mb-2">
+      <div class="ap-progress-fill" style="width:{{ (done_count / 7 * 100)|int }}%;"></div>
+    </div>
+    <div class="d-flex justify-content-between" style="font-size:.75rem;color:#8e8e93;">
+      <span>{{ done_count }}/7 days complete</span>
+      <span>{{ (done_count / 7 * 100)|int }}%</span>
+    </div>
+
+    {% if unlock_dates %}
+    <div class="ap-notice warning mt-3">
+      <i class="bi bi-calendar-lock"></i>
+      <span><strong>7-Day Rule:</strong> Each day must be completed on a separate calendar date.</span>
+    </div>
+    {% endif %}
   </div>
 
   <!-- Bonus Videos (shown after all days done) -->
   {% if all_done and bonus_videos %}
-  <div class="card border-0 shadow-sm rounded-3 mb-4">
-    <div class="card-body p-3 p-md-4">
-      <h6 class="fw-bold mb-3"><i class="bi bi-stars me-2 text-warning"></i>Additional / Bonus Videos</h6>
-      <div class="row g-3">
-        {% for bv in bonus_videos %}
-        {% set byt = bv.youtube_url %}
-        {% set byt_id = '' %}
-        {% if 'youtu.be/' in byt %}{% set byt_id = byt.split('youtu.be/')[1].split('?')[0] %}
-        {% elif 'v=' in byt %}{% set byt_id = byt.split('v=')[1].split('&')[0] %}{% endif %}
-        <div class="col-12 col-md-6">
-          <div class="card border-0 bg-light rounded-3">
-            <div class="card-body p-3">
-              <div class="d-flex align-items-center gap-2 mb-2">
-                <span class="badge bg-warning text-dark rounded-pill">Bonus</span>
-                <span class="fw-semibold small">{{ bv.title }}</span>
-              </div>
-              {% if byt_id %}
-              <div class="ratio ratio-16x9 rounded-2 overflow-hidden">
-                <iframe src="https://www.youtube.com/embed/{{ byt_id }}?rel=0&modestbranding=1"
-                        allowfullscreen loading="lazy"></iframe>
-              </div>
-              {% endif %}
-              {% if bv.description %}<p class="text-muted small mb-0 mt-2">{{ bv.description }}</p>{% endif %}
-            </div>
-          </div>
+  <div class="ap-section-label mb-3"><i class="bi bi-stars me-2"></i>Bonus Videos</div>
+  <div class="row g-3 mb-4">
+    {% for bv in bonus_videos %}
+    {% set byt = bv.youtube_url %}
+    {% set byt_id = '' %}
+    {% if 'youtu.be/' in byt %}{% set byt_id = byt.split('youtu.be/')[1].split('?')[0] %}
+    {% elif 'v=' in byt %}{% set byt_id = byt.split('v=')[1].split('&')[0] %}{% endif %}
+    <div class="col-12 col-md-6">
+      <div class="ap-card h-100">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <span class="ap-badge-bonus">Bonus</span>
+          <span class="fw-semibold" style="font-size:.95rem;">{{ bv.title }}</span>
         </div>
-        {% endfor %}
+        {% if byt_id %}
+        <div class="ap-video-wrap">
+          <iframe src="https://www.youtube.com/embed/{{ byt_id }}?rel=0&modestbranding=1"
+                  allowfullscreen loading="lazy"></iframe>
+        </div>
+        {% endif %}
+        {% if bv.description %}<p class="ap-desc mt-2 mb-0">{{ bv.description }}</p>{% endif %}
       </div>
     </div>
+    {% endfor %}
   </div>
   {% endif %}
 
@@ -498,9 +464,298 @@
 
 {% block extra_head %}
 <style>
-.video-responsive { position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:12px; }
-.video-responsive > *, .video-responsive iframe, #ytPlayer { position:absolute!important; top:0!important; left:0!important; width:100%!important; height:100%!important; border:0; }
-@keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(25,135,84,.4);} 70%{box-shadow:0 0 0 8px rgba(25,135,84,0);} }
+/* ═══════════════════════════════════════════════
+   Apple-style Training Design System
+   ═══════════════════════════════════════════════ */
+:root {
+  --ap-blue:     #007AFF;
+  --ap-green:    #34C759;
+  --ap-purple:   #5856D6;
+  --ap-orange:   #FF9500;
+  --ap-red:      #FF3B30;
+  --ap-gray1:    #F2F2F7;
+  --ap-gray2:    #E5E5EA;
+  --ap-gray3:    #8E8E93;
+  --ap-label:    #1C1C1E;
+  --ap-sublabel: #3C3C43;
+  --ap-radius:   14px;
+  --ap-shadow:   0 2px 20px rgba(0,0,0,.06), 0 1px 4px rgba(0,0,0,.04);
+  --ap-font:     -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+}
+
+.ap-page {
+  font-family: var(--ap-font);
+  max-width: 860px;
+}
+
+/* Card */
+.ap-card {
+  background: #fff;
+  border-radius: var(--ap-radius);
+  box-shadow: var(--ap-shadow);
+  padding: 1.25rem;
+  border: none;
+}
+
+/* Segmented control (tab switcher) */
+.ap-seg {
+  display: inline-flex;
+  background: var(--ap-gray1);
+  border-radius: 9px;
+  padding: 3px;
+  gap: 2px;
+  border: none;
+}
+.ap-seg-btn {
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  padding: .35rem .9rem;
+  font-size: .87rem;
+  font-weight: 500;
+  color: var(--ap-gray3);
+  cursor: pointer;
+  transition: all .2s;
+}
+.ap-seg-btn.active, .ap-seg-btn:not(.collapsed):focus {
+  background: #fff;
+  color: var(--ap-label);
+  box-shadow: 0 1px 4px rgba(0,0,0,.12);
+}
+/* Bootstrap tab compatibility */
+.nav-tabs { display: none; }
+.ap-seg-btn[data-bs-toggle="tab"].active { background: #fff; color: var(--ap-label); box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+
+/* Hero banner */
+.ap-hero {
+  border-radius: var(--ap-radius);
+  padding: 2rem 1.5rem;
+  text-align: center;
+  color: #fff;
+}
+.ap-hero.success  { background: linear-gradient(135deg,#1a9e50,#34C759); }
+.ap-hero.purple   { background: linear-gradient(135deg,#4338ca,#6366f1); }
+.ap-hero-icon     { font-size: 3rem; margin-bottom: .5rem; }
+.ap-btn-white {
+  display: inline-flex; align-items: center;
+  background: rgba(255,255,255,.95);
+  color: var(--ap-label);
+  border-radius: 22px;
+  padding: .55rem 1.5rem;
+  font-size: .9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform .15s, box-shadow .15s;
+  box-shadow: 0 2px 10px rgba(0,0,0,.15);
+}
+.ap-btn-white:hover { transform: scale(1.03); box-shadow: 0 4px 16px rgba(0,0,0,.2); color: var(--ap-label); }
+.ap-fail-badge {
+  display: inline-block;
+  background: rgba(255,59,48,.2);
+  border: 1px solid rgba(255,59,48,.4);
+  color: #fff;
+  border-radius: 8px;
+  padding: .4rem .9rem;
+  font-size: .85rem;
+}
+
+/* Buttons */
+.ap-btn {
+  display: inline-flex; align-items: center;
+  border-radius: 10px;
+  padding: .6rem 1.4rem;
+  font-size: .9rem;
+  font-weight: 600;
+  border: none; cursor: pointer;
+  text-decoration: none;
+  transition: opacity .15s, transform .12s;
+}
+.ap-btn:hover { opacity: .88; transform: scale(1.02); }
+.ap-btn.primary { background: var(--ap-blue); color: #fff; }
+.ap-btn.success { background: var(--ap-green); color: #fff; }
+.ap-btn:disabled { opacity: .4; transform: none; cursor: default; }
+
+/* Resource buttons (Podcast / PDF) */
+.ap-resource-btn {
+  display: inline-flex; align-items: center;
+  border-radius: 10px;
+  padding: .5rem 1.1rem;
+  font-size: .88rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity .15s, transform .12s;
+}
+.ap-resource-btn:hover { opacity: .82; transform: scale(1.02); }
+.ap-resource-btn.podcast {
+  background: rgba(0,122,255,.1);
+  color: var(--ap-blue);
+  border: 1.5px solid rgba(0,122,255,.25);
+}
+.ap-resource-btn.pdf {
+  background: rgba(255,59,48,.08);
+  color: var(--ap-red);
+  border: 1.5px solid rgba(255,59,48,.25);
+}
+
+/* Notice / alert bar */
+.ap-notice {
+  display: flex; align-items: flex-start; gap: .75rem;
+  background: var(--ap-gray1);
+  border-radius: 10px;
+  padding: .75rem 1rem;
+  font-size: .88rem;
+  color: var(--ap-sublabel);
+}
+.ap-notice i { font-size: 1rem; margin-top: .05rem; flex-shrink: 0; }
+.ap-notice.warning { background: #fff8e6; color: #7c5a00; }
+.ap-notice.success { background: #e8faf0; color: #0a5c2a; }
+
+/* Watch notice bar */
+.ap-watch-notice {
+  display: flex; align-items: center;
+  gap: .6rem;
+  background: rgba(0,122,255,.08);
+  border: 1px solid rgba(0,122,255,.2);
+  border-radius: 10px;
+  padding: .65rem 1rem;
+  font-size: .86rem;
+  color: var(--ap-blue);
+  font-weight: 500;
+  margin-bottom: .5rem;
+}
+.ap-watch-notice.success {
+  background: rgba(52,199,89,.1);
+  border-color: rgba(52,199,89,.3);
+  color: #1a7a3a;
+}
+
+/* Video embed */
+.ap-video-wrap {
+  position: relative;
+  padding-bottom: 56.25%;
+  height: 0;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #000;
+}
+.ap-video-wrap > *, .ap-video-wrap iframe, #ytPlayer {
+  position: absolute !important;
+  top: 0 !important; left: 0 !important;
+  width: 100% !important; height: 100% !important;
+  border: 0;
+}
+
+/* Day dots */
+.ap-day-dot {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .72rem; font-weight: 700;
+  transition: transform .15s;
+}
+.ap-day-dot.done    { background: var(--ap-green); color: #fff; }
+.ap-day-dot.current { background: var(--ap-blue);  color: #fff; box-shadow: 0 0 0 3px rgba(0,122,255,.25); }
+.ap-day-dot.locked  { background: var(--ap-gray2); color: var(--ap-gray3); }
+
+/* Large day badge */
+.ap-day-big {
+  background: var(--ap-blue);
+  color: #fff;
+  border-radius: 10px;
+  padding: .3rem .8rem;
+  font-size: .9rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Badges */
+.ap-badge-day {
+  background: rgba(0,122,255,.12);
+  color: var(--ap-blue);
+  border-radius: 6px;
+  padding: .2rem .55rem;
+  font-size: .75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ap-badge-bonus {
+  background: rgba(255,149,0,.15);
+  color: #c47000;
+  border-radius: 6px;
+  padding: .2rem .55rem;
+  font-size: .75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Status badges */
+.ap-status-badge {
+  border-radius: 6px;
+  padding: .2rem .6rem;
+  font-size: .75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ap-status-badge.success  { background: rgba(52,199,89,.15);  color: #1a6b33; }
+.ap-status-badge.info     { background: rgba(0,122,255,.12);  color: #0058b8; }
+.ap-status-badge.warning  { background: rgba(255,149,0,.15);  color: #b36a00; }
+.ap-status-badge.danger   { background: rgba(255,59,48,.12);  color: #c0392b; }
+.ap-status-badge.secondary{ background: var(--ap-gray2);      color: var(--ap-gray3); }
+
+/* Section label */
+.ap-section-label {
+  font-size: .8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--ap-gray3);
+}
+
+/* Progress bar */
+.ap-progress-bar {
+  height: 6px;
+  background: var(--ap-gray2);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.ap-progress-fill {
+  height: 100%;
+  background: var(--ap-green);
+  border-radius: 99px;
+  transition: width .6s ease;
+}
+
+/* Icon circle */
+.ap-icon-circle {
+  width: 44px; height: 44px;
+  border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+.ap-icon-circle.primary { background: rgba(0,122,255,.12); color: var(--ap-blue); }
+
+/* Divider */
+.ap-divider { border: none; border-top: 1px solid var(--ap-gray2); margin: 1rem 0; }
+
+/* Description text */
+.ap-desc { font-size: .83rem; color: var(--ap-gray3); }
+
+/* Empty state */
+.ap-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--ap-gray3);
+}
+.ap-empty i { font-size: 3rem; display: block; margin-bottom: 1rem; opacity: .4; }
+
+/* Pulse animation for complete button */
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(52,199,89,.4); }
+  70%      { box-shadow: 0 0 0 8px rgba(52,199,89,0); }
+}
 .pulse-btn { animation: pulse 1.5s infinite; }
 </style>
 {% endblock %}
