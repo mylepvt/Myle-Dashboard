@@ -198,6 +198,8 @@ def init_db():
             day_number  INTEGER NOT NULL UNIQUE,
             title       TEXT    NOT NULL DEFAULT '',
             youtube_url TEXT    NOT NULL DEFAULT '',
+            podcast_url TEXT    NOT NULL DEFAULT '',
+            pdf_url     TEXT    NOT NULL DEFAULT '',
             description TEXT    NOT NULL DEFAULT '',
             created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
         )
@@ -237,6 +239,45 @@ def init_db():
             badge_key   TEXT NOT NULL,
             unlocked_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
             UNIQUE(username, badge_key)
+        )
+    """)
+
+    # Training test questions (MCQ)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS training_questions (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            question       TEXT    NOT NULL,
+            option_a       TEXT    NOT NULL DEFAULT '',
+            option_b       TEXT    NOT NULL DEFAULT '',
+            option_c       TEXT    NOT NULL DEFAULT '',
+            option_d       TEXT    NOT NULL DEFAULT '',
+            correct_answer TEXT    NOT NULL DEFAULT 'a',
+            sort_order     INTEGER NOT NULL DEFAULT 0,
+            created_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+        )
+    """)
+
+    # Training test attempt history
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS training_test_attempts (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            username        TEXT    NOT NULL,
+            score           INTEGER NOT NULL DEFAULT 0,
+            total_questions INTEGER NOT NULL DEFAULT 0,
+            passed          INTEGER NOT NULL DEFAULT 0,
+            attempted_at    TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+        )
+    """)
+
+    # Bonus/additional videos
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bonus_videos (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            title       TEXT    NOT NULL DEFAULT '',
+            youtube_url TEXT    NOT NULL DEFAULT '',
+            description TEXT    NOT NULL DEFAULT '',
+            sort_order  INTEGER NOT NULL DEFAULT 0,
+            created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
         )
     """)
 
@@ -309,6 +350,8 @@ def migrate_db():
         ("certificate_path",      "TEXT NOT NULL DEFAULT ''"),
         # Badges
         ("badges_json",           "TEXT NOT NULL DEFAULT '[]'"),
+        ("test_score",            "INTEGER NOT NULL DEFAULT -1"),
+        ("test_attempts",         "INTEGER NOT NULL DEFAULT 0"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
@@ -447,12 +490,24 @@ def migrate_db():
                 day_number  INTEGER NOT NULL UNIQUE,
                 title       TEXT    NOT NULL DEFAULT '',
                 youtube_url TEXT    NOT NULL DEFAULT '',
+                podcast_url TEXT    NOT NULL DEFAULT '',
+                pdf_url     TEXT    NOT NULL DEFAULT '',
                 description TEXT    NOT NULL DEFAULT '',
                 created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
             )
         """)
     except Exception:
         pass
+
+    # Add podcast_url / pdf_url to existing training_videos rows
+    for col, definition in [
+        ("podcast_url", "TEXT NOT NULL DEFAULT ''"),
+        ("pdf_url",     "TEXT NOT NULL DEFAULT ''"),
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE training_videos ADD COLUMN {col} {definition}")
+        except Exception:
+            pass
 
     # --- training_progress table ---
     try:
@@ -495,6 +550,54 @@ def migrate_db():
                 badge_key   TEXT NOT NULL,
                 unlocked_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
                 UNIQUE(username, badge_key)
+            )
+        """)
+    except Exception:
+        pass
+
+    # --- training_questions table ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS training_questions (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                question       TEXT    NOT NULL,
+                option_a       TEXT    NOT NULL DEFAULT '',
+                option_b       TEXT    NOT NULL DEFAULT '',
+                option_c       TEXT    NOT NULL DEFAULT '',
+                option_d       TEXT    NOT NULL DEFAULT '',
+                correct_answer TEXT    NOT NULL DEFAULT 'a',
+                sort_order     INTEGER NOT NULL DEFAULT 0,
+                created_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+        """)
+    except Exception:
+        pass
+
+    # --- training_test_attempts table ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS training_test_attempts (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                username        TEXT    NOT NULL,
+                score           INTEGER NOT NULL DEFAULT 0,
+                total_questions INTEGER NOT NULL DEFAULT 0,
+                passed          INTEGER NOT NULL DEFAULT 0,
+                attempted_at    TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+        """)
+    except Exception:
+        pass
+
+    # --- bonus_videos table ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS bonus_videos (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                title       TEXT    NOT NULL DEFAULT '',
+                youtube_url TEXT    NOT NULL DEFAULT '',
+                description TEXT    NOT NULL DEFAULT '',
+                sort_order  INTEGER NOT NULL DEFAULT 0,
+                created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
             )
         """)
     except Exception:

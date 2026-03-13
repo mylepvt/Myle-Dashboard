@@ -53,8 +53,22 @@
                         allowfullscreen loading="lazy" class="rounded-2"></iframe>
               </div>
               {% endif %}
+              {% if vid.podcast_url %}
+              <div class="mt-2">
+                <a href="{{ vid.podcast_url }}" target="_blank" class="btn btn-sm btn-outline-info w-100">
+                  <i class="bi bi-mic-fill me-1"></i> Podcast Audio Suno
+                </a>
+              </div>
+              {% endif %}
+              {% if vid.pdf_url %}
+              <div class="mt-1">
+                <a href="{{ vid.pdf_url }}" target="_blank" class="btn btn-sm btn-outline-danger w-100">
+                  <i class="bi bi-file-earmark-pdf me-1"></i> PDF Download Karo
+                </a>
+              </div>
+              {% endif %}
               {% if vid.description %}
-              <p class="text-muted small mb-0">{{ vid.description }}</p>
+              <p class="text-muted small mb-0 mt-2">{{ vid.description }}</p>
               {% endif %}
             </div>
           </div>
@@ -72,6 +86,37 @@
       <div class="text-center py-5 text-muted">
         <i class="bi bi-camera-video-off fs-1 d-block mb-2 opacity-50"></i>
         <p>Admin ne abhi koi video configure nahi ki hai.</p>
+      </div>
+      {% endif %}
+
+      <!-- Bonus Videos (viewer mode) -->
+      {% if bonus_videos %}
+      <hr class="my-4">
+      <h6 class="fw-bold mb-3"><i class="bi bi-stars me-2 text-warning"></i>Additional / Bonus Videos</h6>
+      <div class="row g-3">
+        {% for bv in bonus_videos %}
+        {% set byt = bv.youtube_url %}
+        {% set byt_id = '' %}
+        {% if 'youtu.be/' in byt %}{% set byt_id = byt.split('youtu.be/')[1].split('?')[0] %}
+        {% elif 'v=' in byt %}{% set byt_id = byt.split('v=')[1].split('&')[0] %}{% endif %}
+        <div class="col-12 col-md-6 col-lg-4">
+          <div class="card border-0 shadow-sm rounded-3 h-100">
+            <div class="card-body p-3">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-warning text-dark rounded-pill">Bonus</span>
+                <span class="fw-semibold small text-truncate">{{ bv.title }}</span>
+              </div>
+              {% if byt_id %}
+              <div class="ratio ratio-16x9 rounded-2 overflow-hidden mb-2">
+                <iframe src="https://www.youtube.com/embed/{{ byt_id }}?rel=0&modestbranding=1"
+                        allowfullscreen loading="lazy"></iframe>
+              </div>
+              {% endif %}
+              {% if bv.description %}<p class="text-muted small mb-0">{{ bv.description }}</p>{% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
       </div>
       {% endif %}
     </div>
@@ -164,37 +209,57 @@
   </div>
 
   {% if all_done and training_status == 'completed' %}
-  <!-- ── Certificate section ── -->
-  <div class="card card-gradient-green mb-4">
-    <div class="card-body p-4 text-center">
-      <div class="mb-2" style="font-size:3rem;">🎉</div>
-      <h4 class="fw-bold mb-1">Training Complete!</h4>
-      <p class="mb-3 opacity-90 small">You've finished all 7 days. Download your certificate, then upload it below to unlock the full app.</p>
-      <a href="{{ url_for('training_certificate') }}" target="_blank"
-         class="btn btn-light fw-semibold me-2 mb-2">
-        <i class="bi bi-award-fill me-1 text-warning"></i> View &amp; Print Certificate
-      </a>
+    {% if test_score >= 60 %}
+    <!-- ── All done + test passed → Certificate ── -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4" style="background:linear-gradient(135deg,#198754,#20c997);color:#fff;">
+      <div class="card-body p-4 text-center">
+        <div class="mb-2" style="font-size:3rem;">🎉</div>
+        <h4 class="fw-bold mb-1">Test Pass! Certificate Ready!</h4>
+        <p class="mb-3 opacity-90 small">Score: <strong>{{ test_score }}/100</strong>. Ab apna certificate download karo, phir upload karo.</p>
+        <a href="{{ url_for('training_certificate') }}" target="_blank"
+           class="btn btn-light fw-semibold me-2 mb-2">
+          <i class="bi bi-award-fill me-1 text-warning"></i> View &amp; Print Certificate
+        </a>
+      </div>
     </div>
-  </div>
-
-  <!-- Upload certificate -->
-  <div class="card border-0 shadow-sm rounded-3 mb-4">
-    <div class="card-body p-4">
-      <h6 class="fw-bold mb-1"><i class="bi bi-upload me-2 text-primary"></i>Upload Certificate to Unlock App</h6>
-      <p class="text-muted small mb-3">Print your certificate (Ctrl+P → Save as PDF), then upload it here.</p>
-      <form method="post" action="{{ url_for('training_upload_certificate') }}" enctype="multipart/form-data">
-        <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
-        <div class="d-flex gap-2 align-items-center flex-wrap">
-          <input type="file" name="certificate_file" class="form-control form-control-sm"
-                 accept=".pdf,.jpg,.jpeg,.png" style="max-width:320px;" required>
-          <button type="submit" class="btn btn-primary btn-sm fw-semibold">
-            <i class="bi bi-unlock-fill me-1"></i> Upload &amp; Unlock
-          </button>
+    <!-- Upload certificate -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+      <div class="card-body p-4">
+        <h6 class="fw-bold mb-1"><i class="bi bi-upload me-2 text-primary"></i>Certificate Upload Karo → App Unlock Hoga</h6>
+        <p class="text-muted small mb-3">Certificate print karo (Ctrl+P → Save as PDF), phir yahan upload karo.</p>
+        <form method="post" action="{{ url_for('training_upload_certificate') }}" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <input type="file" name="certificate_file" class="form-control form-control-sm"
+                   accept=".pdf,.jpg,.jpeg,.png" style="max-width:320px;" required>
+            <button type="submit" class="btn btn-primary btn-sm fw-semibold">
+              <i class="bi bi-unlock-fill me-1"></i> Upload &amp; Unlock
+            </button>
+          </div>
+          <div class="form-text mt-1">Accepted: PDF, JPG, PNG · Max 5 MB</div>
+        </form>
+      </div>
+    </div>
+    {% else %}
+    <!-- ── All done → Must take test ── -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4" style="background:linear-gradient(135deg,#0d6efd,#6610f2);color:#fff;">
+      <div class="card-body p-4 text-center">
+        <div class="mb-2" style="font-size:3rem;">🎓</div>
+        <h4 class="fw-bold mb-1">7 Din Complete! Ab Test Do</h4>
+        <p class="mb-1 opacity-90 small">Certificate ke liye training test pass karna zaroori hai.</p>
+        <p class="mb-3 opacity-75 small">60/100 ya zyada score karo.</p>
+        {% if test_score >= 0 %}
+        <div class="alert alert-danger border-0 mb-3 py-2 small">
+          <i class="bi bi-x-circle me-1"></i> Last attempt: <strong>{{ test_score }}/100</strong>. Dobara try karo!
         </div>
-        <div class="form-text mt-1">Accepted: PDF, JPG, PNG · Max 5 MB</div>
-      </form>
+        {% endif %}
+        <a href="{{ url_for('training_test') }}" class="btn btn-light fw-semibold">
+          <i class="bi bi-patch-question me-1 text-primary"></i>
+          {% if test_score >= 0 %}Dobara Test Do{% else %}Test Shuru Karo{% endif %}
+        </a>
+      </div>
     </div>
-  </div>
+    {% endif %}
 
   {% elif training_status == 'unlocked' %}
   <div class="alert alert-success border-0 rounded-3 d-flex align-items-center gap-2">
@@ -321,6 +386,25 @@
       <hr class="my-3">
       <p class="small text-muted mb-0"><i class="bi bi-info-circle me-1"></i>{{ vid.description }}</p>
       {% endif %}
+
+      <!-- Podcast & PDF for current day -->
+      {% if vid %}
+      {% if vid.podcast_url or vid.pdf_url %}
+      <hr class="my-3">
+      <div class="d-flex gap-2 flex-wrap">
+        {% if vid.podcast_url %}
+        <a href="{{ vid.podcast_url }}" target="_blank" class="btn btn-sm btn-outline-info">
+          <i class="bi bi-mic-fill me-1"></i> Podcast Audio Suno
+        </a>
+        {% endif %}
+        {% if vid.pdf_url %}
+        <a href="{{ vid.pdf_url }}" target="_blank" class="btn btn-sm btn-outline-danger">
+          <i class="bi bi-file-earmark-pdf me-1"></i> PDF Download Karo
+        </a>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% endif %}
     </div>
   </div>
   {% endif %}
@@ -333,12 +417,18 @@
         {% for d in days %}
           {% set done = progress.get(d, 0) %}
           {% set is_active = (d == current_day and not all_done) %}
-          {% set is_locked = (d > current_day and not done) %}
+          {% set unlock_date = unlock_dates.get(d, '') %}
           <div class="d-flex flex-column align-items-center gap-1" style="min-width:44px;">
-            <div class="training-day-step {% if done %}done{% elif is_active %}active{% else %}locked{% endif %}">
+            <div class="training-day-step {% if done %}done{% elif is_active %}active{% else %}locked{% endif %}"
+                 {% if not done and not is_active and unlock_date %}
+                 title="Available from: {{ unlock_date }}"
+                 {% endif %}>
               {% if done %}<i class="bi bi-check2"></i>{% else %}{{ d }}{% endif %}
             </div>
             <span style="font-size:0.6rem;color:#6c757d;">Day {{ d }}</span>
+            {% if not done and not is_active and unlock_date %}
+            <span style="font-size:0.55rem;color:#dc3545;text-align:center;line-height:1.2;max-width:50px;">{{ unlock_date }}</span>
+            {% endif %}
           </div>
         {% endfor %}
         {% if all_done %}
@@ -356,8 +446,50 @@
         <span class="text-muted" style="font-size:0.72rem;">{{ done_count }} / 7 days complete</span>
         <span class="text-muted" style="font-size:0.72rem;">{{ (done_count / 7 * 100)|int }}%</span>
       </div>
+
+      {% if unlock_dates %}
+      <div class="mt-2 alert alert-warning border-0 py-2 small">
+        <i class="bi bi-calendar-lock me-1"></i>
+        <strong>7-day rule:</strong> Har din ek alag calendar date pe complete hoga.
+        Agla din wali date neeche dikh rahi hai.
+      </div>
+      {% endif %}
     </div>
   </div>
+
+  <!-- Bonus Videos (shown after all days done) -->
+  {% if all_done and bonus_videos %}
+  <div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-body p-3 p-md-4">
+      <h6 class="fw-bold mb-3"><i class="bi bi-stars me-2 text-warning"></i>Additional / Bonus Videos</h6>
+      <div class="row g-3">
+        {% for bv in bonus_videos %}
+        {% set byt = bv.youtube_url %}
+        {% set byt_id = '' %}
+        {% if 'youtu.be/' in byt %}{% set byt_id = byt.split('youtu.be/')[1].split('?')[0] %}
+        {% elif 'v=' in byt %}{% set byt_id = byt.split('v=')[1].split('&')[0] %}{% endif %}
+        <div class="col-12 col-md-6">
+          <div class="card border-0 bg-light rounded-3">
+            <div class="card-body p-3">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-warning text-dark rounded-pill">Bonus</span>
+                <span class="fw-semibold small">{{ bv.title }}</span>
+              </div>
+              {% if byt_id %}
+              <div class="ratio ratio-16x9 rounded-2 overflow-hidden">
+                <iframe src="https://www.youtube.com/embed/{{ byt_id }}?rel=0&modestbranding=1"
+                        allowfullscreen loading="lazy"></iframe>
+              </div>
+              {% endif %}
+              {% if bv.description %}<p class="text-muted small mb-0 mt-2">{{ bv.description }}</p>{% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
 {% endif %}{# end is_viewer #}
 
