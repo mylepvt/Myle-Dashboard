@@ -35,7 +35,7 @@ from email.mime.text import MIMEText
 from functools import wraps
 from urllib.parse import quote as _url_quote
 from flask import (Flask, render_template, request, redirect, url_for,
-                   flash, session, Response, make_response, abort)
+                   flash, session, Response, make_response, abort, send_from_directory)
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_db, init_db, migrate_db, seed_users
 
@@ -4728,6 +4728,7 @@ _TRAINING_EXEMPT = (
     '/login', '/register', '/logout', '/health',
     '/manifest.json', '/sw.js', '/forgot-password',
     '/reset-password', '/push', '/calling-reminder',
+    '/admin/training/signature-preview',
 )
 
 @app.before_request
@@ -4756,6 +4757,34 @@ def _get_training_progress(db, username):
     return {r['day_number']: r['completed'] for r in rows}
 
 
+def _get_training_dates(db, username):
+    """Return dict {day_number: completed_at_str} for the user."""
+    rows = db.execute(
+        "SELECT day_number, completed_at FROM training_progress WHERE username=? AND completed=1",
+        (username,)
+    ).fetchall()
+    return {r['day_number']: r['completed_at'] for r in rows}
+
+
+def _day_unlock_dates(dates_dict):
+    """
+    Given {day_number: completed_at_str}, return {day_number: earliest_unlock_date_str}
+    for locked days (i.e. days that can't be done yet because of calendar enforcement).
+    Day N is unlocked on: day1_date + (N-1) days.
+    """
+    if 1 not in dates_dict or not dates_dict[1]:
+        return {}
+    try:
+        day1_date = datetime.datetime.strptime(dates_dict[1][:10], '%Y-%m-%d').date()
+    except Exception:
+        return {}
+    result = {}
+    for n in range(2, 8):
+        earliest = day1_date + datetime.timedelta(days=n - 1)
+        result[n] = earliest.strftime('%d %b %Y')
+    return result
+
+
 @app.route('/training')
 @login_required
 def training_home():
@@ -4773,6 +4802,11 @@ def training_home():
         # All training videos (freely watchable)
         videos = {v['day_number']: v for v in
                   db.execute("SELECT * FROM training_videos ORDER BY day_number").fetchall()}
+
+        # Bonus videos
+        bonus_videos = db.execute(
+            "SELECT * FROM bonus_videos ORDER BY sort_order, id"
+        ).fetchall()
 
         # Direct downline who have training_required=1
         downline_rows = db.execute("""
@@ -4794,16 +4828,21 @@ def training_home():
                                downline=downline_rows,
                                days=range(1, 8),
                                videos=videos, progress={},
+                               bonus_videos=bonus_videos,
                                current_day=None, current_video=None,
-                               all_done=False, joining_date='')
+                               all_done=False, joining_date='',
+                               test_score=-1, unlock_dates={})
 
     # ── Members currently in training ──
     videos = {v['day_number']: v for v in
               db.execute("SELECT * FROM training_videos ORDER BY day_number").fetchall()}
 
     progress = _get_training_progress(db, username)
+    dates    = _get_training_dates(db, username)
+    unlock_dates = _day_unlock_dates(dates)
 
-    # Find current day (first incomplete)
+    # Find current day (first incomplete, also respecting calendar lock)
+    today = datetime.date.today()
     current_day = 1
     for d in range(1, 8):
         if not progress.get(d, 0):
@@ -4825,9 +4864,19 @@ def training_home():
 
     current_video = videos.get(current_day)
     user_row = db.execute(
-        "SELECT joining_date, training_status FROM users WHERE username=?",
+        "SELECT joining_date, training_status, test_score FROM users WHERE username=?",
         (username,)
     ).fetchone()
+
+    test_score = user_row['test_score'] if user_row else -1
+
+    # Bonus videos (shown after all days done)
+    bonus_videos = []
+    if all_done:
+        bonus_videos = db.execute(
+            "SELECT * FROM bonus_videos ORDER BY sort_order, id"
+        ).fetchall()
+
     db.close()
 
     return render_template('training.html',
@@ -4840,7 +4889,10 @@ def training_home():
                            training_status=ts,
                            joining_date=user_row['joining_date'] if user_row else '',
                            days=range(1, 8),
-                           downline=[])
+                           downline=[],
+                           test_score=test_score,
+                           unlock_dates=unlock_dates,
+                           bonus_videos=bonus_videos)
 
 
 @app.route('/training/complete-day', methods=['POST'])
@@ -4861,6 +4913,25 @@ def training_complete_day():
             db.close()
             flash('Please complete previous days first.', 'warning')
             return redirect(url_for('training_home'))
+
+    # ── Calendar enforcement: Day N only after day1_date + (N-1) days ──
+    if day > 1:
+        dates = _get_training_dates(db, username)
+        day1_str = dates.get(1, '')
+        if day1_str:
+            try:
+                day1_date = datetime.datetime.strptime(day1_str[:10], '%Y-%m-%d').date()
+                earliest = day1_date + datetime.timedelta(days=day - 1)
+                if datetime.date.today() < earliest:
+                    db.close()
+                    flash(
+                        f'Day {day} is locked until {earliest.strftime("%d %b %Y")}. '
+                        f'Training must be spread over 7 days.',
+                        'warning'
+                    )
+                    return redirect(url_for('training_home'))
+            except Exception:
+                pass
 
     now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
     db.execute(
@@ -4898,14 +4969,25 @@ def training_certificate():
     username = session['username']
     db = get_db()
     user_row = db.execute(
-        "SELECT joining_date, training_status FROM users WHERE username=?",
+        "SELECT joining_date, training_status, test_score FROM users WHERE username=?",
         (username,)
     ).fetchone()
+
+    # Require test pass (score >= 60) unless already unlocked
+    test_score = user_row['test_score'] if user_row else -1
+    if ts != 'unlocked' and test_score < 60:
+        db.close()
+        flash('Training test pass karna zaroori hai (60/100 ya zyada). Pehle test do.', 'warning')
+        return redirect(url_for('training_test'))
+
     # Find completion date (day 7)
     day7 = db.execute(
         "SELECT completed_at FROM training_progress WHERE username=? AND day_number=7",
         (username,)
     ).fetchone()
+
+    # Admin signature
+    sig_file = _get_setting(db, 'admin_signature_file', '')
     db.close()
 
     completion_date = ''
@@ -4918,13 +5000,16 @@ def training_certificate():
             completion_date = day7['completed_at'][:10]
 
     cert_number = f"MYLE-{_today_ist().year}-{username.upper()}"
+    sig_url = url_for('training_signature_preview') if sig_file else ''
 
     return render_template('training_certificate.html',
                            username=username,
                            joining_date=user_row['joining_date'] if user_row else '',
                            completion_date=completion_date,
                            cert_number=cert_number,
-                           training_status=ts)
+                           training_status=ts,
+                           test_score=test_score,
+                           sig_url=sig_url)
 
 
 @app.route('/training/upload-certificate', methods=['POST'])
@@ -4985,7 +5070,7 @@ def admin_training():
 
     # Members who need training
     members = db.execute(
-        "SELECT username, joining_date, training_status, training_required, certificate_path "
+        "SELECT username, joining_date, training_status, training_required, certificate_path, test_score "
         "FROM users WHERE role='team' AND status='approved' ORDER BY username"
     ).fetchall()
 
@@ -4995,21 +5080,36 @@ def admin_training():
         prog = _get_training_progress(db, m['username'])
         all_progress[m['username']] = sum(1 for d in range(1, 8) if prog.get(d, 0))
 
+    questions = db.execute(
+        "SELECT * FROM training_questions ORDER BY sort_order, id"
+    ).fetchall()
+
+    bonus_videos = db.execute(
+        "SELECT * FROM bonus_videos ORDER BY sort_order, id"
+    ).fetchall()
+
+    sig_file = _get_setting(db, 'admin_signature_file', '')
     db.close()
+
     return render_template('admin_training.html',
                            videos=videos,
                            members=members,
                            all_progress=all_progress,
-                           days=range(1, 8))
+                           days=range(1, 8),
+                           questions=questions,
+                           bonus_videos=bonus_videos,
+                           sig_file=sig_file)
 
 
 @app.route('/admin/training/save-video', methods=['POST'])
 @admin_required
 def admin_training_save_video():
-    day   = request.form.get('day_number', type=int)
-    title = request.form.get('title', '').strip()
-    url   = request.form.get('youtube_url', '').strip()
-    desc  = request.form.get('description', '').strip()
+    day         = request.form.get('day_number', type=int)
+    title       = request.form.get('title', '').strip()
+    url         = request.form.get('youtube_url', '').strip()
+    podcast_url = request.form.get('podcast_url', '').strip()
+    pdf_url     = request.form.get('pdf_url', '').strip()
+    desc        = request.form.get('description', '').strip()
 
     if not day or day < 1 or day > 7:
         flash('Invalid day number.', 'danger')
@@ -5017,9 +5117,11 @@ def admin_training_save_video():
 
     db = get_db()
     db.execute(
-        "INSERT INTO training_videos (day_number, title, youtube_url, description) VALUES (?, ?, ?, ?) "
-        "ON CONFLICT(day_number) DO UPDATE SET title=?, youtube_url=?, description=?",
-        (day, title, url, desc, title, url, desc)
+        "INSERT INTO training_videos (day_number, title, youtube_url, podcast_url, pdf_url, description) "
+        "VALUES (?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(day_number) DO UPDATE SET title=?, youtube_url=?, podcast_url=?, pdf_url=?, description=?",
+        (day, title, url, podcast_url, pdf_url, desc,
+         title, url, podcast_url, pdf_url, desc)
     )
     db.commit()
     db.close()
@@ -5067,13 +5169,228 @@ def admin_training_reset(username):
     db = get_db()
     db.execute("DELETE FROM training_progress WHERE username=?", (username,))
     db.execute(
-        "UPDATE users SET training_status='pending', certificate_path='' WHERE username=? AND training_required=1",
+        "UPDATE users SET training_status='pending', certificate_path='', "
+        "test_score=-1, test_attempts=0 WHERE username=? AND training_required=1",
         (username,)
     )
     db.commit()
     db.close()
     flash(f'{username}: Training progress reset.', 'success')
     return redirect(url_for('admin_training'))
+
+
+# ─────────────────────────────────────────────────────────────
+#  Training Test Routes
+# ─────────────────────────────────────────────────────────────
+
+@app.route('/training/test')
+@login_required
+def training_test():
+    ts = session.get('training_status', 'pending')
+    if ts not in ('completed', 'unlocked'):
+        flash('Pehle saare 7 din ki training poori karo.', 'warning')
+        return redirect(url_for('training_home'))
+
+    username = session['username']
+    db = get_db()
+
+    # Fetch up to 20 questions (random order for variety)
+    questions = db.execute(
+        "SELECT * FROM training_questions ORDER BY RANDOM() LIMIT 20"
+    ).fetchall()
+
+    user_row = db.execute(
+        "SELECT test_score, test_attempts FROM users WHERE username=?", (username,)
+    ).fetchone()
+    db.close()
+
+    test_score   = user_row['test_score']   if user_row else -1
+    test_attempts = user_row['test_attempts'] if user_row else 0
+
+    return render_template('training_test.html',
+                           questions=questions,
+                           test_score=test_score,
+                           test_attempts=test_attempts,
+                           training_status=ts)
+
+
+@app.route('/training/test/submit', methods=['POST'])
+@login_required
+def training_test_submit():
+    ts = session.get('training_status', 'pending')
+    if ts not in ('completed', 'unlocked'):
+        return redirect(url_for('training_home'))
+
+    username = session['username']
+    db = get_db()
+
+    questions = db.execute("SELECT * FROM training_questions ORDER BY id").fetchall()
+    if not questions:
+        db.close()
+        flash('Koi questions available nahi hain. Admin se contact karo.', 'warning')
+        return redirect(url_for('training_home'))
+
+    correct = 0
+    total   = len(questions)
+    for q in questions:
+        ans = request.form.get(f'q_{q["id"]}', '').strip().lower()
+        if ans == q['correct_answer'].lower():
+            correct += 1
+
+    score   = int(correct / total * 100)
+    passed  = 1 if score >= 60 else 0
+    now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    db.execute(
+        "INSERT INTO training_test_attempts (username, score, total_questions, passed, attempted_at) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (username, score, total, passed, now_str)
+    )
+    db.execute(
+        "UPDATE users SET test_score=?, test_attempts=test_attempts+1 WHERE username=?",
+        (score, username)
+    )
+    db.commit()
+    db.close()
+
+    if passed:
+        flash(f'🎉 Congratulations! Score: {score}/100. Test pass! Ab apna certificate download karo.', 'success')
+        return redirect(url_for('training_certificate'))
+    else:
+        flash(f'Score: {score}/100. Pass nahi hua (60 chahiye). Dobara try karo!', 'danger')
+        return redirect(url_for('training_test'))
+
+
+# ─────────────────────────────────────────────────────────────
+#  Admin: Test Question Management
+# ─────────────────────────────────────────────────────────────
+
+@app.route('/admin/training/test/add-question', methods=['POST'])
+@admin_required
+def admin_training_add_question():
+    question = request.form.get('question', '').strip()
+    option_a = request.form.get('option_a', '').strip()
+    option_b = request.form.get('option_b', '').strip()
+    option_c = request.form.get('option_c', '').strip()
+    option_d = request.form.get('option_d', '').strip()
+    correct  = request.form.get('correct_answer', 'a').strip().lower()
+
+    if not question or not option_a or not option_b:
+        flash('Question aur kam se kam do options zaroori hain.', 'danger')
+        return redirect(url_for('admin_training') + '#testTab')
+
+    if correct not in ('a', 'b', 'c', 'd'):
+        correct = 'a'
+
+    db = get_db()
+    max_order = db.execute("SELECT COALESCE(MAX(sort_order),0) FROM training_questions").fetchone()[0]
+    db.execute(
+        "INSERT INTO training_questions (question, option_a, option_b, option_c, option_d, correct_answer, sort_order) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (question, option_a, option_b, option_c, option_d, correct, max_order + 1)
+    )
+    db.commit()
+    db.close()
+    flash('Question add ho gaya.', 'success')
+    return redirect(url_for('admin_training') + '#testTab')
+
+
+@app.route('/admin/training/test/delete-question/<int:qid>', methods=['POST'])
+@admin_required
+def admin_training_delete_question(qid):
+    db = get_db()
+    db.execute("DELETE FROM training_questions WHERE id=?", (qid,))
+    db.commit()
+    db.close()
+    flash('Question delete ho gaya.', 'success')
+    return redirect(url_for('admin_training') + '#testTab')
+
+
+# ─────────────────────────────────────────────────────────────
+#  Admin: Bonus Videos Management
+# ─────────────────────────────────────────────────────────────
+
+@app.route('/admin/training/save-bonus-video', methods=['POST'])
+@admin_required
+def admin_training_save_bonus_video():
+    vid_id  = request.form.get('vid_id', type=int)
+    title   = request.form.get('title', '').strip()
+    yt_url  = request.form.get('youtube_url', '').strip()
+    desc    = request.form.get('description', '').strip()
+
+    if not title or not yt_url:
+        flash('Title aur YouTube URL zaroori hain.', 'danger')
+        return redirect(url_for('admin_training') + '#bonusTab')
+
+    db = get_db()
+    if vid_id:
+        db.execute(
+            "UPDATE bonus_videos SET title=?, youtube_url=?, description=? WHERE id=?",
+            (title, yt_url, desc, vid_id)
+        )
+    else:
+        max_order = db.execute("SELECT COALESCE(MAX(sort_order),0) FROM bonus_videos").fetchone()[0]
+        db.execute(
+            "INSERT INTO bonus_videos (title, youtube_url, description, sort_order) VALUES (?, ?, ?, ?)",
+            (title, yt_url, desc, max_order + 1)
+        )
+    db.commit()
+    db.close()
+    flash('Bonus video saved.', 'success')
+    return redirect(url_for('admin_training') + '#bonusTab')
+
+
+@app.route('/admin/training/delete-bonus-video/<int:vid_id>', methods=['POST'])
+@admin_required
+def admin_training_delete_bonus_video(vid_id):
+    db = get_db()
+    db.execute("DELETE FROM bonus_videos WHERE id=?", (vid_id,))
+    db.commit()
+    db.close()
+    flash('Bonus video delete ho gaya.', 'success')
+    return redirect(url_for('admin_training') + '#bonusTab')
+
+
+# ─────────────────────────────────────────────────────────────
+#  Admin: Signature Management
+# ─────────────────────────────────────────────────────────────
+
+@app.route('/admin/training/upload-signature', methods=['POST'])
+@admin_required
+def admin_training_upload_signature():
+    f = request.files.get('signature_file')
+    if not f or not f.filename:
+        flash('Koi file select nahi ki.', 'danger')
+        return redirect(url_for('admin_training') + '#sigTab')
+
+    ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
+    if ext not in ('png', 'jpg', 'jpeg'):
+        flash('Sirf PNG ya JPG accept hai.', 'danger')
+        return redirect(url_for('admin_training') + '#sigTab')
+
+    upload_dir = os.path.join(os.path.dirname(__file__), 'uploads', 'admin')
+    os.makedirs(upload_dir, exist_ok=True)
+    filename = f'admin_signature.{ext}'
+    f.save(os.path.join(upload_dir, filename))
+
+    db = get_db()
+    _set_setting(db, 'admin_signature_file', filename)
+    db.commit()
+    db.close()
+
+    flash('Signature upload ho gayi.', 'success')
+    return redirect(url_for('admin_training') + '#sigTab')
+
+
+@app.route('/admin/training/signature-preview')
+def training_signature_preview():
+    db = get_db()
+    sig_file = _get_setting(db, 'admin_signature_file', '')
+    db.close()
+    if not sig_file:
+        return '', 404
+    upload_dir = os.path.join(os.path.dirname(__file__), 'uploads', 'admin')
+    return send_from_directory(upload_dir, sig_file)
 
 
 @app.route('/health')

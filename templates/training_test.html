@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Training Test – Myle Community{% endblock %}
+{% block page_title %}Training Test{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-3 p-md-4" style="max-width:800px;">
+
+  <!-- Header -->
+  <div class="card border-0 shadow-sm rounded-3 mb-4"
+       style="background:linear-gradient(135deg,#0d6efd,#6610f2);color:#fff;">
+    <div class="card-body p-4 text-center">
+      <div style="font-size:2.5rem;" class="mb-2">📝</div>
+      <h4 class="fw-bold mb-1">Training Test</h4>
+      <p class="opacity-90 small mb-1">
+        {{ questions|length }} questions · Pass mark: <strong>60/100</strong>
+      </p>
+      {% if test_attempts > 0 %}
+      <span class="badge bg-light text-dark">Attempt #{{ test_attempts + 1 }}</span>
+      {% if test_score >= 0 %}
+      <span class="badge {{ 'bg-success' if test_score >= 60 else 'bg-danger' }} ms-1">
+        Last score: {{ test_score }}/100
+      </span>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+
+  {% if not questions %}
+  <!-- No questions yet -->
+  <div class="card border-0 shadow-sm rounded-3">
+    <div class="card-body p-5 text-center text-muted">
+      <i class="bi bi-patch-question fs-1 d-block mb-3 opacity-40"></i>
+      <h5 class="fw-bold">Abhi koi questions add nahi hain</h5>
+      <p class="small">Admin ne abhi test questions add nahi kiye hain. Thodi der baad dobara try karo.</p>
+      <a href="{{ url_for('training_home') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Training pe wapas jao
+      </a>
+    </div>
+  </div>
+
+  {% else %}
+  <!-- Test form -->
+  <form method="post" action="{{ url_for('training_test_submit') }}" id="testForm">
+    <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
+
+    {% for q in questions %}
+    <div class="card border-0 shadow-sm rounded-3 mb-3" id="qcard_{{ loop.index }}">
+      <div class="card-body p-4">
+        <div class="d-flex gap-3 align-items-start">
+          <span class="badge bg-primary rounded-pill flex-shrink-0" style="min-width:32px;text-align:center;">
+            {{ loop.index }}
+          </span>
+          <div class="flex-grow-1">
+            <p class="fw-semibold mb-3">{{ q.question }}</p>
+
+            <div class="d-flex flex-column gap-2">
+              {% for opt, label in [('option_a','a'), ('option_b','b'), ('option_c','c'), ('option_d','d')] %}
+              {% if q[opt] %}
+              <label class="option-label d-flex align-items-center gap-3 p-3 rounded-3 border cursor-pointer"
+                     for="q{{ q.id }}_{{ label }}"
+                     onclick="selectOption(this)">
+                <input type="radio" name="q_{{ q.id }}" id="q{{ q.id }}_{{ label }}"
+                       value="{{ label }}" class="form-check-input flex-shrink-0 mt-0" required
+                       style="width:18px;height:18px;">
+                <span>
+                  <span class="fw-semibold text-muted me-2">{{ label.upper() }}.</span>
+                  {{ q[opt] }}
+                </span>
+              </label>
+              {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+    <!-- Submit -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+      <div class="card-body p-4 text-center">
+        <p class="text-muted small mb-3">
+          Saare {{ questions|length }} questions ka jawab do, phir submit karo.<br>
+          <strong>Pass mark: 60/100 ya zyada.</strong>
+        </p>
+        <div id="answerWarning" class="alert alert-warning border-0 small py-2 mb-3 d-none">
+          <i class="bi bi-exclamation-triangle me-1"></i>
+          Kuch questions ka jawab nahi diya. Submit karne se pehle check karo.
+        </div>
+        <button type="button" class="btn btn-primary fw-semibold px-5"
+                onclick="submitTest()">
+          <i class="bi bi-check2-circle me-2"></i>Test Submit Karo
+        </button>
+        <div class="mt-3">
+          <a href="{{ url_for('training_home') }}" class="text-muted small">
+            <i class="bi bi-arrow-left me-1"></i>Baad me aaunga
+          </a>
+        </div>
+      </div>
+    </div>
+  </form>
+  {% endif %}
+
+</div>
+
+<script>
+function selectOption(label) {
+  // Highlight selected option per question card
+  var name = label.querySelector('input').name;
+  document.querySelectorAll('input[name="' + name + '"]').forEach(function(inp) {
+    inp.closest('.option-label').classList.remove('selected');
+  });
+  label.classList.add('selected');
+}
+
+function submitTest() {
+  var form  = document.getElementById('testForm');
+  var total = {{ questions|length }};
+  var answered = 0;
+  for (var i = 0; i < form.elements.length; i++) {
+    if (form.elements[i].type === 'radio' && form.elements[i].checked) {
+      // Count unique answered questions
+    }
+  }
+  // Check each question has an answer
+  var qIds = [];
+  {% for q in questions %}
+  qIds.push({{ q.id }});
+  {% endfor %}
+  var unanswered = [];
+  qIds.forEach(function(id) {
+    var checked = document.querySelector('input[name="q_' + id + '"]:checked');
+    if (!checked) unanswered.push(id);
+  });
+  if (unanswered.length > 0) {
+    document.getElementById('answerWarning').classList.remove('d-none');
+    // Scroll to first unanswered
+    window.scrollTo({top: 0, behavior: 'smooth'});
+    return;
+  }
+  form.submit();
+}
+
+// Mark selected radio on page load (if navigating back)
+document.querySelectorAll('input[type="radio"]:checked').forEach(function(inp) {
+  inp.closest('.option-label').classList.add('selected');
+});
+</script>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.option-label {
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  background: #fff;
+}
+.option-label:hover {
+  background: #f0f4ff;
+  border-color: #0d6efd !important;
+}
+.option-label.selected {
+  background: #e8f0fe;
+  border-color: #0d6efd !important;
+}
+.option-label.selected .fw-semibold.text-muted {
+  color: #0d6efd !important;
+}
+</style>
+{% endblock %}

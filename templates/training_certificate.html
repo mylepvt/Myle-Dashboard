@@ -93,6 +93,28 @@
     .cert-footer-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #aaa; display: block; }
     .cert-footer-value { font-size: 0.9rem; font-weight: 600; color: #333; display: block; margin-top: 0.2rem; }
 
+    .cert-signature-section {
+      display: flex;
+      justify-content: flex-end;
+      padding: 1.5rem 3rem 2rem;
+      border-top: 1px solid #f0f0f0;
+    }
+    .cert-signature-block { text-align: center; }
+    .cert-signature-img {
+      height: 70px;
+      max-width: 200px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto 4px;
+    }
+    .cert-signature-line {
+      width: 200px;
+      border-top: 1.5px solid #333;
+      margin: 0 auto 4px;
+    }
+    .cert-signature-name { font-size: 0.8rem; font-weight: 700; color: #1a1a2e; }
+    .cert-signature-title { font-size: 0.68rem; color: #888; text-transform: uppercase; letter-spacing: 0.08em; }
+
     .cert-seal {
       width: 80px; height: 80px;
       background: linear-gradient(135deg, #d4af37, #f0d060);
@@ -169,6 +191,20 @@
           <span class="cert-footer-label">Certificate No.</span>
           <span class="cert-footer-value" style="font-size:0.75rem;">{{ cert_number }}</span>
         </div>
+      </div>
+    </div>
+
+    <!-- Signature Section -->
+    <div class="cert-signature-section">
+      <div class="cert-signature-block">
+        {% if sig_url %}
+        <img src="{{ sig_url }}" alt="Authorized Signature" class="cert-signature-img">
+        {% else %}
+        <div style="height:70px;"></div>
+        {% endif %}
+        <div class="cert-signature-line"></div>
+        <div class="cert-signature-name">Karanveer Singh</div>
+        <div class="cert-signature-title">Authorized Signatory · Myle Community</div>
       </div>
     </div>
 

@@ -14,14 +14,32 @@
     </li>
     <li class="nav-item">
       <button class="nav-link fw-semibold" data-bs-toggle="tab" data-bs-target="#membersTab">
-        <i class="bi bi-people me-1"></i> Member Progress
+        <i class="bi bi-people me-1"></i> Members
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link fw-semibold" id="testTabBtn" data-bs-toggle="tab" data-bs-target="#testTab">
+        <i class="bi bi-patch-question me-1"></i> Test Questions
+        <span class="badge bg-primary rounded-pill ms-1">{{ questions|length }}</span>
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link fw-semibold" id="bonusTabBtn" data-bs-toggle="tab" data-bs-target="#bonusTab">
+        <i class="bi bi-stars me-1"></i> Bonus Videos
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link fw-semibold" id="sigTabBtn" data-bs-toggle="tab" data-bs-target="#sigTab">
+        <i class="bi bi-pen me-1"></i> Signature
       </button>
     </li>
   </ul>
 
   <div class="tab-content">
 
-    <!-- ── Videos Tab ── -->
+    <!-- ══════════════════════════════════════════════
+         Videos Tab
+         ══════════════════════════════════════════════ -->
     <div class="tab-pane fade show active" id="videosTab">
       <div class="row g-3">
         {% for d in days %}
@@ -37,17 +55,30 @@
               </div>
 
               {% if vid and vid.youtube_url %}
-              <div class="mb-2">
+              <div class="mb-1">
                 <a href="{{ vid.youtube_url }}" target="_blank"
                    class="btn btn-sm btn-outline-danger w-100 text-truncate">
-                  <i class="bi bi-youtube me-1"></i>
-                  {{ vid.youtube_url | truncate(45) }}
+                  <i class="bi bi-youtube me-1"></i>{{ vid.youtube_url | truncate(40) }}
                 </a>
               </div>
-              {% if vid.description %}
-              <p class="text-muted small mb-2">{{ vid.description }}</p>
               {% endif %}
-              {% else %}
+              {% if vid and vid.podcast_url %}
+              <div class="mb-1">
+                <a href="{{ vid.podcast_url }}" target="_blank"
+                   class="btn btn-sm btn-outline-info w-100 text-truncate">
+                  <i class="bi bi-mic-fill me-1"></i>Podcast set ✓
+                </a>
+              </div>
+              {% endif %}
+              {% if vid and vid.pdf_url %}
+              <div class="mb-2">
+                <a href="{{ vid.pdf_url }}" target="_blank"
+                   class="btn btn-sm btn-outline-secondary w-100 text-truncate">
+                  <i class="bi bi-file-earmark-pdf me-1"></i>PDF set ✓
+                </a>
+              </div>
+              {% endif %}
+              {% if not vid or not vid.youtube_url %}
               <div class="alert alert-warning py-2 small border-0 mb-2">
                 <i class="bi bi-exclamation-triangle me-1"></i> No video set for this day
               </div>
@@ -57,7 +88,7 @@
               <button class="btn btn-sm btn-outline-primary w-100"
                       data-bs-toggle="collapse"
                       data-bs-target="#editDay{{ d }}">
-                <i class="bi bi-pencil me-1"></i> {{ 'Edit' if vid else 'Add' }} Video
+                <i class="bi bi-pencil me-1"></i> {{ 'Edit' if vid else 'Add' }} Day {{ d }}
               </button>
 
               <!-- Edit form (collapsible) -->
@@ -74,16 +105,34 @@
                   <div class="mb-2">
                     <label class="form-label small fw-semibold mb-1">YouTube URL <span class="text-danger">*</span></label>
                     <input type="url" name="youtube_url" class="form-control form-control-sm"
-                           placeholder="https://youtu.be/... or https://youtube.com/watch?v=..."
+                           placeholder="https://youtu.be/..."
                            value="{{ vid.youtube_url if vid else '' }}" required>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label small fw-semibold mb-1">
+                      <i class="bi bi-mic-fill text-info me-1"></i>Podcast URL
+                      <span class="text-muted fw-normal">(Google Drive / SoundCloud)</span>
+                    </label>
+                    <input type="url" name="podcast_url" class="form-control form-control-sm"
+                           placeholder="https://drive.google.com/... ya SoundCloud link"
+                           value="{{ vid.podcast_url if vid else '' }}">
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label small fw-semibold mb-1">
+                      <i class="bi bi-file-earmark-pdf text-danger me-1"></i>PDF URL
+                      <span class="text-muted fw-normal">(Google Drive)</span>
+                    </label>
+                    <input type="url" name="pdf_url" class="form-control form-control-sm"
+                           placeholder="https://drive.google.com/file/d/..."
+                           value="{{ vid.pdf_url if vid else '' }}">
                   </div>
                   <div class="mb-2">
                     <label class="form-label small fw-semibold mb-1">Description</label>
                     <textarea name="description" class="form-control form-control-sm" rows="2"
-                              placeholder="Optional description...">{{ vid.description if vid else '' }}</textarea>
+                              placeholder="Optional...">{{ vid.description if vid else '' }}</textarea>
                   </div>
                   <button type="submit" class="btn btn-success btn-sm w-100">
-                    <i class="bi bi-save me-1"></i> Save Day {{ d }} Video
+                    <i class="bi bi-save me-1"></i> Save Day {{ d }}
                   </button>
                 </form>
               </div>
@@ -96,12 +145,14 @@
 
       <div class="mt-4 alert alert-info border-0 rounded-3 small">
         <i class="bi bi-lightbulb me-1"></i>
-        <strong>Tip:</strong> Paste the full YouTube video URL (e.g. <code>https://youtu.be/abc123</code> or <code>https://youtube.com/watch?v=abc123</code>).
-        Videos cannot be skipped by members — they must watch each one fully.
+        <strong>Tip:</strong> Har din ke liye YouTube URL zaroori hai. Podcast aur PDF optional hain — Google Drive ke shareable links paste karo.
+        Videos me skip nahi kar sakte members — poora video dekhna padega.
       </div>
     </div>
 
-    <!-- ── Members Tab ── -->
+    <!-- ══════════════════════════════════════════════
+         Members Tab
+         ══════════════════════════════════════════════ -->
     <div class="tab-pane fade" id="membersTab">
 
       {% if members %}
@@ -114,6 +165,7 @@
                   <th class="ps-3">Member</th>
                   <th>Joining Date</th>
                   <th>Progress</th>
+                  <th>Test</th>
                   <th>Status</th>
                   <th class="text-end pe-3">Actions</th>
                 </tr>
@@ -124,7 +176,7 @@
                 <tr>
                   <td class="ps-3 fw-semibold">{{ m.username }}</td>
                   <td class="small text-muted">{{ m.joining_date or '—' }}</td>
-                  <td style="min-width:160px;">
+                  <td style="min-width:140px;">
                     {% if m.training_required %}
                     <div class="d-flex align-items-center gap-2">
                       <div class="progress flex-grow-1" style="height:6px;border-radius:99px;">
@@ -137,13 +189,23 @@
                     <span class="text-muted small">—</span>
                     {% endif %}
                   </td>
+                  <td class="small">
+                    {% set ts = m.test_score if m.test_score is defined else -1 %}
+                    {% if ts >= 60 %}
+                      <span class="badge bg-success">{{ ts }}/100 ✓</span>
+                    {% elif ts >= 0 %}
+                      <span class="badge bg-danger">{{ ts }}/100</span>
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
                   <td>
                     {% if not m.training_required %}
                       <span class="badge bg-secondary">No Training</span>
                     {% elif m.training_status == 'unlocked' %}
                       <span class="badge bg-success">Unlocked ✓</span>
                     {% elif m.training_status == 'completed' %}
-                      <span class="badge bg-info text-dark">Cert Pending</span>
+                      <span class="badge bg-info text-dark">Test Pending</span>
                     {% elif m.training_status == 'in_progress' %}
                       <span class="badge bg-warning text-dark">In Progress</span>
                     {% elif m.training_status == 'pending' %}
@@ -154,7 +216,6 @@
                   </td>
                   <td class="text-end pe-3">
                     <div class="d-flex gap-1 justify-content-end flex-wrap">
-                      <!-- Toggle training required -->
                       <form method="post"
                             action="{{ url_for('admin_training_toggle', username=m.username) }}"
                             style="display:inline;">
@@ -163,14 +224,10 @@
                                 class="btn btn-sm {{ 'btn-outline-danger' if m.training_required else 'btn-outline-success' }}"
                                 title="{{ 'Remove training requirement' if m.training_required else 'Add training requirement' }}"
                                 onclick="return confirm('{{ 'Remove training requirement for ' + m.username + '?' if m.training_required else 'Require training for ' + m.username + '?' }}')">
-                          {% if m.training_required %}
-                            <i class="bi bi-unlock-fill"></i>
-                          {% else %}
-                            <i class="bi bi-lock-fill"></i>
-                          {% endif %}
+                          {% if m.training_required %}<i class="bi bi-unlock-fill"></i>
+                          {% else %}<i class="bi bi-lock-fill"></i>{% endif %}
                         </button>
                       </form>
-                      <!-- Reset progress -->
                       {% if m.training_required and days_done > 0 %}
                       <form method="post"
                             action="{{ url_for('admin_training_reset', username=m.username) }}"
@@ -178,12 +235,11 @@
                         <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
                         <button type="submit" class="btn btn-sm btn-outline-warning"
                                 title="Reset training progress"
-                                onclick="return confirm('Reset training progress for {{ m.username }}? This cannot be undone.')">
+                                onclick="return confirm('Reset ALL training progress + test for {{ m.username }}?')">
                           <i class="bi bi-arrow-counterclockwise"></i>
                         </button>
                       </form>
                       {% endif %}
-                      <!-- View certificate if uploaded -->
                       {% if m.certificate_path %}
                       <span class="badge bg-success align-self-center" title="Certificate uploaded">
                         <i class="bi bi-file-earmark-check-fill"></i>
@@ -205,14 +261,287 @@
       </div>
       {% endif %}
 
-      <!-- Legend -->
       <div class="mt-3 d-flex flex-wrap gap-2 align-items-center small text-muted">
         <span><i class="bi bi-unlock-fill text-danger me-1"></i> Remove training lock</span>
         <span><i class="bi bi-lock-fill text-success me-1"></i> Add training lock</span>
-        <span><i class="bi bi-arrow-counterclockwise text-warning me-1"></i> Reset progress</span>
+        <span><i class="bi bi-arrow-counterclockwise text-warning me-1"></i> Reset progress + test</span>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         Test Questions Tab
+         ══════════════════════════════════════════════ -->
+    <div class="tab-pane fade" id="testTab">
+
+      <div class="row g-4">
+        <!-- Add question form -->
+        <div class="col-12 col-lg-5">
+          <div class="card border-0 shadow-sm rounded-3 h-100">
+            <div class="card-body p-4">
+              <h6 class="fw-bold mb-3"><i class="bi bi-plus-circle me-2 text-primary"></i>Naya Question Add Karo</h6>
+              <form method="post" action="{{ url_for('admin_training_add_question') }}">
+                <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">Question <span class="text-danger">*</span></label>
+                  <textarea name="question" class="form-control form-control-sm" rows="3"
+                            placeholder="Question likhein..." required></textarea>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small fw-semibold">Option A <span class="text-danger">*</span></label>
+                  <input type="text" name="option_a" class="form-control form-control-sm" placeholder="Option A..." required>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small fw-semibold">Option B <span class="text-danger">*</span></label>
+                  <input type="text" name="option_b" class="form-control form-control-sm" placeholder="Option B..." required>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small fw-semibold">Option C</label>
+                  <input type="text" name="option_c" class="form-control form-control-sm" placeholder="Option C (optional)">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">Option D</label>
+                  <input type="text" name="option_d" class="form-control form-control-sm" placeholder="Option D (optional)">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">Sahi Jawab <span class="text-danger">*</span></label>
+                  <select name="correct_answer" class="form-select form-select-sm" required>
+                    <option value="a">A</option>
+                    <option value="b">B</option>
+                    <option value="c">C</option>
+                    <option value="d">D</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm w-100 fw-semibold">
+                  <i class="bi bi-plus-circle me-1"></i> Add Question
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Questions list -->
+        <div class="col-12 col-lg-7">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="fw-bold mb-0">
+              <i class="bi bi-list-ul me-2 text-success"></i>
+              Questions ({{ questions|length }})
+            </h6>
+            {% if questions|length >= 20 %}
+            <span class="badge bg-success">20+ questions ready ✓</span>
+            {% elif questions %}
+            <span class="badge bg-warning text-dark">{{ questions|length }}/20 questions</span>
+            {% endif %}
+          </div>
+
+          {% if questions %}
+          <div class="d-flex flex-column gap-2">
+            {% for q in questions %}
+            <div class="card border-0 shadow-sm rounded-3">
+              <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                  <div class="flex-grow-1">
+                    <div class="fw-semibold small mb-2">
+                      <span class="badge bg-secondary me-1">{{ loop.index }}</span>
+                      {{ q.question }}
+                    </div>
+                    <div class="d-flex flex-wrap gap-1">
+                      {% for opt, label in [('option_a','A'), ('option_b','B'), ('option_c','C'), ('option_d','D')] %}
+                      {% if q[opt] %}
+                      <span class="badge {{ 'bg-success' if q.correct_answer.lower() == label.lower() else 'bg-light text-dark border' }} small">
+                        {{ label }}: {{ q[opt] }}
+                        {% if q.correct_answer.lower() == label.lower() %} ✓{% endif %}
+                      </span>
+                      {% endif %}
+                      {% endfor %}
+                    </div>
+                  </div>
+                  <form method="post"
+                        action="{{ url_for('admin_training_delete_question', qid=q.id) }}"
+                        style="flex-shrink:0;">
+                    <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
+                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                            onclick="return confirm('Is question ko delete karein?')"
+                            title="Delete">
+                      <i class="bi bi-trash3"></i>
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="text-center py-5 text-muted border rounded-3">
+            <i class="bi bi-patch-question fs-1 d-block mb-2 opacity-40"></i>
+            <p class="fw-semibold">Abhi koi questions nahi hain.</p>
+            <p class="small">Pehle questions add karo, tab members test de sakte hain.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="mt-4 alert alert-info border-0 rounded-3 small">
+        <i class="bi bi-info-circle me-1"></i>
+        <strong>Test rules:</strong> Members ko 60/100 ya zyada chahiye certificate ke liye.
+        Har attempt me questions random order me aate hain. Unlimited retries allowed.
+        Members test tab de sakte hain jab saare 7 din complete ho jaayein.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         Bonus Videos Tab
+         ══════════════════════════════════════════════ -->
+    <div class="tab-pane fade" id="bonusTab">
+
+      <div class="row g-4">
+        <!-- Add bonus video form -->
+        <div class="col-12 col-lg-4">
+          <div class="card border-0 shadow-sm rounded-3">
+            <div class="card-body p-4">
+              <h6 class="fw-bold mb-3"><i class="bi bi-plus-circle me-2 text-primary"></i>Bonus Video Add Karo</h6>
+              <form method="post" action="{{ url_for('admin_training_save_bonus_video') }}">
+                <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
+                <input type="hidden" name="vid_id" value="">
+                <div class="mb-2">
+                  <label class="form-label small fw-semibold">Title <span class="text-danger">*</span></label>
+                  <input type="text" name="title" class="form-control form-control-sm"
+                         placeholder="Video title..." required>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small fw-semibold">YouTube URL <span class="text-danger">*</span></label>
+                  <input type="url" name="youtube_url" class="form-control form-control-sm"
+                         placeholder="https://youtu.be/..." required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">Description</label>
+                  <textarea name="description" class="form-control form-control-sm" rows="2"
+                            placeholder="Optional..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm w-100 fw-semibold">
+                  <i class="bi bi-plus-circle me-1"></i> Add Bonus Video
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bonus videos list -->
+        <div class="col-12 col-lg-8">
+          <h6 class="fw-bold mb-3">
+            <i class="bi bi-stars me-2 text-warning"></i>
+            Bonus Videos ({{ bonus_videos|length }})
+          </h6>
+          {% if bonus_videos %}
+          <div class="row g-3">
+            {% for bv in bonus_videos %}
+            {% set yt_url = bv.youtube_url %}
+            {% set yt_id = '' %}
+            {% if 'youtu.be/' in yt_url %}
+              {% set yt_id = yt_url.split('youtu.be/')[1].split('?')[0] %}
+            {% elif 'v=' in yt_url %}
+              {% set yt_id = yt_url.split('v=')[1].split('&')[0] %}
+            {% endif %}
+            <div class="col-12 col-md-6">
+              <div class="card border-0 shadow-sm rounded-3 h-100">
+                <div class="card-body p-3">
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="fw-semibold small">{{ bv.title }}</span>
+                    <form method="post"
+                          action="{{ url_for('admin_training_delete_bonus_video', vid_id=bv.id) }}"
+                          style="flex-shrink:0;">
+                      <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
+                      <button type="submit" class="btn btn-sm btn-outline-danger"
+                              onclick="return confirm('Delete this bonus video?')">
+                        <i class="bi bi-trash3"></i>
+                      </button>
+                    </form>
+                  </div>
+                  {% if yt_id %}
+                  <div class="ratio ratio-16x9 rounded-2 overflow-hidden mb-2">
+                    <iframe src="https://www.youtube.com/embed/{{ yt_id }}?rel=0&modestbranding=1"
+                            allowfullscreen loading="lazy"></iframe>
+                  </div>
+                  {% endif %}
+                  {% if bv.description %}
+                  <p class="text-muted small mb-0">{{ bv.description }}</p>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="text-center py-5 text-muted border rounded-3">
+            <i class="bi bi-stars fs-1 d-block mb-2 opacity-40"></i>
+            <p class="fw-semibold">Abhi koi bonus video nahi hai.</p>
+            <p class="small">Additional/optional videos yahan add karo.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         Signature Tab
+         ══════════════════════════════════════════════ -->
+    <div class="tab-pane fade" id="sigTab">
+      <div class="row g-4 justify-content-center">
+        <div class="col-12 col-md-6">
+          <div class="card border-0 shadow-sm rounded-3">
+            <div class="card-body p-4">
+              <h6 class="fw-bold mb-1"><i class="bi bi-pen me-2 text-primary"></i>Admin Signature</h6>
+              <p class="text-muted small mb-4">Yeh signature certificate pe "Authorized Signatory" section me dikhegi.</p>
+
+              {% if sig_file %}
+              <div class="text-center mb-4">
+                <p class="small text-muted mb-2">Current signature:</p>
+                <img src="{{ url_for('training_signature_preview') }}"
+                     alt="Current signature"
+                     style="max-height:100px;max-width:300px;border:1px solid #e9ecef;border-radius:8px;padding:8px;background:#fff;">
+                <div class="mt-2">
+                  <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Signature set</span>
+                </div>
+              </div>
+              {% else %}
+              <div class="alert alert-warning border-0 small mb-4">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                Abhi koi signature set nahi hai. Certificate me signature nahi dikhegi.
+              </div>
+              {% endif %}
+
+              <form method="post" action="{{ url_for('admin_training_upload_signature') }}"
+                    enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">
+                    {{ 'Nayi Signature Upload Karo' if sig_file else 'Signature Upload Karo' }}
+                  </label>
+                  <input type="file" name="signature_file" class="form-control form-control-sm"
+                         accept=".png,.jpg,.jpeg" required>
+                  <div class="form-text">PNG ya JPG. White/transparent background best lagta hai.</div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm fw-semibold">
+                  <i class="bi bi-upload me-1"></i> Upload Signature
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
   </div>
 </div>
+
+<script>
+// Restore active tab from URL hash
+(function() {
+  var hash = window.location.hash;
+  var map = {'#testTab': '#testTabBtn', '#bonusTab': '#bonusTabBtn', '#sigTab': '#sigTabBtn'};
+  if (map[hash]) {
+    var btn = document.querySelector(map[hash]);
+    if (btn) { btn.click(); }
+  }
+})();
+</script>
 {% endblock %}
