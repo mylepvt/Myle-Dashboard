@@ -22,7 +22,7 @@ def _now_ist():
     """Current datetime in IST as a naive datetime (safe for DB storage & strptime comparisons)."""
     if _IST:
         return datetime.datetime.now(_IST).replace(tzinfo=None)
-    return _now_ist()   # fallback: server local time
+    return datetime.datetime.now()   # fallback: server local time
 
 
 def _today_ist():
@@ -4950,7 +4950,7 @@ def training_complete_day():
             (username,)
         )
         session['training_status'] = 'completed'
-        flash('🎉 Training complete! Download your certificate and upload it to unlock the app.', 'success')
+        flash('🎉 Saate din complete! Ab training test do — 60/100 score karo aur certificate unlock karo.', 'success')
     else:
         flash(f'✅ Day {day} complete! Keep going.', 'success')
 
