@@ -29,7 +29,7 @@ def _today_ist():
     """Current date in IST."""
     if _IST:
         return datetime.datetime.now(_IST).date()
-    return _today_ist()     # fallback
+    return datetime.date.today()     # fallback
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from functools import wraps
