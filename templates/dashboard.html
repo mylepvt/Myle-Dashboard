@@ -6,144 +6,140 @@
 {% block content %}
 
 {# ════════════════════════════════════════════════════════════
-   ZONE 1 · STATUS STRIP  — always visible, never collapses
+   ZONE 1 · COMPACT STATUS BAR
    ════════════════════════════════════════════════════════════ #}
-<div class="d-flex flex-wrap gap-2 mb-3" style="row-gap:8px;">
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
 
-  <span class="dash-pill" id="scorePill"
-        style="background:#eef2ff;color:#6366f1;">
-    🏆 {{ today_score }} pts
+  {# Score pill #}
+  <span class="badge rounded-pill px-3 py-2 fw-bold" id="scorePill"
+        style="background:#eef2ff;color:#6366f1;font-size:0.82rem;">
+    <i class="bi bi-trophy-fill me-1"></i>{{ today_score }} pts
   </span>
 
+  {# Streak pill #}
   {% if today_streak > 0 %}
-  <span class="dash-pill" style="background:#fff7ed;color:#d97706;">
+  <span class="badge rounded-pill px-3 py-2 fw-bold"
+        style="background:#fff7ed;color:#d97706;font-size:0.82rem;">
     🔥 {{ today_streak }}-day streak
   </span>
   {% endif %}
 
+  {# Follow-ups pill #}
   {% if followups %}
-  <a href="{{ url_for('follow_up_queue') }}" class="dash-pill text-decoration-none"
-     style="background:#fee2e2;color:#dc2626;">
-    📞 {{ followups|length }} follow-up{% if followups|length != 1 %}s{% endif %}
+  <a href="{{ url_for('follow_up_queue') }}"
+     class="badge rounded-pill px-3 py-2 fw-bold text-decoration-none"
+     style="background:#fee2e2;color:#dc2626;font-size:0.82rem;">
+    <i class="bi bi-calendar-x-fill me-1"></i>{{ followups|length }} follow-up{% if followups|length != 1 %}s{% endif %}
   </a>
   {% endif %}
 
-  {% if today_report %}
-  <span class="dash-pill" style="background:#dcfce7;color:#16a34a;">✅ Done</span>
-  {% else %}
-  <a href="{{ url_for('report_submit') }}" class="dash-pill text-decoration-none"
-     style="background:#fee2e2;color:#dc2626;">⚠ Report</a>
-  {% endif %}
+  {# Report status #}
+  <div class="ms-auto d-flex align-items-center gap-1 flex-shrink-0">
+    {% if today_report %}
+    <span class="small text-success fw-semibold">
+      <i class="bi bi-check-circle-fill me-1"></i>Report ✓
+    </span>
+    {% else %}
+    <a href="{{ url_for('report_submit') }}" class="small fw-semibold text-danger text-decoration-none">
+      <i class="bi bi-exclamation-triangle-fill me-1"></i>Submit Report
+    </a>
+    {% endif %}
+  </div>
 
 </div>
 
 {# ════════════════════════════════════════════════════════════
-   ZONE 2 · COLLAPSIBLE SECTIONS
+   ZONE 2 · NOTICE BOARD + LIVE SESSION
    ════════════════════════════════════════════════════════════ #}
+{% if notices or zoom_link %}
+<div class="mb-3">
 
-{# ── 1. NOTICE BOARD ──────────────────────────────────────── #}
-{% if notices %}
-<div class="dash-section mb-2">
-  <button class="dash-sec-hdr w-100 d-flex align-items-center justify-content-between"
-          type="button" data-bs-toggle="collapse" data-bs-target="#sec-notices"
-          aria-expanded="false">
-    <div class="d-flex align-items-center gap-2">
-      <span class="dash-circle" style="background:#fef3c7;color:#f59e0b;">{{ notices|length }}</span>
-      <span class="dash-sec-name">Notice Board</span>
+  {% if notices %}
+  <div class="alert alert-warning alert-dismissible py-2 mb-2 shadow-sm"
+       style="border-left:4px solid #f59e0b;border-radius:10px;">
+    <div class="d-flex align-items-center gap-2 mb-1">
+      <i class="bi bi-megaphone-fill text-warning"></i>
+      <span class="fw-semibold small">Notice Board</span>
+      <a href="{{ url_for('announcements') }}" class="ms-auto text-muted small text-decoration-none">View all →</a>
     </div>
-    <div class="d-flex align-items-center gap-2">
-      <span class="dash-alert-pill" style="background:#fef3c7;color:#b45309;">{{ notices|length }}</span>
-      <i class="bi bi-chevron-down dash-chevron"></i>
+    {% for n in notices[:2] %}
+    <div class="small {% if n.pin %}fw-semibold{% endif %} text-truncate">
+      {% if n.pin %}<i class="bi bi-pin-angle-fill text-warning me-1"></i>{% endif %}
+      {{ n.message }}
     </div>
-  </button>
-  <div class="collapse" id="sec-notices">
-    <div class="dash-sec-body">
-      {% for n in notices %}
-      <div class="dash-row {% if not loop.last %}border-bottom{% endif %}">
-        <div class="flex-grow-1 small {% if n.pin %}fw-semibold{% endif %} text-truncate">
-          {% if n.pin %}<i class="bi bi-pin-angle-fill text-warning me-1"></i>{% endif %}
-          {{ n.message }}
-        </div>
-        <span class="text-muted flex-shrink-0" style="font-size:0.65rem;">{{ n.created_at[:10] }}</span>
+    {% endfor %}
+    <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+  </div>
+  {% endif %}
+
+  {% if zoom_link %}
+  <div class="card border-0 shadow-sm p-2 mb-0">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-camera-video-fill fs-5 text-purple flex-shrink-0"></i>
+      <div class="flex-grow-1 min-w-0">
+        <div class="fw-semibold small text-truncate">{{ zoom_title }}</div>
+        <div class="text-muted" style="font-size:0.72rem;">{{ zoom_time }}</div>
       </div>
-      {% endfor %}
+      <a href="{{ zoom_link }}" target="_blank" rel="noopener"
+         class="btn btn-sm btn-primary flex-shrink-0">Join</a>
+      <button class="btn btn-sm btn-outline-secondary flex-shrink-0"
+              onclick="navigator.clipboard.writeText('{{ zoom_link }}').then(()=>showToast('Link copied!','success'))">
+        <i class="bi bi-clipboard"></i>
+      </button>
     </div>
   </div>
+  {% endif %}
+
 </div>
 {% endif %}
 
-{# ── 2. LIVE SESSION ───────────────────────────────────────── #}
-{% if zoom_link %}
-<div class="dash-section mb-2">
-  <button class="dash-sec-hdr w-100 d-flex align-items-center justify-content-between"
-          type="button" data-bs-toggle="collapse" data-bs-target="#sec-live"
-          aria-expanded="false" id="sec-live-btn">
-    <div class="d-flex align-items-center gap-2">
-      <span class="dash-circle" style="background:#ede9fe;color:#6366f1;">▶</span>
-      <span class="dash-sec-name">{{ zoom_title }} · {{ zoom_time }}</span>
-    </div>
-    <i class="bi bi-chevron-down dash-chevron"></i>
-  </button>
-  <div class="collapse" id="sec-live">
-    <div class="dash-sec-body">
-      <div class="dash-row d-flex align-items-center gap-2">
-        <a href="{{ zoom_link }}" target="_blank" rel="noopener"
-           class="btn btn-primary btn-sm flex-grow-1">
-          <i class="bi bi-camera-video-fill me-1"></i>Join Live Session
-        </a>
-        <button class="btn btn-sm btn-outline-secondary flex-shrink-0"
-                onclick="navigator.clipboard.writeText('{{ zoom_link }}').then(()=>showToast('Link copied!','success'))">
-          <i class="bi bi-clipboard"></i>
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
+{# ════════════════════════════════════════════════════════════
+   ZONE 3 · PIPELINE
+   ════════════════════════════════════════════════════════════ #}
+{% set has_any = stage1_leads|length > 0 or day1_leads|length > 0 or day2_leads|length > 0 or day3_leads|length > 0 or pending_leads|length > 0 %}
 
-{# ── 3. STAGE 1 — ENROLLMENT ──────────────────────────────── #}
+{% if has_any %}
+
+{# ── Stage 1 / Enrollment ─────────────────────────────────── #}
 {% if stage1_leads %}
-<div class="dash-section mb-2">
-  <button class="dash-sec-hdr w-100 d-flex align-items-center justify-content-between"
-          type="button" data-bs-toggle="collapse" data-bs-target="#sec-stage1"
-          aria-expanded="false">
-    <div class="d-flex align-items-center gap-2">
-      <span class="dash-circle" style="background:#ede9fe;color:#6366f1;">{{ stage1_leads|length }}</span>
-      <span class="dash-sec-name">Enrollment</span>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-      <span class="dash-alert-pill" style="background:#ede9fe;color:#6366f1;">{{ stage1_leads|length }} leads</span>
-      <i class="bi bi-chevron-down dash-chevron"></i>
-    </div>
+<div class="card border-0 shadow-sm mb-2">
+  <button class="card-header bg-transparent border-0 d-flex align-items-center gap-2 w-100 text-start py-2 px-3"
+          data-bs-toggle="collapse" data-bs-target="#pipe-stage1" aria-expanded="true"
+          style="cursor:pointer;">
+    <span class="badge rounded-circle fw-bold"
+          style="background:#6366f1;min-width:22px;height:22px;line-height:22px;font-size:0.72rem;">{{ stage1_leads|length }}</span>
+    <span class="fw-semibold small" style="color:#6366f1;">Stage 1 / Enrollment</span>
+    <i class="bi bi-chevron-down ms-auto small text-muted"></i>
   </button>
-  <div class="collapse" id="sec-stage1">
-    <div class="dash-sec-body">
+  <div class="collapse show" id="pipe-stage1">
+    <div class="card-body p-0">
       {% for lead in stage1_leads[:5] %}
-      <div class="dash-row {% if not loop.last %}border-bottom{% endif %}">
+      <div class="d-flex align-items-center gap-2 px-3 py-2 {% if not loop.last %}border-bottom{% endif %}">
         <div class="flex-grow-1 min-w-0">
-          <div class="fw-semibold" style="font-size:0.875rem;line-height:1.3;">{{ lead.name }}</div>
-          <span style="background:#eef2ff;color:#6366f1;border-radius:99px;padding:2px 8px;font-size:0.65rem;font-weight:600;">
-            {{ lead.status }}
-          </span>
+          <div class="fw-semibold small text-truncate">{{ lead.name }}</div>
+          <span class="badge" style="background:#eef2ff;color:#6366f1;font-size:0.65rem;">{{ lead.status }}</span>
         </div>
         <div class="d-flex gap-1 flex-shrink-0">
-          <a href="tel:{{ lead.phone }}" class="dash-action-btn" style="background:#dcfce7;color:#15803d;" title="Call">
+          <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-outline-success px-2"
+             title="Call">
             <i class="bi bi-telephone-fill"></i>
           </a>
           <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener"
-             class="dash-action-btn" style="background:#dcfce7;color:#15803d;" title="WhatsApp">
+             class="btn btn-xs px-2" title="WhatsApp"
+             style="background:#25D366;color:#fff;border-radius:4px;">
             <i class="bi bi-whatsapp"></i>
           </a>
           <a href="{{ url_for('edit_lead', lead_id=lead.id) }}"
-             class="dash-action-btn" style="background:#f3f4f6;color:#4b5563;" title="Edit">
+             class="btn btn-xs btn-outline-secondary px-2" title="Edit">
             <i class="bi bi-pencil-fill"></i>
           </a>
         </div>
       </div>
       {% endfor %}
       {% if stage1_leads|length > 5 %}
-      <div class="dash-row justify-content-center border-top">
-        <a href="{{ url_for('working') }}?tab=stage1" class="small text-muted text-decoration-none">
+      <div class="px-3 py-2 text-center border-top">
+        <a href="{{ url_for('working') }}?tab=stage1"
+           class="small text-muted text-decoration-none">
           +{{ stage1_leads|length - 5 }} more · View All →
         </a>
       </div>
@@ -153,57 +149,61 @@
 </div>
 {% endif %}
 
-{# ── 4. DAY 1 ─────────────────────────────────────────────── #}
+{# ── Day 1 ────────────────────────────────────────────────── #}
 {% if day1_leads %}
-<div class="dash-section mb-2">
-  <button class="dash-sec-hdr w-100 d-flex align-items-center justify-content-between"
-          type="button" data-bs-toggle="collapse" data-bs-target="#sec-day1"
-          aria-expanded="false" id="sec-day1-btn">
-    <div class="d-flex align-items-center gap-2">
-      <span class="dash-circle" style="background:#cffafe;color:#0891b2;">{{ day1_leads|length }}</span>
-      <span class="dash-sec-name">Day 1</span>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-      {% if pending_batches > 0 %}
-      <span class="dash-alert-pill" style="background:#fee2e2;color:#dc2626;">{{ pending_batches }} pending</span>
-      {% endif %}
-      <i class="bi bi-chevron-down dash-chevron"></i>
-    </div>
+<div class="card border-0 shadow-sm mb-2">
+  <button class="card-header bg-transparent border-0 d-flex align-items-center gap-2 w-100 text-start py-2 px-3"
+          data-bs-toggle="collapse" data-bs-target="#pipe-day1" aria-expanded="true"
+          style="cursor:pointer;">
+    <span class="badge bg-info fw-bold rounded-circle"
+          style="min-width:22px;height:22px;line-height:22px;font-size:0.72rem;">{{ day1_leads|length }}</span>
+    <span class="fw-semibold small text-info">Day 1</span>
+    {% if pending_batches > 0 %}
+    <span class="badge bg-danger ms-1" style="font-size:0.62rem;">{{ pending_batches }} pending</span>
+    {% endif %}
+    <i class="bi bi-chevron-down ms-auto small text-muted"></i>
   </button>
-  <div class="collapse" id="sec-day1">
-    <div class="dash-sec-body">
+  <div class="collapse show" id="pipe-day1">
+    <div class="card-body p-2">
       {% for lead in day1_leads %}
       {% set bd = lead.d1_morning + lead.d1_afternoon + lead.d1_evening %}
       {% set all_done = bd == 3 %}
-      <div class="dash-batch-row {% if all_done %}dash-batch-complete{% endif %} {% if not loop.last %}border-bottom{% endif %}"
+      <div class="db-batch-card {% if all_done %}db-batch-complete{% endif %} mb-2"
            id="db-lead-{{ lead.id }}">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-          <span class="fw-semibold" style="font-size:0.875rem;">{{ lead.name }}</span>
-          <span id="db-bd-{{ lead.id }}" class="fw-bold"
-                style="font-size:0.8rem;color:{% if bd==3 %}#16a34a{% elif bd>0 %}#d97706{% else %}#dc2626{% endif %};">
-            {{ bd }}/3
-          </span>
+        <div class="d-flex align-items-center justify-content-between mb-1">
+          <div class="fw-semibold small text-truncate" style="max-width:160px;">{{ lead.name }}</div>
+          <span class="small text-muted ms-2 flex-shrink-0" id="db-bd-{{ lead.id }}">{{ bd }}/3</span>
+        </div>
+        <div class="db-batch-progress mb-2">
+          <div class="db-batch-bar db-bar-d1" id="db-bar-{{ lead.id }}"
+               style="width:{{ (bd/3*100)|int }}%"></div>
         </div>
         <div class="d-flex align-items-center gap-2">
-          <button class="dash-mael-btn {% if lead.d1_morning %}dash-mael-done{% endif %}"
-                  data-lead="{{ lead.id }}" data-b="d1_morning">M</button>
-          <button class="dash-mael-btn {% if lead.d1_afternoon %}dash-mael-done{% endif %}"
-                  data-lead="{{ lead.id }}" data-b="d1_afternoon">A</button>
-          <button class="dash-mael-btn {% if lead.d1_evening %}dash-mael-done{% endif %}"
-                  data-lead="{{ lead.id }}" data-b="d1_evening">E</button>
+          <button class="db-batch-btn {% if lead.d1_morning %}db-batch-done{% endif %}"
+                  data-lead="{{ lead.id }}" data-b="d1_morning" title="Morning batch">
+            <i class="bi bi-sunrise-fill"></i> M
+          </button>
+          <button class="db-batch-btn {% if lead.d1_afternoon %}db-batch-done{% endif %}"
+                  data-lead="{{ lead.id }}" data-b="d1_afternoon" title="Afternoon batch">
+            <i class="bi bi-sun-fill"></i> A
+          </button>
+          <button class="db-batch-btn {% if lead.d1_evening %}db-batch-done{% endif %}"
+                  data-lead="{{ lead.id }}" data-b="d1_evening" title="Evening batch">
+            <i class="bi bi-moon-fill"></i> E
+          </button>
           <div class="ms-auto d-flex gap-1 align-items-center" id="db-act-{{ lead.id }}">
-            <a href="tel:{{ lead.phone }}" class="dash-action-btn" style="background:#dcfce7;color:#15803d;">
+            <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-outline-success px-2">
               <i class="bi bi-telephone-fill"></i>
             </a>
-            <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank"
-               class="dash-action-btn" style="background:#dcfce7;color:#15803d;">
+            <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener"
+               class="btn btn-xs px-2" style="background:#25D366;color:#fff;border-radius:4px;">
               <i class="bi bi-whatsapp"></i>
             </a>
             {% if all_done %}
-            <button class="btn btn-success btn-sm advance-btn"
+            <button class="btn btn-xs btn-success advance-btn px-2"
                     data-lead="{{ lead.id }}" data-status="Day 1"
-                    style="border-radius:8px;font-size:0.78rem;padding:4px 10px;">
-              ✅ Day 2 →
+                    title="Move to Day 2">
+              <i class="bi bi-arrow-right me-1"></i>D2
             </button>
             {% endif %}
           </div>
@@ -215,60 +215,66 @@
 </div>
 {% endif %}
 
-{# ── 5. DAY 2 ─────────────────────────────────────────────── #}
+{# ── Day 2 ────────────────────────────────────────────────── #}
 {% if day2_leads %}
-<div class="dash-section mb-2">
-  <button class="dash-sec-hdr w-100 d-flex align-items-center justify-content-between"
-          type="button" data-bs-toggle="collapse" data-bs-target="#sec-day2"
-          aria-expanded="false" id="sec-day2-btn">
-    <div class="d-flex align-items-center gap-2">
-      <span class="dash-circle" style="background:#fef3c7;color:#d97706;">{{ day2_leads|length }}</span>
-      <span class="dash-sec-name">Day 2</span>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-      <span class="dash-alert-pill" style="background:#fef3c7;color:#92400e;">
-        {{ day2_leads|length }} · Team visible 👁
-      </span>
-      <i class="bi bi-chevron-down dash-chevron"></i>
-    </div>
+<div class="card border-0 shadow-sm mb-2">
+  <button class="card-header bg-transparent border-0 d-flex align-items-center gap-2 w-100 text-start py-2 px-3"
+          data-bs-toggle="collapse" data-bs-target="#pipe-day2" aria-expanded="true"
+          style="cursor:pointer;">
+    <span class="badge bg-warning text-dark fw-bold rounded-circle"
+          style="min-width:22px;height:22px;line-height:22px;font-size:0.72rem;">{{ day2_leads|length }}</span>
+    <span class="fw-semibold small text-warning">Day 2</span>
+    <span class="ms-auto small text-muted me-2 flex-shrink-0" style="font-size:0.67rem;">
+      <i class="bi bi-eye me-1"></i>Team visible
+    </span>
+    <i class="bi bi-chevron-down small text-muted"></i>
   </button>
-  <div class="collapse" id="sec-day2">
-    <div class="dash-sec-body">
-      <div style="padding:8px 16px;font-size:0.72rem;color:#92400e;border-bottom:1px solid rgba(0,0,0,0.05);background:#fffbeb;">
-        👁 Poori team dekh sakti hai
+  <div class="collapse show" id="pipe-day2">
+    <div class="card-body p-2">
+      <div class="alert alert-warning py-1 px-2 mb-2 d-flex align-items-center gap-1"
+           style="font-size:0.72rem;border-radius:8px;border-left:3px solid #d97706;">
+        <i class="bi bi-eye-fill text-warning flex-shrink-0"></i>
+        <span>👁 Poori team dekh sakti hai — actively work karo</span>
       </div>
       {% for lead in day2_leads %}
       {% set bd = lead.d2_morning + lead.d2_afternoon + lead.d2_evening %}
       {% set all_done = bd == 3 %}
-      <div class="dash-batch-row {% if all_done %}dash-batch-complete{% endif %} {% if not loop.last %}border-bottom{% endif %}"
+      <div class="db-batch-card {% if all_done %}db-batch-complete{% endif %} mb-2"
            id="db-lead-{{ lead.id }}">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-          <span class="fw-semibold" style="font-size:0.875rem;">{{ lead.name }}</span>
-          <span id="db-bd-{{ lead.id }}" class="fw-bold"
-                style="font-size:0.8rem;color:{% if bd==3 %}#16a34a{% elif bd>0 %}#d97706{% else %}#dc2626{% endif %};">
-            {{ bd }}/3
-          </span>
+        <div class="d-flex align-items-center justify-content-between mb-1">
+          <div class="fw-semibold small text-truncate" style="max-width:160px;">{{ lead.name }}</div>
+          <span class="small text-muted ms-2 flex-shrink-0" id="db-bd-{{ lead.id }}">{{ bd }}/3</span>
+        </div>
+        <div class="db-batch-progress mb-2">
+          <div class="db-batch-bar db-bar-d2" id="db-bar-{{ lead.id }}"
+               style="width:{{ (bd/3*100)|int }}%"></div>
         </div>
         <div class="d-flex align-items-center gap-2">
-          <button class="dash-mael-btn {% if lead.d2_morning %}dash-mael-done{% endif %}"
-                  data-lead="{{ lead.id }}" data-b="d2_morning">M</button>
-          <button class="dash-mael-btn {% if lead.d2_afternoon %}dash-mael-done{% endif %}"
-                  data-lead="{{ lead.id }}" data-b="d2_afternoon">A</button>
-          <button class="dash-mael-btn {% if lead.d2_evening %}dash-mael-done{% endif %}"
-                  data-lead="{{ lead.id }}" data-b="d2_evening">E</button>
+          <button class="db-batch-btn {% if lead.d2_morning %}db-batch-done{% endif %}"
+                  data-lead="{{ lead.id }}" data-b="d2_morning" title="Morning batch">
+            <i class="bi bi-sunrise-fill"></i> M
+          </button>
+          <button class="db-batch-btn {% if lead.d2_afternoon %}db-batch-done{% endif %}"
+                  data-lead="{{ lead.id }}" data-b="d2_afternoon" title="Afternoon batch">
+            <i class="bi bi-sun-fill"></i> A
+          </button>
+          <button class="db-batch-btn {% if lead.d2_evening %}db-batch-done{% endif %}"
+                  data-lead="{{ lead.id }}" data-b="d2_evening" title="Evening batch">
+            <i class="bi bi-moon-fill"></i> E
+          </button>
           <div class="ms-auto d-flex gap-1 align-items-center" id="db-act-{{ lead.id }}">
-            <a href="tel:{{ lead.phone }}" class="dash-action-btn" style="background:#dcfce7;color:#15803d;">
+            <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-outline-success px-2">
               <i class="bi bi-telephone-fill"></i>
             </a>
-            <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank"
-               class="dash-action-btn" style="background:#dcfce7;color:#15803d;">
+            <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener"
+               class="btn btn-xs px-2" style="background:#25D366;color:#fff;border-radius:4px;">
               <i class="bi bi-whatsapp"></i>
             </a>
             {% if all_done %}
-            <button class="btn btn-warning text-dark btn-sm advance-btn"
+            <button class="btn btn-xs btn-warning text-dark advance-btn px-2"
                     data-lead="{{ lead.id }}" data-status="Day 2"
-                    style="border-radius:8px;font-size:0.78rem;padding:4px 10px;">
-              ✅ Interview →
+                    title="Move to Interview">
+              <i class="bi bi-arrow-right me-1"></i>Int.
             </button>
             {% endif %}
           </div>
@@ -280,57 +286,45 @@
 </div>
 {% endif %}
 
-{# ── 6. DAY 3 — CLOSING ───────────────────────────────────── #}
+{# ── Day 3 / Interview ────────────────────────────────────── #}
 {% if day3_leads %}
-<div class="dash-section mb-2">
-  <button class="dash-sec-hdr w-100 d-flex align-items-center justify-content-between"
-          type="button" data-bs-toggle="collapse" data-bs-target="#sec-day3"
-          aria-expanded="false">
-    <div class="d-flex align-items-center gap-2">
-      <span class="dash-circle" style="background:#ede9fe;color:#7c3aed;">{{ day3_leads|length }}</span>
-      <span class="dash-sec-name">Day 3 — Closing</span>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-      <span class="dash-alert-pill" style="background:#ede9fe;color:#7c3aed;">{{ day3_leads|length }} leads</span>
-      <i class="bi bi-chevron-down dash-chevron"></i>
-    </div>
+<div class="card border-0 shadow-sm mb-2">
+  <button class="card-header bg-transparent border-0 d-flex align-items-center gap-2 w-100 text-start py-2 px-3"
+          data-bs-toggle="collapse" data-bs-target="#pipe-day3" aria-expanded="true"
+          style="cursor:pointer;">
+    <span class="badge fw-bold rounded-circle"
+          style="background:#7c3aed;min-width:22px;height:22px;line-height:22px;font-size:0.72rem;">{{ day3_leads|length }}</span>
+    <span class="fw-semibold small" style="color:#7c3aed;">Day 3 / Interview</span>
+    <i class="bi bi-chevron-down ms-auto small text-muted"></i>
   </button>
-  <div class="collapse" id="sec-day3">
-    <div class="dash-sec-body">
+  <div class="collapse show" id="pipe-day3">
+    <div class="card-body p-0">
       {% for lead in day3_leads %}
-      <div class="dash-row {% if not loop.last %}border-bottom{% endif %}">
+      <div class="d-flex align-items-center gap-2 px-3 py-2 {% if not loop.last %}border-bottom{% endif %}">
         <div class="flex-grow-1 min-w-0">
-          <div class="fw-semibold" style="font-size:0.875rem;line-height:1.3;">{{ lead.name }}</div>
-          <div class="d-flex flex-wrap gap-1 mt-1">
-            <span style="background:#ede9fe;color:#7c3aed;border-radius:99px;padding:2px 8px;font-size:0.65rem;font-weight:600;">
-              {{ lead.status }}
-            </span>
+          <div class="fw-semibold small text-truncate">{{ lead.name }}</div>
+          <div class="d-flex gap-1 flex-wrap mt-1">
+            <span class="badge" style="background:#f5f3ff;color:#7c3aed;font-size:0.62rem;">{{ lead.status }}</span>
             {% if lead.interview_done %}
-            <span style="background:#dcfce7;color:#15803d;border-radius:99px;padding:2px 8px;font-size:0.65rem;font-weight:600;">
-              ✅ Interview done
+            <span class="badge bg-success-subtle text-success" style="font-size:0.62rem;">
+              <i class="bi bi-check-circle-fill me-1"></i>Interview ✓
             </span>
             {% else %}
-            <span style="background:#fef3c7;color:#92400e;border-radius:99px;padding:2px 8px;font-size:0.65rem;font-weight:600;">
+            <span class="badge bg-warning-subtle text-warning" style="font-size:0.62rem;">
               Interview pending
             </span>
             {% endif %}
             {% if lead.track_selected %}
-            <span style="background:#f3f4f6;color:#374151;border-radius:99px;padding:2px 8px;font-size:0.65rem;font-weight:600;">
-              {{ lead.track_selected }}
-            </span>
+            <span class="badge bg-secondary-subtle text-secondary" style="font-size:0.62rem;">{{ lead.track_selected }}</span>
             {% endif %}
           </div>
         </div>
-        <div class="d-flex gap-1 flex-shrink-0 align-self-center">
-          <a href="tel:{{ lead.phone }}" class="dash-action-btn" style="background:#dcfce7;color:#15803d;">
+        <div class="d-flex gap-1 flex-shrink-0">
+          <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-outline-success px-2" title="Call">
             <i class="bi bi-telephone-fill"></i>
           </a>
-          <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank"
-             class="dash-action-btn" style="background:#dcfce7;color:#15803d;">
-            <i class="bi bi-whatsapp"></i>
-          </a>
           <a href="{{ url_for('edit_lead', lead_id=lead.id) }}"
-             class="dash-action-btn" style="background:#f3f4f6;color:#4b5563;">
+             class="btn btn-xs btn-outline-secondary px-2" title="Edit">
             <i class="bi bi-pencil-fill"></i>
           </a>
         </div>
@@ -341,48 +335,32 @@
 </div>
 {% endif %}
 
-{# ── 7. PENDING CONVERSION ────────────────────────────────── #}
+{# ── Pending / Seat Hold ──────────────────────────────────── #}
 {% if pending_leads %}
-<div class="dash-section mb-2">
-  <button class="dash-sec-hdr w-100 d-flex align-items-center justify-content-between"
-          type="button" data-bs-toggle="collapse" data-bs-target="#sec-pending"
-          aria-expanded="false">
-    <div class="d-flex align-items-center gap-2">
-      <span class="dash-circle" style="background:#dcfce7;color:#16a34a;">{{ pending_leads|length }}</span>
-      <span class="dash-sec-name">Pending Conversion</span>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-      <span class="dash-alert-pill" style="background:#dcfce7;color:#15803d;">{{ pending_leads|length }}</span>
-      <i class="bi bi-chevron-down dash-chevron"></i>
-    </div>
+<div class="card border-0 shadow-sm mb-2">
+  <button class="card-header bg-transparent border-0 d-flex align-items-center gap-2 w-100 text-start py-2 px-3"
+          data-bs-toggle="collapse" data-bs-target="#pipe-pending" aria-expanded="true"
+          style="cursor:pointer;">
+    <span class="badge bg-success fw-bold rounded-circle"
+          style="min-width:22px;height:22px;line-height:22px;font-size:0.72rem;">{{ pending_leads|length }}</span>
+    <span class="fw-semibold small text-success">Pending Conversion</span>
+    <i class="bi bi-chevron-down ms-auto small text-muted"></i>
   </button>
-  <div class="collapse" id="sec-pending">
-    <div class="dash-sec-body">
+  <div class="collapse show" id="pipe-pending">
+    <div class="card-body p-0">
       {% for lead in pending_leads %}
-      <div class="dash-row {% if not loop.last %}border-bottom{% endif %}">
+      <div class="d-flex align-items-center gap-2 px-3 py-2 {% if not loop.last %}border-bottom{% endif %}">
+        <i class="bi bi-shield-check text-success fs-5 flex-shrink-0"></i>
         <div class="flex-grow-1 min-w-0">
-          <div class="fw-semibold" style="font-size:0.875rem;line-height:1.3;">{{ lead.name }}</div>
-          <div class="d-flex flex-wrap gap-1 mt-1">
-            <span style="background:#dcfce7;color:#15803d;border-radius:99px;padding:2px 8px;font-size:0.65rem;font-weight:600;">
-              Seat Hold Confirmed
-            </span>
-            {% if lead.track_selected %}
-            <span style="background:#f3f4f6;color:#374151;border-radius:99px;padding:2px 8px;font-size:0.65rem;font-weight:600;">
-              {{ lead.track_selected }}
-            </span>
-            {% endif %}
-          </div>
+          <div class="fw-semibold small text-truncate">{{ lead.name }}</div>
+          <div class="text-muted" style="font-size:0.7rem;">Seat Hold Confirmed</div>
         </div>
-        <div class="d-flex gap-1 flex-shrink-0 align-self-center">
-          <a href="tel:{{ lead.phone }}" class="dash-action-btn" style="background:#dcfce7;color:#15803d;">
+        <div class="d-flex gap-1 flex-shrink-0">
+          <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-outline-success px-2" title="Call">
             <i class="bi bi-telephone-fill"></i>
           </a>
-          <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank"
-             class="dash-action-btn" style="background:#dcfce7;color:#15803d;">
-            <i class="bi bi-whatsapp"></i>
-          </a>
           <a href="{{ url_for('edit_lead', lead_id=lead.id) }}"
-             class="dash-action-btn" style="background:#f3f4f6;color:#4b5563;">
+             class="btn btn-xs btn-outline-secondary px-2" title="Edit">
             <i class="bi bi-pencil-fill"></i>
           </a>
         </div>
@@ -393,38 +371,41 @@
 </div>
 {% endif %}
 
-{# ── EMPTY STATE ──────────────────────────────────────────── #}
-{% set has_any = stage1_leads|length or day1_leads|length or day2_leads|length or day3_leads|length or pending_leads|length %}
-{% if not has_any %}
-<div class="text-center py-5 mb-2">
-  <div style="font-size:2.5rem;margin-bottom:12px;">📥</div>
-  <div class="fw-semibold text-muted mb-1">Pipeline khali hai</div>
-  <p class="text-muted small mb-0">Abhi koi lead active nahi hai.</p>
+{% else %}
+
+{# ════════════════════════════════════════════════════════════
+   ZONE 4 · EMPTY STATE
+   ════════════════════════════════════════════════════════════ #}
+<div class="card border-0 shadow-sm text-center py-5 mb-3">
+  <div class="card-body">
+    <i class="bi bi-inbox fs-1 text-muted mb-3 d-block"></i>
+    <div class="fw-semibold text-muted mb-2">Pipeline khali hai</div>
+    <p class="text-muted small mb-3">Leads claim karo pool se ya naya lead add karo.</p>
+    <div class="d-flex gap-2 justify-content-center">
+      <a href="{{ url_for('add_lead') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-person-plus-fill me-1"></i>Add Lead
+      </a>
+      <a href="{{ url_for('lead_pool') }}" class="btn btn-warning text-dark btn-sm">
+        <i class="bi bi-lightning-charge-fill me-1"></i>Claim from Pool
+        {% if pool_count > 0 %}
+        <span class="badge bg-dark ms-1">{{ pool_count }}</span>
+        {% endif %}
+      </a>
+    </div>
+  </div>
 </div>
+
 {% endif %}
 
-{# ── 8. TEAM ACTIVITY ─────────────────────────────────────── #}
-<div class="dash-section mb-3">
-  <button class="dash-sec-hdr w-100 d-flex align-items-center justify-content-between"
-          type="button" data-bs-toggle="collapse" data-bs-target="#sec-activity"
-          aria-expanded="false">
-    <div class="d-flex align-items-center gap-2">
-      <span class="dash-circle" style="background:#ede9fe;color:#6366f1;font-size:0.7rem;">
-        <i class="bi bi-activity"></i>
-      </span>
-      <span class="dash-sec-name">Team Activity</span>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-      <span class="dash-alert-pill" style="background:#dcfce7;color:#15803d;letter-spacing:0.06em;">LIVE</span>
-      <i class="bi bi-chevron-down dash-chevron"></i>
-    </div>
-  </button>
-  <div class="collapse" id="sec-activity">
-    <div class="dash-sec-body p-0">
-      <div id="activityFeed" style="max-height:220px;overflow-y:auto;">
-        <div class="text-muted text-center py-3 small" id="activityEmpty">Loading…</div>
-      </div>
-    </div>
+{# ── Activity Feed ────────────────────────────────────────── #}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header py-2 d-flex align-items-center">
+    <i class="bi bi-activity me-2 text-success"></i>
+    <span class="fw-semibold small">Team Activity</span>
+    <span class="badge bg-success ms-2" style="font-size:.55rem;animation:pulse 2s infinite;">LIVE</span>
+  </div>
+  <div id="activityFeed" class="card-body p-0" style="max-height:200px;overflow-y:auto;">
+    <div class="text-muted text-center py-3 small" id="activityEmpty">Loading…</div>
   </div>
 </div>
 
@@ -432,120 +413,117 @@
 
 {% block scripts %}
 <script>
-// ── Auto-open sections on page load ───────────────────────
-document.addEventListener('DOMContentLoaded', function () {
-
-  function openSection(collapseId, btnId) {
-    const el = document.getElementById(collapseId);
-    const btn = document.getElementById(btnId) || (el && el.previousElementSibling);
-    if (!el) return;
-    new bootstrap.Collapse(el, { toggle: false }).show();
-    if (btn) btn.setAttribute('aria-expanded', 'true');
-    const chevron = btn && btn.querySelector('.dash-chevron');
-    if (chevron) chevron.style.transform = 'rotate(180deg)';
-  }
-
-  {% if day1_leads %}openSection('sec-day1', 'sec-day1-btn');{% endif %}
-  {% if day2_leads %}openSection('sec-day2', 'sec-day2-btn');{% endif %}
-  {% if zoom_link %}openSection('sec-live', 'sec-live-btn');{% endif %}
-
-  // Chevron rotate on toggle
-  document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(function (btn) {
-    const targetId = btn.getAttribute('data-bs-target');
-    const target   = targetId && document.querySelector(targetId);
-    if (!target) return;
-    target.addEventListener('show.bs.collapse',  () => { const c = btn.querySelector('.dash-chevron'); if(c) c.style.transform='rotate(180deg)'; btn.setAttribute('aria-expanded','true'); });
-    target.addEventListener('hide.bs.collapse',  () => { const c = btn.querySelector('.dash-chevron'); if(c) c.style.transform='rotate(0deg)';   btn.setAttribute('aria-expanded','false'); });
-  });
-});
-
-// ── Batch Toggle ──────────────────────────────────────────
+// ── Dashboard Batch Toggle ─────────────────────────────────
 function toggleBatch(leadId, batch, btn) {
   btn.disabled = true;
-  btn.classList.toggle('dash-mael-done');
+  // Optimistic UI — toggle class immediately
+  btn.classList.toggle('db-batch-done');
 
   fetch(`/leads/${leadId}/batch-toggle`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrf_token }}' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': '{{ csrf_token }}'
+    },
     body: JSON.stringify({ batch })
   })
   .then(r => r.json())
   .then(d => {
     btn.disabled = false;
-    if (!d.ok) { btn.classList.toggle('dash-mael-done'); showToast('Error', 'danger'); return; }
-
-    const card = document.getElementById('db-lead-' + leadId);
-    if (!card) return;
-    const done = card.querySelectorAll('.dash-mael-btn.dash-mael-done').length;
-    const cnt  = document.getElementById('db-bd-' + leadId);
-    if (cnt) {
-      cnt.textContent = done + '/3';
-      cnt.style.color = done === 3 ? '#16a34a' : done > 0 ? '#d97706' : '#dc2626';
+    if (!d.ok) {
+      btn.classList.toggle('db-batch-done'); // revert
+      showToast('Error updating batch', 'danger');
+      return;
     }
 
+    // Update progress bar + count
+    const card = document.getElementById('db-lead-' + leadId);
+    if (!card) return;
+    const doneBtns = card.querySelectorAll('.db-batch-btn.db-batch-done').length;
+    const bar = document.getElementById('db-bar-' + leadId);
+    const cnt = document.getElementById('db-bd-' + leadId);
+    if (bar) bar.style.width = (doneBtns / 3 * 100).toFixed(0) + '%';
+    if (cnt) cnt.textContent = doneBtns + '/3';
+
     if (d.all_done) {
-      card.classList.add('dash-batch-complete');
+      card.classList.add('db-batch-complete');
+      // Inject advance button if not present
       const actRow = document.getElementById('db-act-' + leadId);
       if (actRow && !actRow.querySelector('.advance-btn')) {
-        const isD1  = batch.startsWith('d1');
+        const isDayOne = batch.startsWith('d1');
         const advBtn = document.createElement('button');
-        advBtn.className = 'btn btn-sm advance-btn ' + (isD1 ? 'btn-success' : 'btn-warning text-dark');
-        advBtn.style.cssText = 'border-radius:8px;font-size:0.78rem;padding:4px 10px;';
+        advBtn.className = 'btn btn-xs ' + (isDayOne ? 'btn-success' : 'btn-warning text-dark') + ' advance-btn px-2';
         advBtn.dataset.lead   = leadId;
-        advBtn.dataset.status = isD1 ? 'Day 1' : 'Day 2';
-        advBtn.textContent    = isD1 ? '✅ Day 2 →' : '✅ Interview →';
+        advBtn.dataset.status = isDayOne ? 'Day 1' : 'Day 2';
+        advBtn.innerHTML      = '<i class="bi bi-arrow-right me-1"></i>' + (isDayOne ? 'D2' : 'Int.');
         actRow.appendChild(advBtn);
       }
       if (typeof MyleSound !== 'undefined') MyleSound.celebrate();
       showToast('All batches done! 🎉', 'success');
     } else {
-      card.classList.remove('dash-batch-complete');
+      card.classList.remove('db-batch-complete');
       if (typeof MyleSound !== 'undefined') MyleSound.batch();
     }
 
+    // Update score pill
     if (d.today_score !== undefined) {
       const pill = document.getElementById('scorePill');
-      if (pill) pill.textContent = '🏆 ' + d.today_score + ' pts';
+      if (pill) pill.innerHTML = '<i class="bi bi-trophy-fill me-1"></i>' + d.today_score + ' pts';
     }
   })
-  .catch(() => { btn.disabled = false; btn.classList.toggle('dash-mael-done'); showToast('Network error', 'danger'); });
+  .catch(() => {
+    btn.disabled = false;
+    btn.classList.toggle('db-batch-done'); // revert on network error
+    showToast('Network error', 'danger');
+  });
 }
 
-document.addEventListener('click', function (e) {
-  const btn = e.target.closest('.dash-mael-btn');
+// Event delegation — batch buttons
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.db-batch-btn');
   if (!btn) return;
-  toggleBatch(parseInt(btn.dataset.lead), btn.dataset.b, btn);
+  const leadId = parseInt(btn.dataset.lead);
+  const batch  = btn.dataset.b;
+  if (leadId && batch) toggleBatch(leadId, batch, btn);
 });
 
-// ── Advance Lead ──────────────────────────────────────────
+// ── Advance Lead (quick-advance) ───────────────────────────
 function advanceLead(btn) {
+  const leadId = btn.dataset.lead;
+  const status = btn.dataset.status;
   btn.disabled = true;
-  fetch(`/leads/${btn.dataset.lead}/quick-advance`, {
+  fetch(`/leads/${leadId}/quick-advance`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrf_token }}' },
-    body: JSON.stringify({ current_status: btn.dataset.status })
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': '{{ csrf_token }}'
+    },
+    body: JSON.stringify({ current_status: status })
   })
   .then(r => r.json())
   .then(d => {
     btn.disabled = false;
     if (d.ok) {
-      showToast('Moved to ' + d.new_status + '!', 'success');
-      const card = document.getElementById('db-lead-' + btn.dataset.lead);
-      if (card) { card.style.opacity = '0.3'; card.style.pointerEvents = 'none'; }
+      showToast('Lead moved to ' + d.new_status + '!', 'success');
+      const card = document.getElementById('db-lead-' + leadId);
+      if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
       setTimeout(() => location.reload(), 1200);
-    } else showToast(d.error || 'Error', 'danger');
+    } else {
+      showToast(d.error || 'Error', 'danger');
+    }
   })
   .catch(() => { btn.disabled = false; showToast('Network error', 'danger'); });
 }
 
-document.addEventListener('click', function (e) {
+// Event delegation — advance buttons
+document.addEventListener('click', function(e) {
   const btn = e.target.closest('.advance-btn');
   if (!btn) return;
   advanceLead(btn);
 });
 
-// ── Activity Feed ─────────────────────────────────────────
-(function () {
+// ── Activity Feed (polls every 30s) ───────────────────────
+(function(){
   let lastTs = '';
   const feed  = document.getElementById('activityFeed');
   const empty = document.getElementById('activityEmpty');
@@ -561,19 +539,23 @@ document.addEventListener('click', function (e) {
   };
 
   function renderEvents(events) {
-    if (!events.length) { if (empty) empty.textContent = 'No recent activity.'; return; }
+    if (!events.length) {
+      if (empty) empty.textContent = 'No recent activity.';
+      return;
+    }
     if (empty) empty.remove();
     events.forEach(ev => {
       const row  = document.createElement('div');
-      row.className = 'd-flex align-items-start gap-2 px-3 py-2 border-bottom';
+      row.className = 'd-flex align-items-start gap-2 px-3 py-2 border-bottom feed-row';
+      row.style.animation = 'feedIn .3s ease';
       const icon = ICONS[ev.event_type] || 'bi-dot text-muted';
       row.innerHTML = `
-        <i class="bi ${icon} mt-1 flex-shrink-0" style="font-size:.85rem;"></i>
+        <i class="bi ${icon} mt-1" style="font-size:.85rem;flex-shrink:0;"></i>
         <div class="flex-grow-1 min-w-0">
           <span class="fw-semibold small">${ev.username}</span>
-          <span class="text-muted small ms-1">${ev.details || ev.event_type.replace(/_/g, ' ')}</span>
+          <span class="text-muted small ms-1">${ev.details || ev.event_type.replace(/_/g,' ')}</span>
         </div>
-        <span class="text-muted flex-shrink-0" style="font-size:.65rem;">${ev.created_at.slice(11, 16)}</span>`;
+        <div class="text-muted flex-shrink-0" style="font-size:.65rem;">${ev.created_at.slice(11,16)}</div>`;
       feed.prepend(row);
     });
   }
@@ -582,8 +564,12 @@ document.addEventListener('click', function (e) {
     fetch('/api/activity-feed' + (lastTs ? '?since=' + encodeURIComponent(lastTs) : ''))
       .then(r => r.json())
       .then(d => {
-        if (d.events && d.events.length) { renderEvents(d.events); if (d.latest) lastTs = d.latest; }
-        else if (!lastTs && empty) empty.textContent = 'No recent activity.';
+        if (d.events && d.events.length) {
+          renderEvents(d.events);
+          if (d.latest) lastTs = d.latest;
+        } else if (!lastTs) {
+          if (empty) empty.textContent = 'No recent activity in your network.';
+        }
       })
       .catch(() => {});
   }
