@@ -484,25 +484,33 @@ function togglePodcast(btn, url, isLocal) {
     if (!wrap.dataset.loaded) {
       if (isLocal) {
         wrap.innerHTML =
-          '<audio controls style="width:100%;border-radius:10px;outline:none;" preload="none">' +
+          '<audio controls style="width:100%;border-radius:10px;outline:none;" preload="metadata">' +
           '<source src="' + url + '">' +
           'Your browser does not support audio.' +
           '</audio>';
       } else {
-        /* External URL — open in new window, no navigation in app */
+        /* External URL — direct link (no window.open to avoid popup blocker) */
         wrap.innerHTML =
-          '<a href="' + url + '" onclick="window.open(this.href,\'_blank\');return false;" ' +
-          'class="small" style="color:#007AFF;text-decoration:none;">' +
-          '<i class="bi bi-box-arrow-up-right me-1"></i>Open podcast in new tab' +
+          '<a href="' + url + '" target="_blank" ' +
+          'class="small" style="color:#007AFF;text-decoration:none;display:inline-flex;align-items:center;gap:0.4rem;">' +
+          '<i class="bi bi-box-arrow-up-right me-0"></i>Open podcast in new tab' +
           '</a>';
       }
       wrap.dataset.loaded = '1';
     }
     wrap.style.display = 'block';
     btn.innerHTML = '<i class="bi bi-x-circle me-2"></i>Close Podcast';
-    /* Auto-play local audio */
+    /* Auto-play local audio — with better error handling */
     var aud = wrap.querySelector('audio');
-    if (aud) aud.play().catch(function(){});
+    if (aud) {
+      var playPromise = aud.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(function(err) {
+          console.log('Podcast autoplay blocked:', err);
+          aud.pause();
+        });
+      }
+    }
   }
 }
 </script>
