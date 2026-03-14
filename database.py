@@ -311,6 +311,10 @@ def migrate_db():
         ("last_contacted",   "TEXT NOT NULL DEFAULT ''"),
         ("contact_count",    "INTEGER NOT NULL DEFAULT 0"),
         ("follow_up_time",   "TEXT NOT NULL DEFAULT ''"),
+        # Batch tracking (which batch within each day)
+        ("day1_batch",       "TEXT NOT NULL DEFAULT ''"),
+        ("day2_batch",       "TEXT NOT NULL DEFAULT ''"),
+        ("day3_batch",       "TEXT NOT NULL DEFAULT ''"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE leads ADD COLUMN {col} {definition}")

@@ -1537,30 +1537,67 @@ def team_dashboard():
 @app.route('/leads')
 @login_required
 def leads():
+    from datetime import datetime as _dt
     db     = get_db()
     status = request.args.get('status', '')
     search = request.args.get('q', '').strip()
+    today  = _dt.now().strftime('%Y-%m-%d')
 
-    query  = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at=''"
-    params = []
+    # Base filter
+    base   = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at=''"
+    role   = session.get('role')
+    uname  = session.get('username')
 
-    if session.get('role') != 'admin':
-        query += " AND assigned_to=?"
-        params.append(session['username'])
+    # Today condition: created today OR claimed today
+    today_cond = ("(date(created_at,'localtime')=? "
+                  "OR (claimed_at!='' AND date(claimed_at,'localtime')=?))")
 
-    if status:
-        query += " AND status=?"
-        params.append(status)
-    if search:
-        query += " AND (name LIKE ? OR phone LIKE ? OR email LIKE ?)"
-        params += [f'%{search}%', f'%{search}%', f'%{search}%']
+    # Build today params and hist params
+    def _apply_filters(base_q, base_p, extra_cond, extra_p):
+        q = base_q + f" AND {extra_cond}"
+        p = list(base_p) + list(extra_p)
+        if status:
+            q += " AND status=?"; p.append(status)
+        if search:
+            q += " AND (name LIKE ? OR phone LIKE ? OR email LIKE ?)"
+            p += [f'%{search}%', f'%{search}%', f'%{search}%']
+        return q, p
 
-    query += " ORDER BY created_at DESC"
-    all_leads = db.execute(query, params).fetchall()
-    team      = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
+    base_params = []
+    if role != 'admin':
+        base_params = [uname]
+        base += " AND assigned_to=?"
+
+    today_q, today_p = _apply_filters(
+        base, base_params,
+        today_cond, [today, today]
+    )
+    hist_q, hist_p = _apply_filters(
+        base, base_params,
+        f"NOT {today_cond}", [today, today]
+    )
+
+    today_leads = db.execute(today_q + " ORDER BY created_at DESC", today_p).fetchall()
+    hist_leads  = db.execute(hist_q  + " ORDER BY created_at DESC", hist_p).fetchall()
+    team        = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
     db.close()
+
+    # Split today_leads by tab
+    day1_leads   = [l for l in today_leads if l['status'] == 'Day 1']
+    day2_leads   = [l for l in today_leads if l['status'] == 'Day 2']
+    day3_leads   = [l for l in today_leads if l['status'] == 'Interview']
+    active_leads = [l for l in today_leads
+                    if l['status'] not in ('Day 1', 'Day 2', 'Interview')]
+
     return render_template('leads.html',
-                           leads=all_leads,
+                           # legacy key kept for any other templates that reference it
+                           leads=hist_leads,
+                           today_leads=today_leads,
+                           hist_leads=hist_leads,
+                           day1_leads=day1_leads,
+                           day2_leads=day2_leads,
+                           day3_leads=day3_leads,
+                           active_leads=active_leads,
                            statuses=STATUSES,
                            call_result_tags=CALL_RESULT_TAGS,
                            sources=SOURCES,
@@ -1572,6 +1609,34 @@ def leads():
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Leads \u2013 Add
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+
+
+# ─────────────────────────────────────────────────────────────────
+#  Leads – Set Batch (AJAX)
+# ─────────────────────────────────────────────────────────────────
+
+@app.route('/leads/<int:lid>/set-batch', methods=['POST'])
+@login_required
+def set_lead_batch(lid):
+    data  = request.get_json(silent=True) or {}
+    day   = str(data.get('day', ''))
+    batch = str(data.get('batch', ''))
+    if day not in ('1', '2', '3'):
+        return {'ok': False, 'error': 'Invalid day'}, 400
+    col = f'day{day}_batch'
+    db  = get_db()
+    row = db.execute("SELECT assigned_to FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''",
+                     [lid]).fetchone()
+    if not row:
+        db.close(); return {'ok': False, 'error': 'Not found'}, 404
+    if session.get('role') != 'admin' and row['assigned_to'] != session.get('username'):
+        db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
+    db.execute(f"UPDATE leads SET {col}=?, updated_at=datetime('now','localtime') WHERE id=?",
+               [batch, lid])
+    db.commit()
+    db.close()
+    return {'ok': True}
 
 @app.route('/leads/add', methods=['GET', 'POST'])
 @login_required
