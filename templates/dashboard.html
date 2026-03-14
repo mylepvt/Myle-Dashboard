@@ -26,7 +26,7 @@
 
   {# Follow-ups pill #}
   {% if followups %}
-  <a href="{{ url_for('followup_queue') }}"
+  <a href="{{ url_for('follow_up_queue') }}"
      class="badge rounded-pill px-3 py-2 fw-bold text-decoration-none"
      style="background:#fee2e2;color:#dc2626;font-size:0.82rem;">
     <i class="bi bi-calendar-x-fill me-1"></i>{{ followups|length }} follow-up{% if followups|length != 1 %}s{% endif %}
@@ -314,8 +314,8 @@
               Interview pending
             </span>
             {% endif %}
-            {% if lead.track %}
-            <span class="badge bg-secondary-subtle text-secondary" style="font-size:0.62rem;">{{ lead.track }}</span>
+            {% if lead.track_selected %}
+            <span class="badge bg-secondary-subtle text-secondary" style="font-size:0.62rem;">{{ lead.track_selected }}</span>
             {% endif %}
           </div>
         </div>

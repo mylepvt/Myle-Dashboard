@@ -300,16 +300,29 @@ def migrate_db():
 
     # --- leads table columns ---
     for col, definition in [
+        # Core fields (may be missing from very old DBs)
+        ("email",          "TEXT NOT NULL DEFAULT ''"),
+        ("referred_by",    "TEXT NOT NULL DEFAULT ''"),
         ("assigned_to",    "TEXT NOT NULL DEFAULT ''"),
         ("source",         "TEXT NOT NULL DEFAULT ''"),
+        ("payment_done",   "INTEGER NOT NULL DEFAULT 0"),
+        ("payment_amount", "REAL NOT NULL DEFAULT 0.0"),
         ("revenue",        "REAL NOT NULL DEFAULT 0.0"),
+        ("notes",          "TEXT NOT NULL DEFAULT ''"),
+        ("updated_at",     "TEXT NOT NULL DEFAULT (datetime('now','localtime'))"),
+        # 3-day funnel flags
+        ("day1_done",      "INTEGER NOT NULL DEFAULT 0"),
+        ("day2_done",      "INTEGER NOT NULL DEFAULT 0"),
+        ("interview_done", "INTEGER NOT NULL DEFAULT 0"),
+        # Filtering / routing
         ("follow_up_date", "TEXT NOT NULL DEFAULT ''"),
         ("call_result",    "TEXT NOT NULL DEFAULT ''"),
+        ("city",           "TEXT NOT NULL DEFAULT ''"),
+        ("deleted_at",     "TEXT NOT NULL DEFAULT ''"),
+        # Pool system
         ("in_pool",        "INTEGER NOT NULL DEFAULT 0"),
         ("pool_price",     "REAL NOT NULL DEFAULT 0.0"),
         ("claimed_at",     "TEXT NOT NULL DEFAULT ''"),
-        ("city",           "TEXT NOT NULL DEFAULT ''"),
-        ("deleted_at",     "TEXT NOT NULL DEFAULT ''"),
         # Extended funnel fields
         ("track_selected",   "TEXT NOT NULL DEFAULT ''"),
         ("track_price",      "REAL NOT NULL DEFAULT 0.0"),
