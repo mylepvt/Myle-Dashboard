@@ -1587,7 +1587,21 @@ def team_dashboard():
                            pending_leads=pending_leads,
                            today_score=today_score,
                            today_streak=today_streak,
-                           pending_batches=pending_batches))
+                           pending_batches=pending_batches,
+                           batch_videos={
+                               'd1_morning_v1': _get_setting(db, 'batch_d1_morning_v1', ''),
+                               'd1_morning_v2': _get_setting(db, 'batch_d1_morning_v2', ''),
+                               'd1_afternoon_v1': _get_setting(db, 'batch_d1_afternoon_v1', ''),
+                               'd1_afternoon_v2': _get_setting(db, 'batch_d1_afternoon_v2', ''),
+                               'd1_evening_v1': _get_setting(db, 'batch_d1_evening_v1', ''),
+                               'd1_evening_v2': _get_setting(db, 'batch_d1_evening_v2', ''),
+                               'd2_morning_v1': _get_setting(db, 'batch_d2_morning_v1', ''),
+                               'd2_morning_v2': _get_setting(db, 'batch_d2_morning_v2', ''),
+                               'd2_afternoon_v1': _get_setting(db, 'batch_d2_afternoon_v1', ''),
+                               'd2_afternoon_v2': _get_setting(db, 'batch_d2_afternoon_v2', ''),
+                               'd2_evening_v1': _get_setting(db, 'batch_d2_evening_v1', ''),
+                               'd2_evening_v2': _get_setting(db, 'batch_d2_evening_v2', ''),
+                           }))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
     return resp
 
@@ -2503,6 +2517,20 @@ def admin_settings():
         gemini_key_input = request.form.get('gemini_api_key', '').strip()
         if gemini_key_input:
             _set_setting(db, 'gemini_api_key', gemini_key_input)
+
+        # ── Batch Video Links (12 new settings) ────────────────────
+        batch_video_keys = [
+            'batch_d1_morning_v1', 'batch_d1_morning_v2',
+            'batch_d1_afternoon_v1', 'batch_d1_afternoon_v2',
+            'batch_d1_evening_v1', 'batch_d1_evening_v2',
+            'batch_d2_morning_v1', 'batch_d2_morning_v2',
+            'batch_d2_afternoon_v1', 'batch_d2_afternoon_v2',
+            'batch_d2_evening_v1', 'batch_d2_evening_v2',
+        ]
+        for key in batch_video_keys:
+            val = request.form.get(key, '').strip()
+            _set_setting(db, key, val)
+
         db.commit()
         db.close()
         flash('Settings saved successfully.', 'success')
@@ -2521,8 +2549,25 @@ def admin_settings():
         'gemini_api_key_set':    bool(_get_setting(db, 'gemini_api_key')   or os.environ.get('GEMINI_API_KEY')),
         'anthropic_api_key_set': bool(_get_setting(db, 'anthropic_api_key') or os.environ.get('ANTHROPIC_API_KEY')),
     }
+
+    # ── Batch Video Links ────────────────────────────────────────
+    batch_videos = {
+        'd1_morning_v1':   _get_setting(db, 'batch_d1_morning_v1', ''),
+        'd1_morning_v2':   _get_setting(db, 'batch_d1_morning_v2', ''),
+        'd1_afternoon_v1': _get_setting(db, 'batch_d1_afternoon_v1', ''),
+        'd1_afternoon_v2': _get_setting(db, 'batch_d1_afternoon_v2', ''),
+        'd1_evening_v1':   _get_setting(db, 'batch_d1_evening_v1', ''),
+        'd1_evening_v2':   _get_setting(db, 'batch_d1_evening_v2', ''),
+        'd2_morning_v1':   _get_setting(db, 'batch_d2_morning_v1', ''),
+        'd2_morning_v2':   _get_setting(db, 'batch_d2_morning_v2', ''),
+        'd2_afternoon_v1': _get_setting(db, 'batch_d2_afternoon_v1', ''),
+        'd2_afternoon_v2': _get_setting(db, 'batch_d2_afternoon_v2', ''),
+        'd2_evening_v1':   _get_setting(db, 'batch_d2_evening_v1', ''),
+        'd2_evening_v2':   _get_setting(db, 'batch_d2_evening_v2', ''),
+    }
+
     db.close()
-    return render_template('admin_settings.html', settings=settings)
+    return render_template('admin_settings.html', settings=settings, batch_videos=batch_videos)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -5963,6 +6008,20 @@ def working():
             stale_leads=stale_leads,
             batch_completion=batch_completion,
             tracks=TRACKS,
+            batch_videos={
+                'd1_morning_v1': _get_setting(db, 'batch_d1_morning_v1', ''),
+                'd1_morning_v2': _get_setting(db, 'batch_d1_morning_v2', ''),
+                'd1_afternoon_v1': _get_setting(db, 'batch_d1_afternoon_v1', ''),
+                'd1_afternoon_v2': _get_setting(db, 'batch_d1_afternoon_v2', ''),
+                'd1_evening_v1': _get_setting(db, 'batch_d1_evening_v1', ''),
+                'd1_evening_v2': _get_setting(db, 'batch_d1_evening_v2', ''),
+                'd2_morning_v1': _get_setting(db, 'batch_d2_morning_v1', ''),
+                'd2_morning_v2': _get_setting(db, 'batch_d2_morning_v2', ''),
+                'd2_afternoon_v1': _get_setting(db, 'batch_d2_afternoon_v1', ''),
+                'd2_afternoon_v2': _get_setting(db, 'batch_d2_afternoon_v2', ''),
+                'd2_evening_v1': _get_setting(db, 'batch_d2_evening_v1', ''),
+                'd2_evening_v2': _get_setting(db, 'batch_d2_evening_v2', ''),
+            },
         )
 
     # ── Team member view ───────────────────────────────────────────
@@ -6064,6 +6123,20 @@ def working():
         today_actions=today_actions,
         tracks=TRACKS,
         statuses=STATUSES,
+        batch_videos={
+            'd1_morning_v1': _get_setting(db, 'batch_d1_morning_v1', ''),
+            'd1_morning_v2': _get_setting(db, 'batch_d1_morning_v2', ''),
+            'd1_afternoon_v1': _get_setting(db, 'batch_d1_afternoon_v1', ''),
+            'd1_afternoon_v2': _get_setting(db, 'batch_d1_afternoon_v2', ''),
+            'd1_evening_v1': _get_setting(db, 'batch_d1_evening_v1', ''),
+            'd1_evening_v2': _get_setting(db, 'batch_d1_evening_v2', ''),
+            'd2_morning_v1': _get_setting(db, 'batch_d2_morning_v1', ''),
+            'd2_morning_v2': _get_setting(db, 'batch_d2_morning_v2', ''),
+            'd2_afternoon_v1': _get_setting(db, 'batch_d2_afternoon_v1', ''),
+            'd2_afternoon_v2': _get_setting(db, 'batch_d2_afternoon_v2', ''),
+            'd2_evening_v1': _get_setting(db, 'batch_d2_evening_v1', ''),
+            'd2_evening_v2': _get_setting(db, 'batch_d2_evening_v2', ''),
+        },
     )
 
 

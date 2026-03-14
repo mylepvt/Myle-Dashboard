@@ -305,15 +305,18 @@
       <!-- Batch toggles -->
       <div class="d-flex gap-2 mb-2 align-items-center">
         <button class="wk-batch-btn {% if lead.d1_morning %}wk-batch-done{% endif %}"
-                data-lead-id="{{ lead.id }}" data-batch="d1_morning" title="Morning batch">
+                data-lead-id="{{ lead.id }}" data-batch="d1_morning" title="Morning batch"
+                onclick="openBatchPopup('{{ lead.id }}', 'd1_morning', '{{ lead.phone }}', '{{ lead.name }}', this)">
           <i class="bi bi-sunrise-fill"></i><span class="d-none d-sm-inline ms-1">M</span>
         </button>
         <button class="wk-batch-btn {% if lead.d1_afternoon %}wk-batch-done{% endif %}"
-                data-lead-id="{{ lead.id }}" data-batch="d1_afternoon" title="Afternoon batch">
+                data-lead-id="{{ lead.id }}" data-batch="d1_afternoon" title="Afternoon batch"
+                onclick="openBatchPopup('{{ lead.id }}', 'd1_afternoon', '{{ lead.phone }}', '{{ lead.name }}', this)">
           <i class="bi bi-sun-fill"></i><span class="d-none d-sm-inline ms-1">A</span>
         </button>
         <button class="wk-batch-btn {% if lead.d1_evening %}wk-batch-done{% endif %}"
-                data-lead-id="{{ lead.id }}" data-batch="d1_evening" title="Evening batch">
+                data-lead-id="{{ lead.id }}" data-batch="d1_evening" title="Evening batch"
+                onclick="openBatchPopup('{{ lead.id }}', 'd1_evening', '{{ lead.phone }}', '{{ lead.name }}', this)">
           <i class="bi bi-moon-fill"></i><span class="d-none d-sm-inline ms-1">E</span>
         </button>
       </div>
@@ -364,15 +367,18 @@
       <div class="small text-muted mb-2">{{ batches_done }}/3 batches done</div>
       <div class="d-flex gap-2 mb-2 align-items-center">
         <button class="wk-batch-btn {% if lead.d2_morning %}wk-batch-done{% endif %}"
-                data-lead-id="{{ lead.id }}" data-batch="d2_morning" title="Morning batch">
+                data-lead-id="{{ lead.id }}" data-batch="d2_morning" title="Morning batch"
+                onclick="openBatchPopup('{{ lead.id }}', 'd2_morning', '{{ lead.phone }}', '{{ lead.name }}', this)">
           <i class="bi bi-sunrise-fill"></i><span class="d-none d-sm-inline ms-1">M</span>
         </button>
         <button class="wk-batch-btn {% if lead.d2_afternoon %}wk-batch-done{% endif %}"
-                data-lead-id="{{ lead.id }}" data-batch="d2_afternoon" title="Afternoon batch">
+                data-lead-id="{{ lead.id }}" data-batch="d2_afternoon" title="Afternoon batch"
+                onclick="openBatchPopup('{{ lead.id }}', 'd2_afternoon', '{{ lead.phone }}', '{{ lead.name }}', this)">
           <i class="bi bi-sun-fill"></i><span class="d-none d-sm-inline ms-1">A</span>
         </button>
         <button class="wk-batch-btn {% if lead.d2_evening %}wk-batch-done{% endif %}"
-                data-lead-id="{{ lead.id }}" data-batch="d2_evening" title="Evening batch">
+                data-lead-id="{{ lead.id }}" data-batch="d2_evening" title="Evening batch"
+                onclick="openBatchPopup('{{ lead.id }}', 'd2_evening', '{{ lead.phone }}', '{{ lead.name }}', this)">
           <i class="bi bi-moon-fill"></i><span class="d-none d-sm-inline ms-1">E</span>
         </button>
       </div>
@@ -587,69 +593,6 @@ document.querySelectorAll('.wk-tab').forEach(tab => {
   });
 });
 
-// ── Batch toggle ───────────────────────────────────────────────
-document.querySelectorAll('.wk-batch-btn').forEach(btn => {
-  btn.addEventListener('click', function() {
-    const leadId = this.dataset.leadId;
-    const batch  = this.dataset.batch;
-    const self   = this;
-
-    fetch(`/leads/${leadId}/batch-toggle`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': _csrf,
-      },
-      body: JSON.stringify({ batch }),
-    })
-    .then(r => r.json())
-    .then(d => {
-      if (!d.ok) { showToast(d.error || 'Error', 'danger'); return; }
-
-      self.classList.toggle('wk-batch-done', !!d.new_val);
-
-      const pts = d.points;
-      if (pts > 0) showToast(`+${pts} pts! Batch marked ✅`, 'success');
-      else         showToast(`Batch unmarked`, 'secondary');
-
-      // Update live score
-      const scoreEl = document.getElementById('liveScore');
-      if (scoreEl) scoreEl.textContent = d.today_score;
-
-      // Update progress bar inside the same card
-      const card = self.closest('.wk-lead-card');
-      if (card) {
-        const allBtns = card.querySelectorAll('.wk-batch-btn');
-        const doneCount = [...allBtns].filter(b => b.classList.contains('wk-batch-done')).length;
-        const bar = card.querySelector('.wk-batch-bar');
-        if (bar) bar.style.width = (doneCount / 3 * 100) + '%';
-        const countEl = card.querySelector('.small.text-muted');
-        if (countEl && countEl.textContent.includes('/3')) {
-          countEl.textContent = `${doneCount}/3 batches done`;
-        }
-
-        if (d.all_done) {
-          card.classList.add('wk-lead-complete');
-          spawnConfetti(card);
-          // Show advance button if not present
-          if (!card.querySelector('.wk-advance-btn')) {
-            const advBtn = document.createElement('button');
-            advBtn.className = 'btn btn-sm btn-success wk-btn wk-advance-btn ms-auto';
-            advBtn.dataset.leadId = leadId;
-            advBtn.dataset.status = batch.startsWith('d1') ? 'Day 1' : 'Day 2';
-            advBtn.innerHTML = `<i class="bi bi-arrow-right me-1"></i>${batch.startsWith('d1') ? 'To Day 2' : 'Interview'}`;
-            card.querySelector('.d-flex.gap-2.align-items-center').appendChild(advBtn);
-            advBtn.addEventListener('click', handleAdvance);
-          }
-        } else {
-          card.classList.remove('wk-lead-complete');
-        }
-      }
-    })
-    .catch(() => showToast('Network error', 'danger'));
-  });
-});
-
 // ── Quick advance ──────────────────────────────────────────────
 function handleAdvance() {
   const leadId = this.dataset.leadId;
@@ -721,5 +664,208 @@ function spawnConfetti(anchorEl) {
     setTimeout(() => piece.remove(), 1000);
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BATCH VIDEO POPUP
+// ═══════════════════════════════════════════════════════════════════════════
+
+const BATCH_VIDEOS = {
+  d1_morning:   { v1: "{{ batch_videos.d1_morning_v1 }}", v2: "{{ batch_videos.d1_morning_v2 }}" },
+  d1_afternoon: { v1: "{{ batch_videos.d1_afternoon_v1 }}", v2: "{{ batch_videos.d1_afternoon_v2 }}" },
+  d1_evening:   { v1: "{{ batch_videos.d1_evening_v1 }}", v2: "{{ batch_videos.d1_evening_v2 }}" },
+  d2_morning:   { v1: "{{ batch_videos.d2_morning_v1 }}", v2: "{{ batch_videos.d2_morning_v2 }}" },
+  d2_afternoon: { v1: "{{ batch_videos.d2_afternoon_v1 }}", v2: "{{ batch_videos.d2_afternoon_v2 }}" },
+  d2_evening:   { v1: "{{ batch_videos.d2_evening_v1 }}", v2: "{{ batch_videos.d2_evening_v2 }}" },
+};
+
+const BATCH_LABELS = {
+  d1_morning:   '🌅 Day 1 — Morning Batch',
+  d1_afternoon: '☀️ Day 1 — Afternoon Batch',
+  d1_evening:   '🌙 Day 1 — Evening Batch',
+  d2_morning:   '🌅 Day 2 — Morning Batch',
+  d2_afternoon: '☀️ Day 2 — Afternoon Batch',
+  d2_evening:   '🌙 Day 2 — Evening Batch',
+};
+
+let _popupState = {
+  leadId: null,
+  batchKey: null,
+  phone: null,
+  cardEl: null,
+};
+
+function openBatchPopup(leadId, batchKey, phone, leadName, btnEl) {
+  _popupState = { leadId, batchKey, phone, cardEl: btnEl.closest('[data-lead-card]') };
+  document.getElementById('popupBatchName').textContent = BATCH_LABELS[batchKey] || batchKey;
+  document.getElementById('popupLeadName').textContent = leadName;
+
+  const videos = BATCH_VIDEOS[batchKey] || {};
+  const hasLinks = videos.v1 || videos.v2;
+  const linksDiv = document.getElementById('popupVideoLinks');
+
+  if (hasLinks) {
+    linksDiv.innerHTML = `
+      <div style="font-size:0.75rem;font-weight:700;color:#6b7280;margin-bottom:8px;">
+        WhatsApp message mein yeh jayega:
+      </div>
+      ${videos.v1 ? `<div style="font-size:0.8rem;margin-bottom:4px;word-break:break-all;">
+        📹 Video 1: <span style="color:#6366f1">${videos.v1}</span>
+      </div>` : ''}
+      ${videos.v2 ? `<div style="font-size:0.8rem;word-break:break-all;">
+        📹 Video 2: <span style="color:#6366f1">${videos.v2}</span>
+      </div>` : ''}
+    `;
+    document.getElementById('popupSendBtn').style.display = 'flex';
+  } else {
+    linksDiv.innerHTML = `
+      <div style="font-size:0.8rem;color:#9ca3af;text-align:center;">
+        ⚠️ Video links set nahi hain. Admin se contact karo.
+      </div>
+    `;
+    document.getElementById('popupSendBtn').style.display = 'none';
+  }
+
+  const popup = document.getElementById('batchPopup');
+  popup.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeBatchPopup() {
+  document.getElementById('batchPopup').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+async function sendAndMark() {
+  const { leadId, batchKey, phone } = _popupState;
+  const videos = BATCH_VIDEOS[batchKey] || {};
+
+  await _markBatchDone(leadId, batchKey);
+
+  const label = BATCH_LABELS[batchKey];
+  const msg = `${label}\n\n` +
+    (videos.v1 ? `📹 Video 1:\n${videos.v1}\n` : '') +
+    (videos.v2 ? `📹 Video 2:\n${videos.v2}\n` : '') +
+    `\nDono videos dekho aur reply karo ✅`;
+
+  const cleanPhone = phone.replace(/[^0-9]/g, '');
+  const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+
+  closeBatchPopup();
+  window.open(waUrl, '_blank');
+}
+
+async function alreadySentMark() {
+  const { leadId, batchKey } = _popupState;
+  await _markBatchDone(leadId, batchKey);
+  closeBatchPopup();
+}
+
+async function _markBatchDone(leadId, batchKey) {
+  const dbColumn = batchKey;
+  try {
+    const res = await fetch(`/leads/${leadId}/batch-toggle`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': '{{ csrf_token }}'
+      },
+      body: JSON.stringify({ batch: dbColumn })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      const card = _popupState.cardEl;
+      if (card) {
+        const btn = card.querySelector(`[data-batch="${batchKey}"]`);
+        if (btn) {
+          btn.style.background = '#d1fae5';
+          btn.style.color = '#065f46';
+          btn.style.borderColor = '#6ee7b7';
+        }
+        if (data.all_done) {
+          card.style.borderLeftColor = '#16a34a';
+          card.style.background = '#f0fdf4';
+          const advBtn = card.querySelector('.advance-btn');
+          if (advBtn) advBtn.style.display = 'block';
+        }
+      }
+      if (typeof MyleSound !== 'undefined') MyleSound.batch();
+      showToast('+15 pts! Batch mark ho gayi ✅', 'success');
+    }
+  } catch(e) {
+    showToast('Error. Dobara try karo.', 'danger');
+  }
+}
+
+document.getElementById('batchPopup').addEventListener('click', function(e) {
+  if (e.target === this) closeBatchPopup();
+});
 </script>
+
+<!-- Batch Popup HTML -->
+<div id="batchPopup" style="display:none;
+  position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,0.5);
+  display:none; align-items:flex-end;
+  justify-content:center;">
+
+  <div style="background:#fff; border-radius:20px 20px 0 0;
+    width:100%; max-width:480px; padding:20px;
+    animation: slideUp 0.2s ease;">
+
+    <!-- Header -->
+    <div style="display:flex; justify-content:space-between;
+      align-items:center; margin-bottom:16px;">
+      <div>
+        <div id="popupBatchName" style="font-weight:700;
+          font-size:1rem;"></div>
+        <div id="popupLeadName" style="font-size:0.8rem;
+          color:#6b7280; margin-top:2px;"></div>
+      </div>
+      <button onclick="closeBatchPopup()"
+        style="background:none;border:none;
+          font-size:1.2rem;cursor:pointer;
+          color:#9ca3af;">✕</button>
+    </div>
+
+    <!-- Video links preview -->
+    <div id="popupVideoLinks" style="margin-bottom:16px;
+      background:#f8f9fc; border-radius:10px; padding:12px;">
+    </div>
+
+    <!-- Buttons -->
+    <button id="popupSendBtn"
+      onclick="sendAndMark()"
+      style="width:100%; padding:14px; border-radius:12px;
+        background:#25D366; color:#fff; border:none;
+        font-weight:700; font-size:0.95rem; cursor:pointer;
+        margin-bottom:8px; display:flex; align-items:center;
+        justify-content:center; gap:8px;">
+      📤 WhatsApp pe Bhejo + Mark Done
+    </button>
+
+    <button id="popupAlreadySentBtn"
+      onclick="alreadySentMark()"
+      style="width:100%; padding:12px; border-radius:12px;
+        background:#eef2ff; color:#6366f1; border:none;
+        font-weight:700; font-size:0.9rem; cursor:pointer;
+        margin-bottom:8px;">
+      ✅ Pehle Se Bhej Diya — Sirf Mark Karo
+    </button>
+
+    <button onclick="closeBatchPopup()"
+      style="width:100%; padding:10px; border-radius:12px;
+        background:#f3f4f6; color:#6b7280; border:none;
+        font-weight:600; font-size:0.85rem; cursor:pointer;">
+      Cancel
+    </button>
+  </div>
+</div>
+
+<style>
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+</style>
+
 {% endblock %}
