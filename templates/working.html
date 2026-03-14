@@ -301,7 +301,7 @@
       <div class="wk-batch-progress mb-2">
         <div class="wk-batch-bar" style="width:{{ (batches_done/3*100)|int }}%"></div>
       </div>
-      <div class="small text-muted mb-2">{{ batches_done }}/3 batches done</div>
+      <div class="small text-muted mb-2 wk-batch-count">{{ batches_done }}/3 batches done</div>
       <!-- Batch toggles -->
       <div class="d-flex gap-2 mb-2 align-items-center">
         <button class="wk-batch-btn {% if lead.d1_morning %}wk-batch-done{% endif %}"
@@ -323,12 +323,11 @@
       <div class="d-flex gap-2 align-items-center flex-wrap">
         <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
         <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
-        {% if all_d1_done %}
         <button class="btn btn-sm btn-success wk-btn wk-advance-btn ms-auto"
-                data-lead-id="{{ lead.id }}" data-status="Day 1">
+                data-lead-id="{{ lead.id }}" data-status="Day 1"
+                style="display:{% if all_d1_done %}inline-flex{% else %}none{% endif %};">
           <i class="bi bi-arrow-right me-1"></i>To Day 2
         </button>
-        {% endif %}
       </div>
     </div>
     {% endfor %}
@@ -364,7 +363,7 @@
       <div class="wk-batch-progress mb-2">
         <div class="wk-batch-bar wk-batch-bar-d2" style="width:{{ (batches_done/3*100)|int }}%"></div>
       </div>
-      <div class="small text-muted mb-2">{{ batches_done }}/3 batches done</div>
+      <div class="small text-muted mb-2 wk-batch-count">{{ batches_done }}/3 batches done</div>
       <div class="d-flex gap-2 mb-2 align-items-center">
         <button class="wk-batch-btn {% if lead.d2_morning %}wk-batch-done{% endif %}"
                 data-lead-id="{{ lead.id }}" data-batch="d2_morning" title="Morning batch"
@@ -385,12 +384,11 @@
       <div class="d-flex gap-2 align-items-center flex-wrap">
         <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
         <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
-        {% if all_d2_done %}
         <button class="btn btn-sm btn-warning text-dark wk-btn wk-advance-btn ms-auto"
-                data-lead-id="{{ lead.id }}" data-status="Day 2">
+                data-lead-id="{{ lead.id }}" data-status="Day 2"
+                style="display:{% if all_d2_done %}inline-flex{% else %}none{% endif %};">
           <i class="bi bi-arrow-right me-1"></i>Interview
         </button>
-        {% endif %}
       </div>
     </div>
     {% endfor %}
@@ -695,7 +693,7 @@ let _popupState = {
 };
 
 function openBatchPopup(leadId, batchKey, phone, leadName, btnEl) {
-  _popupState = { leadId, batchKey, phone, cardEl: btnEl.closest('[data-lead-card]') };
+  _popupState = { leadId, batchKey, phone, cardEl: btnEl.closest('.wk-lead-card') };
   document.getElementById('popupBatchName').textContent = BATCH_LABELS[batchKey] || batchKey;
   document.getElementById('popupLeadName').textContent = leadName;
 
@@ -739,8 +737,6 @@ async function sendAndMark() {
   const { leadId, batchKey, phone } = _popupState;
   const videos = BATCH_VIDEOS[batchKey] || {};
 
-  await _markBatchDone(leadId, batchKey);
-
   const label = BATCH_LABELS[batchKey];
   const msg = `${label}\n\n` +
     (videos.v1 ? `📹 Video 1:\n${videos.v1}\n` : '') +
@@ -750,16 +746,21 @@ async function sendAndMark() {
   // Clean phone number with country code logic (same as wa_phone filter)
   let cleanPhone = phone.replace(/[^\d]/g, '');
   if (cleanPhone.length === 10 && '6789'.includes(cleanPhone[0])) {
-    cleanPhone = '91' + cleanPhone;  // Indian mobile — prepend country code
+    cleanPhone = '91' + cleanPhone;
   } else if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
-    cleanPhone = '91' + cleanPhone.substring(1);  // 0XXXXXXXXXX → 91XXXXXXXXXX
+    cleanPhone = '91' + cleanPhone.substring(1);
   }
 
   const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
 
   closeBatchPopup();
-  // Use direct navigation instead of window.open() to avoid pop-up blocker issues
-  window.location.href = waUrl;
+
+  // Open WhatsApp in new tab FIRST (synchronously, within user-gesture context)
+  // — must happen BEFORE any await so popup blocker doesn't fire
+  window.open(waUrl, '_blank');
+
+  // THEN mark the batch (async, page stays open so UI updates work)
+  await _markBatchDone(leadId, batchKey);
 }
 
 async function alreadySentMark() {
@@ -783,17 +784,26 @@ async function _markBatchDone(leadId, batchKey) {
     if (data.ok) {
       const card = _popupState.cardEl;
       if (card) {
+        // Mark the batch button as done
         const btn = card.querySelector(`[data-batch="${batchKey}"]`);
         if (btn) {
-          btn.style.background = '#d1fae5';
-          btn.style.color = '#065f46';
-          btn.style.borderColor = '#6ee7b7';
+          btn.classList.add('wk-batch-done');
         }
+
+        // Recount done batches and update progress bar + count text
+        const allBtns = card.querySelectorAll('[data-batch]');
+        let doneCnt = 0;
+        allBtns.forEach(b => { if (b.classList.contains('wk-batch-done')) doneCnt++; });
+        const bar = card.querySelector('.wk-batch-bar');
+        if (bar) bar.style.width = Math.round(doneCnt / 3 * 100) + '%';
+        const countEl = card.querySelector('.wk-batch-count');
+        if (countEl) countEl.textContent = doneCnt + '/3 batches done';
+
         if (data.all_done) {
-          card.style.borderLeftColor = '#16a34a';
-          card.style.background = '#f0fdf4';
-          const advBtn = card.querySelector('.advance-btn');
-          if (advBtn) advBtn.style.display = 'block';
+          card.classList.add('wk-lead-complete');
+          // Show advance button (class is wk-advance-btn, not advance-btn)
+          const advBtn = card.querySelector('.wk-advance-btn');
+          if (advBtn) advBtn.style.display = 'inline-flex';
         }
       }
       if (typeof MyleSound !== 'undefined') MyleSound.batch();
