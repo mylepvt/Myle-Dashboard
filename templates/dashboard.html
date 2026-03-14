@@ -654,7 +654,14 @@ async function sendAndMark() {
     (videos.v2 ? `📹 Video 2:\n${videos.v2}\n` : '') +
     `\nDono videos dekho aur reply karo ✅`;
 
-  const cleanPhone = phone.replace(/[^0-9]/g, '');
+  // Clean phone number with country code logic (same as wa_phone filter)
+  let cleanPhone = phone.replace(/[^\d]/g, '');
+  if (cleanPhone.length === 10 && '6789'.includes(cleanPhone[0])) {
+    cleanPhone = '91' + cleanPhone;  // Indian mobile — prepend country code
+  } else if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
+    cleanPhone = '91' + cleanPhone.substring(1);  // 0XXXXXXXXXX → 91XXXXXXXXXX
+  }
+
   const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
 
   closeBatchPopup();
