@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block title %}Day 2 Live Board — Myle Community{% endblock %}
+{% block page_title %}Day 2 Live Board{% endblock %}
+
+{% block extra_head %}
+<meta http-equiv="refresh" content="60">
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h5 class="mb-1 fw-bold"><i class="bi bi-2-circle me-2 text-warning"></i>Day 2 Progress</h5>
+    <div class="text-muted small">Auto-refreshes every 60 seconds · Visible to all team members</div>
+  </div>
+  <a href="{{ url_for('working') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back to Working
+  </a>
+</div>
+
+<!-- Summary bar -->
+<div class="d-flex gap-3 flex-wrap mb-4">
+  <div class="d2-summary-chip d2-chip-complete">
+    <i class="bi bi-check-circle-fill me-1"></i>{{ complete_count }} complete
+  </div>
+  <div class="d2-summary-chip d2-chip-progress">
+    <i class="bi bi-circle-half me-1"></i>{{ in_progress_count }} in progress
+  </div>
+  <div class="d2-summary-chip d2-chip-notstarted">
+    <i class="bi bi-circle me-1"></i>{{ not_started_count }} not started
+  </div>
+  <div class="ms-auto text-muted small d-flex align-items-center">
+    <i class="bi bi-arrow-clockwise me-1"></i>Refreshes every 60s
+  </div>
+</div>
+
+{% if day2_leads %}
+<!-- Progress table -->
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-4">Lead Name</th>
+            <th>Member</th>
+            <th class="text-center"><i class="bi bi-sunrise-fill text-warning me-1"></i>Morning</th>
+            <th class="text-center"><i class="bi bi-sun-fill text-orange me-1"></i>Afternoon</th>
+            <th class="text-center"><i class="bi bi-moon-fill text-indigo me-1"></i>Evening</th>
+            <th class="text-center">Status</th>
+            {% if can_edit %}
+            <th class="text-center text-muted small">Last Update</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for lead in day2_leads %}
+          {% set done_count = lead.d2_morning + lead.d2_afternoon + lead.d2_evening %}
+          {% set is_own = (lead.assigned_to == current_user) %}
+          {% set can_toggle = can_edit or is_own %}
+          <tr class="d2-lead-row
+            {% if done_count == 3 %}d2-row-complete
+            {% elif done_count > 0 %}d2-row-progress
+            {% else %}d2-row-notstarted{% endif %}">
+
+            <td class="ps-4">
+              <div class="fw-semibold">{{ lead.name }}</div>
+              {% if lead.city %}
+              <div class="small text-muted"><i class="bi bi-geo-alt me-1"></i>{{ lead.city }}</div>
+              {% endif %}
+            </td>
+
+            <td>
+              <span class="badge {% if is_own %}bg-primary{% else %}bg-light text-dark{% endif %}">
+                {{ lead.assigned_to }}
+                {% if is_own %}<small>(you)</small>{% endif %}
+              </span>
+            </td>
+
+            <!-- Morning -->
+            <td class="text-center">
+              {% if can_toggle %}
+              <button class="d2-batch-toggle {% if lead.d2_morning %}d2-batch-done{% endif %}"
+                      data-lead-id="{{ lead.id }}" data-batch="d2_morning"
+                      {% if not can_toggle %}disabled{% endif %}>
+                {% if lead.d2_morning %}<i class="bi bi-check-circle-fill"></i>
+                {% else %}<i class="bi bi-circle"></i>{% endif %}
+              </button>
+              {% else %}
+                {% if lead.d2_morning %}
+                  <span class="text-success"><i class="bi bi-check-circle-fill"></i></span>
+                {% else %}
+                  <span class="text-muted"><i class="bi bi-circle"></i></span>
+                {% endif %}
+              {% endif %}
+            </td>
+
+            <!-- Afternoon -->
+            <td class="text-center">
+              {% if can_toggle %}
+              <button class="d2-batch-toggle {% if lead.d2_afternoon %}d2-batch-done{% endif %}"
+                      data-lead-id="{{ lead.id }}" data-batch="d2_afternoon">
+                {% if lead.d2_afternoon %}<i class="bi bi-check-circle-fill"></i>
+                {% else %}<i class="bi bi-circle"></i>{% endif %}
+              </button>
+              {% else %}
+                {% if lead.d2_afternoon %}
+                  <span class="text-success"><i class="bi bi-check-circle-fill"></i></span>
+                {% else %}
+                  <span class="text-muted"><i class="bi bi-circle"></i></span>
+                {% endif %}
+              {% endif %}
+            </td>
+
+            <!-- Evening -->
+            <td class="text-center">
+              {% if can_toggle %}
+              <button class="d2-batch-toggle {% if lead.d2_evening %}d2-batch-done{% endif %}"
+                      data-lead-id="{{ lead.id }}" data-batch="d2_evening">
+                {% if lead.d2_evening %}<i class="bi bi-check-circle-fill"></i>
+                {% else %}<i class="bi bi-circle"></i>{% endif %}
+              </button>
+              {% else %}
+                {% if lead.d2_evening %}
+                  <span class="text-success"><i class="bi bi-check-circle-fill"></i></span>
+                {% else %}
+                  <span class="text-muted"><i class="bi bi-circle"></i></span>
+                {% endif %}
+              {% endif %}
+            </td>
+
+            <!-- Status pill -->
+            <td class="text-center">
+              {% if done_count == 3 %}
+              <span class="badge bg-success"><i class="bi bi-check2-all me-1"></i>Complete</span>
+              {% elif done_count > 0 %}
+              <span class="badge bg-warning text-dark">{{ done_count }}/3</span>
+              {% else %}
+              {% if lead.hours_since_update and lead.hours_since_update >= 48 %}
+              <span class="badge bg-danger"><i class="bi bi-exclamation-triangle me-1"></i>Stale</span>
+              {% else %}
+              <span class="badge bg-light text-muted">Not started</span>
+              {% endif %}
+              {% endif %}
+            </td>
+
+            {% if can_edit %}
+            <td class="text-center small text-muted">
+              {% if lead.hours_since_update is not none %}
+                {% if lead.hours_since_update < 1 %}Just now
+                {% elif lead.hours_since_update < 24 %}{{ lead.hours_since_update }}h ago
+                {% else %}{{ (lead.hours_since_update // 24) }}d ago{% endif %}
+              {% endif %}
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-2-circle fs-1 mb-3 d-block opacity-25"></i>
+  <div>Koi lead Day 2 mein nahi hai abhi.</div>
+  <a href="{{ url_for('working') }}" class="btn btn-outline-primary btn-sm mt-3">Working Section par jao</a>
+</div>
+{% endif %}
+
+<script>
+const _csrf = window._csrfToken || '{{ csrf_token }}';
+
+document.querySelectorAll('.d2-batch-toggle').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const leadId = this.dataset.leadId;
+    const batch  = this.dataset.batch;
+    const self   = this;
+
+    fetch(`/leads/${leadId}/batch-toggle`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': _csrf,
+      },
+      body: JSON.stringify({ batch }),
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok) { showToast(d.error || 'Error', 'danger'); return; }
+
+      const newVal = d.new_val;
+      self.classList.toggle('d2-batch-done', !!newVal);
+      self.innerHTML = newVal
+        ? '<i class="bi bi-check-circle-fill"></i>'
+        : '<i class="bi bi-circle"></i>';
+
+      const pts = d.points;
+      if (pts > 0) showToast(`+${pts} pts!`, 'success');
+
+      // Update row status
+      const row = self.closest('tr');
+      if (row) {
+        const allBtns = row.querySelectorAll('.d2-batch-toggle');
+        const doneCount = [...allBtns].filter(b => b.classList.contains('d2-batch-done')).length;
+        const statusCell = row.querySelector('td:nth-last-child({% if can_edit %}2{% else %}1{% endif %})');
+        if (statusCell) {
+          if (doneCount === 3) {
+            statusCell.innerHTML = '<span class="badge bg-success"><i class="bi bi-check2-all me-1"></i>Complete</span>';
+            row.className = row.className.replace(/d2-row-\w+/g, '') + ' d2-row-complete';
+          } else if (doneCount > 0) {
+            statusCell.innerHTML = `<span class="badge bg-warning text-dark">${doneCount}/3</span>`;
+            row.className = row.className.replace(/d2-row-\w+/g, '') + ' d2-row-progress';
+          } else {
+            statusCell.innerHTML = '<span class="badge bg-light text-muted">Not started</span>';
+            row.className = row.className.replace(/d2-row-\w+/g, '') + ' d2-row-notstarted';
+          }
+        }
+      }
+    })
+    .catch(() => showToast('Network error', 'danger'));
+  });
+});
+</script>
+{% endblock %}

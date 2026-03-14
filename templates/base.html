@@ -23,7 +23,7 @@
   <!-- Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
   <!-- Custom -->
-  <link href="{{ url_for('static', filename='css/style.css') }}?v=20260311" rel="stylesheet" />
+  <link href="{{ url_for('static', filename='css/style.css') }}?v=20260314" rel="stylesheet" />
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -104,6 +104,16 @@
         </a>
       </li>
       {% endif %}
+
+      <li class="nav-item">
+        <a href="{{ url_for('working') }}"
+           class="nav-link d-flex align-items-center justify-content-between {% if request.endpoint in ['working','batch_toggle','quick_advance','api_today_score'] %}active{% endif %}">
+          <span><i class="bi bi-diagram-3 me-2"></i><span>Working Section</span></span>
+          {% if session.get('role') != 'admin' and today_actions is defined and (today_actions.get('pending_calls',0) + today_actions.get('videos_to_send',0) + today_actions.get('batches_due',0) + today_actions.get('closings_due',0)) > 0 %}
+          <span class="badge bg-danger" style="font-size:.6rem;">!</span>
+          {% endif %}
+        </a>
+      </li>
 
       <!-- ── Team (admin only) ─────────────────────────── -->
       {% if session.get('role') == 'admin' %}
@@ -240,6 +250,12 @@
         </a>
       </li>
       {% endif %}
+      <li class="nav-item">
+        <a href="{{ url_for('day2_progress') }}"
+           class="nav-link {% if request.endpoint == 'day2_progress' %}active{% endif %}">
+          <i class="bi bi-2-circle me-2 text-warning"></i><span>Day 2 Board</span>
+        </a>
+      </li>
       <li class="nav-item">
         <a href="{{ url_for('live_session') if session.get('role') != 'admin' else url_for('admin_live_session') }}"
            class="nav-link {% if request.endpoint in ['live_session','admin_live_session'] %}active{% endif %}">

@@ -51,7 +51,15 @@ def init_db():
             last_contacted TEXT    NOT NULL DEFAULT '',
             contact_count  INTEGER NOT NULL DEFAULT 0,
             created_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
-            updated_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            updated_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+            d1_morning     INTEGER NOT NULL DEFAULT 0,
+            d1_afternoon   INTEGER NOT NULL DEFAULT 0,
+            d1_evening     INTEGER NOT NULL DEFAULT 0,
+            d2_morning     INTEGER NOT NULL DEFAULT 0,
+            d2_afternoon   INTEGER NOT NULL DEFAULT 0,
+            d2_evening     INTEGER NOT NULL DEFAULT 0,
+            working_date   TEXT    NOT NULL DEFAULT '',
+            daily_score    INTEGER NOT NULL DEFAULT 0
         )
     """)
 
@@ -315,6 +323,16 @@ def migrate_db():
         ("day1_batch",       "TEXT NOT NULL DEFAULT ''"),
         ("day2_batch",       "TEXT NOT NULL DEFAULT ''"),
         ("day3_batch",       "TEXT NOT NULL DEFAULT ''"),
+        # 3-Day process batch checkboxes
+        ("d1_morning",       "INTEGER NOT NULL DEFAULT 0"),
+        ("d1_afternoon",     "INTEGER NOT NULL DEFAULT 0"),
+        ("d1_evening",       "INTEGER NOT NULL DEFAULT 0"),
+        ("d2_morning",       "INTEGER NOT NULL DEFAULT 0"),
+        ("d2_afternoon",     "INTEGER NOT NULL DEFAULT 0"),
+        ("d2_evening",       "INTEGER NOT NULL DEFAULT 0"),
+        # Working section metadata
+        ("working_date",     "TEXT NOT NULL DEFAULT ''"),
+        ("daily_score",      "INTEGER NOT NULL DEFAULT 0"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE leads ADD COLUMN {col} {definition}")
@@ -589,6 +607,32 @@ def migrate_db():
                 attempted_at    TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
             )
         """)
+    except Exception:
+        pass
+
+    # --- daily_scores table ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS daily_scores (
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                username           TEXT    NOT NULL,
+                score_date         TEXT    NOT NULL,
+                calls_made         INTEGER NOT NULL DEFAULT 0,
+                videos_sent        INTEGER NOT NULL DEFAULT 0,
+                batches_marked     INTEGER NOT NULL DEFAULT 0,
+                payments_collected INTEGER NOT NULL DEFAULT 0,
+                total_points       INTEGER NOT NULL DEFAULT 0,
+                streak_days        INTEGER NOT NULL DEFAULT 1,
+                created_at         TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+                UNIQUE(username, score_date)
+            )
+        """)
+    except Exception:
+        pass
+
+    # Add index for daily_scores lookups
+    try:
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_scores_user_date ON daily_scores(username, score_date)")
     except Exception:
         pass
 

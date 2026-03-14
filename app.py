@@ -5739,5 +5739,457 @@ def health():
     return {'status': 'ok'}, 200
 
 
+# ─────────────────────────────────────────────────────────────────
+#  Working Section
+# ─────────────────────────────────────────────────────────────────
+
+STAGE1_STATUSES = ('New Lead', 'New', 'Contacted', 'Invited',
+                   'Video Sent', 'Video Watched', 'Paid ₹196', 'Mindset Lock')
+PAST_STATUSES   = ('Fully Converted', 'Converted', 'Lost')
+
+
+def _upsert_daily_score(db, username, delta_pts,
+                        delta_calls=0, delta_videos=0,
+                        delta_batches=0, delta_payments=0):
+    """Atomically add to today's daily_scores row, creating it if needed."""
+    today     = _today_ist().strftime('%Y-%m-%d')
+    yesterday = (_today_ist() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+    existing  = db.execute(
+        "SELECT id FROM daily_scores WHERE username=? AND score_date=?",
+        (username, today)
+    ).fetchone()
+    if existing:
+        db.execute("""
+            UPDATE daily_scores SET
+                total_points       = MAX(0, total_points + ?),
+                calls_made         = MAX(0, calls_made + ?),
+                videos_sent        = MAX(0, videos_sent + ?),
+                batches_marked     = MAX(0, batches_marked + ?),
+                payments_collected = MAX(0, payments_collected + ?)
+            WHERE username=? AND score_date=?
+        """, (delta_pts, delta_calls, delta_videos,
+              delta_batches, delta_payments, username, today))
+    else:
+        yrow = db.execute(
+            "SELECT streak_days FROM daily_scores WHERE username=? AND score_date=?",
+            (username, yesterday)
+        ).fetchone()
+        streak       = (yrow['streak_days'] + 1) if yrow else 1
+        streak_bonus = 10 if yrow else 0
+        db.execute("""
+            INSERT OR IGNORE INTO daily_scores
+                (username, score_date, calls_made, videos_sent,
+                 batches_marked, payments_collected, total_points, streak_days)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (username, today,
+              max(0, delta_calls), max(0, delta_videos),
+              max(0, delta_batches), max(0, delta_payments),
+              max(0, delta_pts + streak_bonus), streak))
+
+
+def _get_today_score(db, username):
+    """Return (total_points, streak_days) for today. 0,1 if no row."""
+    today = _today_ist().strftime('%Y-%m-%d')
+    row   = db.execute(
+        "SELECT total_points, streak_days FROM daily_scores WHERE username=? AND score_date=?",
+        (username, today)
+    ).fetchone()
+    if row:
+        return row['total_points'], row['streak_days']
+    return 0, 1
+
+
+@app.route('/working')
+@login_required
+def working():
+    db      = get_db()
+    role    = session.get('role')
+    username = session['username']
+    today   = _today_ist().strftime('%Y-%m-%d')
+
+    if role == 'admin':
+        # ── Admin view ─────────────────────────────────────────────
+        stage_placeholders = ','.join('?' * len(STAGE1_STATUSES))
+
+        stage_counts = db.execute(f"""
+            SELECT
+                SUM(CASE WHEN status IN ({stage_placeholders}) THEN 1 ELSE 0 END) AS stage1,
+                SUM(CASE WHEN status='Day 1'             THEN 1 ELSE 0 END) AS day1,
+                SUM(CASE WHEN status='Day 2'             THEN 1 ELSE 0 END) AS day2,
+                SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3,
+                SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS pending,
+                SUM(CASE WHEN status IN ('Fully Converted','Converted') THEN 1 ELSE 0 END) AS converted
+            FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to != ''
+        """, list(STAGE1_STATUSES)).fetchone()
+
+        total_pipeline_value = db.execute("""
+            SELECT COALESCE(SUM(track_price), 0) FROM leads
+            WHERE in_pool=0 AND deleted_at='' AND status IN ('Seat Hold Confirmed','Track Selected')
+        """).fetchone()[0] or 0
+
+        # Team pipeline per member
+        members = db.execute(
+            "SELECT username FROM users WHERE role='team' AND status='approved' ORDER BY username"
+        ).fetchall()
+        team_pipeline = {}
+        for m in members:
+            uname = m['username']
+            row = db.execute(f"""
+                SELECT
+                    SUM(CASE WHEN status IN ({stage_placeholders}) THEN 1 ELSE 0 END) AS stage1,
+                    SUM(CASE WHEN status='Day 1'             THEN 1 ELSE 0 END) AS day1,
+                    SUM(CASE WHEN status='Day 2'             THEN 1 ELSE 0 END) AS day2,
+                    SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3,
+                    SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS pending,
+                    SUM(CASE WHEN status IN ('Fully Converted','Converted') THEN 1 ELSE 0 END) AS converted
+                FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
+            """, list(STAGE1_STATUSES) + [uname]).fetchone()
+            score_pts, streak = _get_today_score(db, uname)
+            team_pipeline[uname] = {
+                'stage1': row['stage1'] or 0,
+                'day1':   row['day1']   or 0,
+                'day2':   row['day2']   or 0,
+                'day3':   row['day3']   or 0,
+                'pending': row['pending'] or 0,
+                'converted': row['converted'] or 0,
+                'today_score': score_pts,
+            }
+
+        # Stale leads (not updated in 48h, not closed/lost)
+        stale_cutoff = (_now_ist() - datetime.timedelta(hours=48)).strftime('%Y-%m-%d %H:%M:%S')
+        stale_leads  = db.execute("""
+            SELECT id, name, phone, assigned_to, status, updated_at
+            FROM leads
+            WHERE in_pool=0 AND deleted_at=''
+              AND assigned_to != ''
+              AND status NOT IN ('Fully Converted','Converted','Lost','Seat Hold Confirmed')
+              AND updated_at < ?
+            ORDER BY updated_at ASC
+        """, (stale_cutoff,)).fetchall()
+
+        # Day 1/2 batch completion rate
+        d1_total = db.execute(
+            "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND status='Day 1'"
+        ).fetchone()[0] or 0
+        d1_done  = db.execute("""
+            SELECT COUNT(*) FROM leads
+            WHERE in_pool=0 AND deleted_at='' AND status='Day 1'
+              AND d1_morning=1 AND d1_afternoon=1 AND d1_evening=1
+        """).fetchone()[0] or 0
+        d2_total = db.execute(
+            "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND status='Day 2'"
+        ).fetchone()[0] or 0
+        d2_done  = db.execute("""
+            SELECT COUNT(*) FROM leads
+            WHERE in_pool=0 AND deleted_at='' AND status='Day 2'
+              AND d2_morning=1 AND d2_afternoon=1 AND d2_evening=1
+        """).fetchone()[0] or 0
+
+        batch_completion = {
+            'd1_total': d1_total, 'd1_done': d1_done,
+            'd1_pct': round(d1_done / d1_total * 100) if d1_total else 0,
+            'd2_total': d2_total, 'd2_done': d2_done,
+            'd2_pct': round(d2_done / d2_total * 100) if d2_total else 0,
+        }
+
+        db.close()
+        return render_template('working.html',
+            is_admin=True,
+            team_pipeline=team_pipeline,
+            stage_counts=stage_counts,
+            total_pipeline_value=total_pipeline_value,
+            stale_leads=stale_leads,
+            batch_completion=batch_completion,
+            tracks=TRACKS,
+        )
+
+    # ── Team member view ───────────────────────────────────────────
+    stage1_leads = db.execute(f"""
+        SELECT * FROM leads
+        WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
+          AND status IN ({','.join('?'*len(STAGE1_STATUSES))})
+        ORDER BY updated_at DESC
+    """, [username] + list(STAGE1_STATUSES)).fetchall()
+
+    day1_leads = db.execute("""
+        SELECT * FROM leads
+        WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 1'
+        ORDER BY updated_at DESC
+    """, (username,)).fetchall()
+
+    day2_leads = db.execute("""
+        SELECT * FROM leads
+        WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 2'
+        ORDER BY updated_at DESC
+    """, (username,)).fetchall()
+
+    day3_leads = db.execute("""
+        SELECT * FROM leads
+        WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
+          AND status IN ('Interview','Track Selected')
+        ORDER BY updated_at DESC
+    """, (username,)).fetchall()
+
+    pending_leads = db.execute("""
+        SELECT * FROM leads
+        WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
+          AND status='Seat Hold Confirmed'
+        ORDER BY updated_at DESC
+    """, (username,)).fetchall()
+
+    past_leads = db.execute("""
+        SELECT * FROM leads
+        WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
+          AND status IN ('Fully Converted','Converted','Lost')
+        ORDER BY updated_at DESC
+        LIMIT 30
+    """, (username,)).fetchall()
+
+    today_score, streak = _get_today_score(db, username)
+
+    # Pending action counts
+    pending_calls = db.execute(f"""
+        SELECT COUNT(*) FROM leads
+        WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
+          AND status IN ({','.join('?'*len(STAGE1_STATUSES))})
+          AND (call_result='' OR call_result='Follow Up Later' OR call_result='Callback Requested')
+    """, [username] + list(STAGE1_STATUSES)).fetchone()[0] or 0
+
+    videos_to_send = db.execute("""
+        SELECT COUNT(*) FROM leads
+        WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
+          AND status IN ('Contacted','Invited')
+    """, (username,)).fetchone()[0] or 0
+
+    batches_due = (
+        db.execute("""
+            SELECT COUNT(*) FROM leads
+            WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 1'
+              AND (d1_morning+d1_afternoon+d1_evening) < 3
+        """, (username,)).fetchone()[0] or 0
+    ) + (
+        db.execute("""
+            SELECT COUNT(*) FROM leads
+            WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 2'
+              AND (d2_morning+d2_afternoon+d2_evening) < 3
+        """, (username,)).fetchone()[0] or 0
+    )
+
+    closings_due = db.execute("""
+        SELECT COUNT(*) FROM leads
+        WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
+          AND status IN ('Interview','Track Selected','Seat Hold Confirmed')
+    """, (username,)).fetchone()[0] or 0
+
+    today_actions = {
+        'pending_calls':  pending_calls,
+        'videos_to_send': videos_to_send,
+        'batches_due':    batches_due,
+        'closings_due':   closings_due,
+    }
+
+    db.close()
+    return render_template('working.html',
+        is_admin=False,
+        stage1_leads=stage1_leads,
+        day1_leads=day1_leads,
+        day2_leads=day2_leads,
+        day3_leads=day3_leads,
+        pending_leads=pending_leads,
+        past_leads=past_leads,
+        today_score=today_score,
+        streak=streak,
+        today_actions=today_actions,
+        tracks=TRACKS,
+        statuses=STATUSES,
+    )
+
+
+@app.route('/leads/<int:lead_id>/batch-toggle', methods=['POST'])
+@login_required
+def batch_toggle(lead_id):
+    data  = request.get_json(silent=True) or {}
+    batch = data.get('batch', '')
+    VALID = ('d1_morning', 'd1_afternoon', 'd1_evening',
+             'd2_morning', 'd2_afternoon', 'd2_evening')
+    if batch not in VALID:
+        return {'ok': False, 'error': 'Invalid batch'}, 400
+
+    db  = get_db()
+    row = db.execute(
+        "SELECT * FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''", (lead_id,)
+    ).fetchone()
+    if not row:
+        db.close(); return {'ok': False, 'error': 'Not found'}, 404
+
+    owner = row['assigned_to']
+    if session.get('role') != 'admin' and owner != session['username']:
+        db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
+
+    # Toggle
+    current  = row[batch]
+    new_val  = 0 if current else 1
+    delta_pts = 15 if new_val else -15
+
+    db.execute(
+        f"UPDATE leads SET {batch}=?, updated_at=? WHERE id=?",
+        (new_val, _now_ist().strftime('%Y-%m-%d %H:%M:%S'), lead_id)
+    )
+
+    # Check if all 3 batches done for the day
+    day_prefix = batch[:2]  # 'd1' or 'd2'
+    if day_prefix == 'd1':
+        m, a, e = (
+            (new_val if batch == 'd1_morning'   else row['d1_morning']),
+            (new_val if batch == 'd1_afternoon' else row['d1_afternoon']),
+            (new_val if batch == 'd1_evening'   else row['d1_evening']),
+        )
+        all_done = bool(m and a and e)
+        if all_done:
+            db.execute("UPDATE leads SET day1_done=1 WHERE id=?", (lead_id,))
+        else:
+            db.execute("UPDATE leads SET day1_done=0 WHERE id=?", (lead_id,))
+        new_status = None
+    else:
+        m, a, e = (
+            (new_val if batch == 'd2_morning'   else row['d2_morning']),
+            (new_val if batch == 'd2_afternoon' else row['d2_afternoon']),
+            (new_val if batch == 'd2_evening'   else row['d2_evening']),
+        )
+        all_done = bool(m and a and e)
+        if all_done:
+            db.execute("UPDATE leads SET day2_done=1 WHERE id=?", (lead_id,))
+        else:
+            db.execute("UPDATE leads SET day2_done=0 WHERE id=?", (lead_id,))
+        new_status = None
+
+    _upsert_daily_score(db, owner, delta_pts, delta_batches=(1 if new_val else -1))
+    today_score, _ = _get_today_score(db, owner)
+    db.commit()
+    db.close()
+
+    return {
+        'ok': True,
+        'new_val': new_val,
+        'all_done': all_done,
+        'points': delta_pts,
+        'today_score': today_score,
+    }
+
+
+@app.route('/leads/<int:lead_id>/quick-advance', methods=['POST'])
+@login_required
+def quick_advance(lead_id):
+    db  = get_db()
+    row = db.execute(
+        "SELECT * FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''", (lead_id,)
+    ).fetchone()
+    if not row:
+        db.close(); return {'ok': False, 'error': 'Not found'}, 404
+
+    owner = row['assigned_to']
+    if session.get('role') != 'admin' and owner != session['username']:
+        db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
+
+    current  = row['status']
+    new_status = None
+    score_delta = 0
+
+    # Stage advancement map
+    if current == 'Mindset Lock':
+        new_status = 'Day 1'
+    elif current == 'Day 1':
+        if row['d1_morning'] and row['d1_afternoon'] and row['d1_evening']:
+            new_status = 'Day 2'
+        else:
+            db.close()
+            return {'ok': False, 'error': 'Complete all Day 1 batches first'}, 400
+    elif current == 'Day 2':
+        if row['d2_morning'] and row['d2_afternoon'] and row['d2_evening']:
+            new_status = 'Interview'
+        else:
+            db.close()
+            return {'ok': False, 'error': 'Complete all Day 2 batches first'}, 400
+    elif current == 'Interview':
+        new_status = 'Track Selected'
+    elif current == 'Track Selected':
+        new_status = 'Seat Hold Confirmed'
+        score_delta = 50
+    elif current == 'Seat Hold Confirmed':
+        new_status = 'Fully Converted'
+        score_delta = 100
+    else:
+        db.close()
+        return {'ok': False, 'error': f'No advance rule for status: {current}'}, 400
+
+    now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
+    db.execute(
+        "UPDATE leads SET status=?, updated_at=? WHERE id=?",
+        (new_status, now_str, lead_id)
+    )
+    _log_lead_event(db, lead_id, session['username'], f'Status → {new_status} (quick advance)')
+    _log_activity(db, session['username'], 'quick_advance',
+                  f'{row["name"]} → {new_status}')
+
+    if score_delta:
+        payments = 1 if new_status == 'Seat Hold Confirmed' else 0
+        _upsert_daily_score(db, owner, score_delta, delta_payments=payments)
+
+    new_badges = _check_and_award_badges(db, owner)
+    today_score, _ = _get_today_score(db, owner)
+    db.commit()
+    db.close()
+
+    return {
+        'ok': True,
+        'new_status': new_status,
+        'today_score': today_score,
+        'new_badges': [BADGE_DEFS[k]['label'] for k in new_badges if k in BADGE_DEFS],
+    }
+
+
+@app.route('/api/today-score')
+@login_required
+def api_today_score():
+    db = get_db()
+    score, streak = _get_today_score(db, session['username'])
+    db.close()
+    return {'ok': True, 'score': score, 'streak': streak}
+
+
+@app.route('/team/day2-progress')
+@login_required
+def day2_progress():
+    db = get_db()
+    now = _now_ist()
+
+    # All Day 2 leads visible to everyone
+    day2_leads = db.execute("""
+        SELECT l.*,
+               CAST((julianday('now','localtime') - julianday(l.updated_at)) * 24 AS INTEGER) AS hours_since_update
+        FROM leads l
+        WHERE l.in_pool=0 AND l.deleted_at='' AND l.status='Day 2'
+        ORDER BY (l.d2_morning + l.d2_afternoon + l.d2_evening) DESC, l.updated_at ASC
+    """).fetchall()
+
+    # Summary counts
+    complete_count    = sum(1 for l in day2_leads if l['d2_morning'] and l['d2_afternoon'] and l['d2_evening'])
+    in_progress_count = sum(1 for l in day2_leads if 0 < (l['d2_morning']+l['d2_afternoon']+l['d2_evening']) < 3)
+    not_started_count = sum(1 for l in day2_leads if (l['d2_morning']+l['d2_afternoon']+l['d2_evening']) == 0)
+
+    can_edit = session.get('role') == 'admin'
+    username = session['username']
+
+    db.close()
+    return render_template('day2_progress.html',
+        day2_leads=day2_leads,
+        complete_count=complete_count,
+        in_progress_count=in_progress_count,
+        not_started_count=not_started_count,
+        can_edit=can_edit,
+        current_user=username,
+    )
+
+
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5001)))

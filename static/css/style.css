@@ -961,4 +961,250 @@ p,span,td,li { color: inherit; }
   .kpi-card { margin-bottom:0.5rem; }
   .mobile-hide-table { display:none!important; }
   .btn-xs { padding:0.35rem 0.7rem;font-size:0.8rem; }
+  /* Working section mobile */
+  .wk-kanban-grid { flex-direction:column; }
+  .wk-kanban-col { min-width:100%; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Working Section — Kanban, Batch Toggles, Score Bar
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Score bar ──────────────────────────────────────────────── */
+.wk-score-bar {
+  background: linear-gradient(135deg, var(--ios-blue) 0%, var(--ios-indigo) 100%);
+  color: #fff;
+  padding: 0.75rem 1.25rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,122,255,0.30);
+  z-index: 200;
+  top: 64px; /* below navbar */
+}
+.wk-score-divider {
+  width: 1px; height: 20px;
+  background: rgba(255,255,255,0.3);
+}
+.wk-score-popup {
+  position: fixed;
+  top: 120px; left: 50%; transform: translateX(-50%);
+  width: min(340px, 92vw);
+  z-index: 1100;
+}
+
+/* ── Action scroll cards ────────────────────────────────────── */
+.wk-action-scroll {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scrollbar-width: none;
+}
+.wk-action-scroll::-webkit-scrollbar { display:none; }
+.wk-action-card {
+  flex: 0 0 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 0.75rem;
+  border-radius: 16px;
+  text-decoration: none;
+  font-weight: 600;
+  color: inherit;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+.wk-action-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+.wk-action-icon { font-size: 1.5rem; margin-bottom: 0.25rem; }
+.wk-action-calls    { background: rgba(0,122,255,0.08);  color: var(--ios-blue); }
+.wk-action-videos   { background: rgba(50,173,230,0.10); color: var(--ios-cyan); }
+.wk-action-batches  { background: rgba(48,209,88,0.10);  color: var(--ios-green); }
+.wk-action-closing  { background: rgba(255,149,0,0.10);  color: var(--ios-orange); }
+
+/* ── Kanban tabs (mobile) ───────────────────────────────────── */
+.wk-kanban-tabs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 0.25rem;
+}
+.wk-kanban-tabs::-webkit-scrollbar { display: none; }
+.wk-tab {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.9rem;
+  border: 1.5px solid var(--sep-opaque);
+  border-radius: 20px;
+  background: var(--bg-card);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--label-2);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.wk-tab:hover  { border-color: var(--ios-blue); color: var(--ios-blue); }
+.wk-tab.active { background: var(--ios-blue); border-color: var(--ios-blue); color: #fff; }
+
+/* ── Kanban grid ────────────────────────────────────────────── */
+.wk-kanban-grid {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+}
+.wk-kanban-col {
+  flex: 0 0 280px;
+  min-height: 200px;
+}
+@media (min-width: 992px) {
+  .wk-kanban-col { flex: 1 1 0; min-width: 240px; }
+}
+
+/* ── Column header ──────────────────────────────────────────── */
+.wk-col-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.25rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.88rem;
+  border-bottom: 2px solid var(--sep);
+  margin-bottom: 0.75rem;
+}
+.wk-col-title { flex: 1; }
+
+/* ── Lead card ──────────────────────────────────────────────── */
+.wk-lead-card {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 0.85rem;
+  margin-bottom: 0.65rem;
+  border: 1.5px solid var(--sep);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.wk-lead-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.10); }
+.wk-lead-complete {
+  border-color: var(--ios-green) !important;
+  box-shadow: 0 2px 12px rgba(48,209,88,0.18) !important;
+}
+
+/* ── Status dot ─────────────────────────────────────────────── */
+.wk-status-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--fill-1);
+}
+.wk-status-dot.wk-status-new_lead,
+.wk-status-dot.wk-status-new        { background: var(--label-4); }
+.wk-status-dot.wk-status-contacted  { background: var(--ios-blue); }
+.wk-status-dot.wk-status-invited    { background: var(--ios-cyan); }
+.wk-status-dot.wk-status-video_sent { background: var(--ios-purple); }
+.wk-status-dot.wk-status-video_watched { background: var(--ios-indigo); }
+.wk-status-dot.wk-status-paid_196   { background: var(--ios-yellow); }
+.wk-status-dot.wk-status-mindset_lock { background: var(--ios-orange); }
+
+/* ── Status badge colors (Stage 1) ─────────────────────────── */
+.wk-status-badge-new_lead,
+.wk-status-badge-new      { background:rgba(120,120,128,0.14); color:var(--label-3); }
+.wk-status-badge-contacted{ background:rgba(0,122,255,0.10);   color:var(--ios-blue); }
+.wk-status-badge-invited  { background:rgba(50,173,230,0.12);  color:var(--ios-cyan); }
+.wk-status-badge-video_sent { background:rgba(191,90,242,0.10); color:var(--ios-purple); }
+.wk-status-badge-video_watched { background:rgba(94,92,230,0.12); color:var(--ios-indigo); }
+.wk-status-badge-paid_196 { background:rgba(255,214,10,0.15);  color:var(--ios-orange); }
+.wk-status-badge-mindset_lock { background:rgba(255,159,10,0.12); color:var(--ios-orange); }
+
+/* ── Batch progress bar ─────────────────────────────────────── */
+.wk-batch-progress {
+  height: 5px;
+  background: var(--fill-3);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.wk-batch-bar {
+  height: 100%;
+  background: var(--ios-green);
+  border-radius: 99px;
+  transition: width 0.3s ease;
+}
+.wk-batch-bar-d2 { background: var(--ios-orange); }
+
+/* ── Batch toggle buttons ───────────────────────────────────── */
+.wk-batch-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  border: 1.5px solid var(--sep-opaque);
+  background: var(--bg-card);
+  color: var(--label-3);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.wk-batch-btn:hover  { border-color: var(--ios-green); color: var(--ios-green); }
+.wk-batch-btn.wk-batch-done {
+  background: var(--ios-green);
+  border-color: var(--ios-green);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(48,209,88,0.30);
+}
+
+/* ── Small action buttons ───────────────────────────────────── */
+.wk-btn {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.8rem;
+  border-radius: 8px;
+}
+
+/* ── Empty state ────────────────────────────────────────────── */
+.wk-empty-state {
+  text-align: center;
+  padding: 2rem 1rem;
+  border: 1.5px dashed var(--sep-opaque);
+  border-radius: 14px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Day 2 Live Board
+   ═══════════════════════════════════════════════════════════════ */
+.d2-summary-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.9rem;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.d2-chip-complete    { background: rgba(48,209,88,0.12);  color: var(--ios-green); }
+.d2-chip-progress    { background: rgba(255,159,10,0.12); color: var(--ios-orange); }
+.d2-chip-notstarted  { background: rgba(120,120,128,0.10); color: var(--label-3); }
+
+.d2-lead-row td { padding: 0.85rem 0.75rem; }
+.d2-row-complete    { background: rgba(48,209,88,0.05); }
+.d2-row-progress    { background: rgba(255,214,10,0.06); }
+.d2-row-notstarted  { background: transparent; }
+
+.d2-batch-toggle {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 1.5px solid var(--sep-opaque);
+  background: var(--bg-card);
+  color: var(--label-4);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.d2-batch-toggle:hover { border-color: var(--ios-green); color: var(--ios-green); }
+.d2-batch-toggle.d2-batch-done {
+  background: var(--ios-green);
+  border-color: var(--ios-green);
+  color: #fff;
+}
+.d2-batch-toggle:disabled { opacity: 0.45; cursor: default; }
