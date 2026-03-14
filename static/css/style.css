@@ -1238,3 +1238,54 @@ p,span,td,li { color: inherit; }
 [data-theme="dark"] .pipeline-chip {
   filter: brightness(0.75) saturate(0.85);
 }
+
+/* ── Dashboard Batch Cards ───────────────────────────────── */
+.db-batch-card {
+  background: var(--bs-body-bg);
+  border: 1.5px solid var(--bs-border-color);
+  border-radius: 10px;
+  padding: 10px 12px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.db-batch-card.db-batch-complete {
+  border-color: #22c55e;
+  background: #f0fdf4;
+}
+[data-theme="dark"] .db-batch-card.db-batch-complete {
+  background: rgba(34, 197, 94, 0.1);
+}
+.db-batch-progress {
+  height: 4px;
+  background: var(--bs-border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.db-batch-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.35s ease;
+}
+.db-bar-d1 { background: #0891b2; }
+.db-bar-d2 { background: #d97706; }
+.db-batch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 10px;
+  border: 1.5px solid var(--bs-border-color);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--bs-body-color);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.db-batch-btn.db-batch-done {
+  border-color: #22c55e;
+  background: #22c55e;
+  color: #fff;
+}
+.db-batch-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.db-batch-btn:not(:disabled):active { transform: scale(0.93); }

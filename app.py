@@ -1489,29 +1489,44 @@ def team_dashboard():
           )
     """, [username] + list(FOLLOWUP_TAGS)).fetchone()[0]
 
-    # Pipeline chip counts
+    # Pipeline full lead objects
     _s1_ph = ','.join('?' * len(STAGE1_STATUSES))
-    stage1_count = db.execute(
-        f"SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status IN ({_s1_ph})",
+    stage1_leads = db.execute(
+        f"SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status IN ({_s1_ph}) ORDER BY updated_at ASC",
         (username, *STAGE1_STATUSES)
-    ).fetchone()[0]
-    day1_count = db.execute(
-        "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status='Day 1'",
+    ).fetchall()
+    day1_leads_db = db.execute(
+        "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 1' ORDER BY updated_at ASC",
         (username,)
-    ).fetchone()[0]
-    day2_count = db.execute(
-        "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status='Day 2'",
+    ).fetchall()
+    day2_leads_db = db.execute(
+        "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 2' ORDER BY updated_at ASC",
         (username,)
-    ).fetchone()[0]
-    day3_count = db.execute(
-        "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to=?"
-        " AND status IN ('Interview','Track Selected')",
+    ).fetchall()
+    day3_leads = db.execute(
+        "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status IN ('Interview','Track Selected') ORDER BY updated_at ASC",
         (username,)
-    ).fetchone()[0]
-    pending_count_pipeline = db.execute(
-        "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status='Seat Hold Confirmed'",
+    ).fetchall()
+    pending_leads = db.execute(
+        "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Seat Hold Confirmed' ORDER BY updated_at ASC",
         (username,)
-    ).fetchone()[0]
+    ).fetchall()
+    score_row = db.execute(
+        "SELECT * FROM daily_scores WHERE username=? AND score_date=?",
+        (username, today)
+    ).fetchone()
+    today_score  = score_row['total_points'] if score_row else 0
+    today_streak = score_row['streak_days']  if score_row else 0
+    pending_batches = (
+        sum(1 for l in day1_leads_db if not (l['d1_morning'] and l['d1_afternoon'] and l['d1_evening'])) +
+        sum(1 for l in day2_leads_db if not (l['d2_morning'] and l['d2_afternoon'] and l['d2_evening']))
+    )
+    # Counts derived from lists
+    stage1_count         = len(stage1_leads)
+    day1_count           = len(day1_leads_db)
+    day2_count           = len(day2_leads_db)
+    day3_count           = len(day3_leads)
+    pending_count_pipeline = len(pending_leads)
 
     # Monthly goals + actuals
     current_month = _now_ist().strftime('%Y-%m')
@@ -1564,7 +1579,15 @@ def team_dashboard():
                            day1_count=day1_count,
                            day2_count=day2_count,
                            day3_count=day3_count,
-                           pending_count_pipeline=pending_count_pipeline))
+                           pending_count_pipeline=pending_count_pipeline,
+                           stage1_leads=stage1_leads,
+                           day1_leads=day1_leads_db,
+                           day2_leads=day2_leads_db,
+                           day3_leads=day3_leads,
+                           pending_leads=pending_leads,
+                           today_score=today_score,
+                           today_streak=today_streak,
+                           pending_batches=pending_batches))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
     return resp
 
