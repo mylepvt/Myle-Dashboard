@@ -23,7 +23,7 @@
   <!-- Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
   <!-- Custom -->
-  <link href="{{ url_for('static', filename='css/style.css') }}?v=20260314" rel="stylesheet" />
+  <link href="{{ url_for('static', filename='css/style.css') }}?v=20260315" rel="stylesheet" />
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -88,6 +88,14 @@
           {% endif %}
         </a>
       </li>
+      {% if session.get('role') != 'admin' %}
+      <li class="nav-item">
+        <a href="{{ url_for('day2_progress') }}"
+           class="nav-link {% if request.endpoint == 'day2_progress' %}active{% endif %}">
+          <i class="bi bi-2-circle-fill me-2" style="color:#f59e0b;"></i><span>Day 2 Board</span>
+        </a>
+      </li>
+      {% endif %}
       {% if session.get('role') == 'admin' %}
       <li class="nav-item">
         <a href="{{ url_for('admin_lead_pool') }}"
@@ -114,6 +122,14 @@
           {% endif %}
         </a>
       </li>
+      {% if session.get('role') != 'admin' %}
+      <li class="nav-item">
+        <a href="{{ url_for('retarget') }}"
+           class="nav-link d-flex align-items-center justify-content-between {% if request.endpoint == 'retarget' %}active{% endif %}">
+          <span><i class="bi bi-bullseye me-2"></i><span>Retarget List</span></span>
+        </a>
+      </li>
+      {% endif %}
 
       <!-- ── Team (admin only) ─────────────────────────── -->
       {% if session.get('role') == 'admin' %}
@@ -194,12 +210,6 @@
           <i class="bi bi-lightning-charge me-2"></i><span>Lead Pool</span>
         </a>
       </li>
-      <li class="nav-item">
-        <a href="{{ url_for('earnings') }}"
-           class="nav-link {% if request.endpoint == 'earnings' %}active{% endif %}">
-          <i class="bi bi-cash-coin me-2"></i><span>My Earnings</span>
-        </a>
-      </li>
       {% endif %}
 
       <!-- ── Activity ──────────────────────────────────── -->
@@ -242,20 +252,14 @@
           <i class="bi bi-megaphone me-2"></i><span>Notice Board</span>
         </a>
       </li>
-      {% if session.get('role') != 'admin' %}
-      <li class="nav-item">
-        <a href="{{ url_for('retarget') }}"
-           class="nav-link d-flex align-items-center justify-content-between {% if request.endpoint == 'retarget' %}active{% endif %}">
-          <span><i class="bi bi-bullseye me-2"></i><span>Retarget List</span></span>
-        </a>
-      </li>
-      {% endif %}
+      {% if session.get('role') == 'admin' %}
       <li class="nav-item">
         <a href="{{ url_for('day2_progress') }}"
            class="nav-link {% if request.endpoint == 'day2_progress' %}active{% endif %}">
           <i class="bi bi-2-circle me-2 text-warning"></i><span>Day 2 Board</span>
         </a>
       </li>
+      {% endif %}
       <li class="nav-item">
         <a href="{{ url_for('live_session') if session.get('role') != 'admin' else url_for('admin_live_session') }}"
            class="nav-link {% if request.endpoint in ['live_session','admin_live_session'] %}active{% endif %}">
@@ -274,13 +278,15 @@
       </li>
       {% endif %}
 
-      <!-- ── Help ──────────────────────────────────────── -->
+      <!-- ── Help (admin only in sidebar; team sees it in profile) ─ -->
+      {% if session.get('role') == 'admin' %}
       <li class="nav-item">
         <a href="{{ url_for('help_page') }}"
            class="nav-link {% if request.endpoint == 'help_page' %}active{% endif %}">
           <i class="bi bi-question-circle me-2"></i><span>Help & Tutorial</span>
         </a>
       </li>
+      {% endif %}
 
     </ul>
 
@@ -328,6 +334,14 @@
       </button>
       <span class="fw-semibold text-secondary">{% block page_title %}{% endblock %}</span>
       <div class="ms-auto d-flex align-items-center gap-2">
+        <!-- Sound toggle -->
+        <button id="soundToggle" onclick="toggleSound()" class="btn btn-sm"
+                title="Toggle Sound"
+                style="background:transparent;border:1px solid rgba(0,0,0,0.1);
+                       width:36px;height:36px;padding:0;display:flex;
+                       align-items:center;justify-content:center;border-radius:8px;">
+          <i class="bi bi-volume-up-fill" id="soundIcon" style="font-size:0.85rem;"></i>
+        </button>
         <!-- Dark mode toggle -->
         <button id="darkToggle" class="btn btn-sm btn-outline-secondary" title="Toggle dark mode">
           <i class="bi bi-moon-fill" id="darkIcon"></i>
@@ -403,17 +417,27 @@
   <a href="{{ url_for('team_dashboard') }}" class="mbn-item {% if request.endpoint == 'team_dashboard' %}active{% endif %}">
     <i class="bi bi-speedometer2"></i><span>Home</span>
   </a>
+  <a href="{{ url_for('working') }}" class="mbn-item {% if request.endpoint in ['working','batch_toggle','quick_advance'] %}active{% endif %}">
+    <span class="mbn-icon-wrap">
+      <i class="bi bi-kanban-fill"></i>
+      {% if has_pending_work %}<span class="mbn-badge-dot" style="background:#dc2626;"></span>{% endif %}
+    </span>
+    <span>Working</span>
+  </a>
   <a href="{{ url_for('leads') }}" class="mbn-item {% if request.endpoint in ['leads','add_lead','edit_lead'] %}active{% endif %}">
     <i class="bi bi-people-fill"></i><span>Leads</span>
   </a>
+  <a href="/follow-up" class="mbn-item {% if request.endpoint == 'follow_up_queue' %}active{% endif %}">
+    <span class="mbn-icon-wrap">
+      <i class="bi bi-telephone-outbound-fill"></i>
+      {% if followup_count is defined and followup_count > 0 %}
+      <span class="mbn-badge-dot">{{ followup_count }}</span>
+      {% endif %}
+    </span>
+    <span>Queue</span>
+  </a>
   <a href="{{ url_for('lead_pool') }}" class="mbn-item {% if request.endpoint == 'lead_pool' %}active{% endif %}">
     <i class="bi bi-lightning-charge-fill"></i><span>Pool</span>
-  </a>
-  <a href="{{ url_for('wallet') }}" class="mbn-item {% if request.endpoint == 'wallet' %}active{% endif %}">
-    <i class="bi bi-wallet2"></i><span>Wallet</span>
-  </a>
-  <a href="{{ url_for('retarget') }}" class="mbn-item {% if request.endpoint == 'retarget' %}active{% endif %}">
-    <i class="bi bi-bullseye"></i><span>Retarget</span>
   </a>
   {% endif %}
 </nav>
@@ -791,6 +815,152 @@
   }
 </script>
 {% block extra_scripts %}{% endblock %}
+
+<!-- ╔══════════════════════════════════════════════╗
+     ║  MyleSound — Web Audio + Haptic Feedback     ║
+     ╚══════════════════════════════════════════════╝ -->
+<script>
+(function () {
+  /* ── MyleSound object ─────────────────────────────────── */
+  window.MyleSound = {
+    _ctx: null,
+    _enabled: true,
+    _getCtx() {
+      if (!this._ctx) {
+        this._ctx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (this._ctx.state === 'suspended') { this._ctx.resume(); }
+      return this._ctx;
+    },
+    _tone(frequencies, duration, volume, type) {
+      volume = volume || 0.15;
+      type   = type   || 'sine';
+      if (!this._enabled) return;
+      try {
+        var ctx = this._getCtx();
+        frequencies.forEach(function(f) {
+          var osc  = ctx.createOscillator();
+          var gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = type;
+          osc.frequency.setValueAtTime(f.freq, ctx.currentTime + f.start);
+          gain.gain.setValueAtTime(volume, ctx.currentTime + f.start);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + f.start + f.dur);
+          osc.start(ctx.currentTime + f.start);
+          osc.stop(ctx.currentTime + f.start + f.dur);
+        });
+      } catch(e) {}
+    },
+    _vibrate(pattern) {
+      if (navigator.vibrate) navigator.vibrate(pattern);
+    },
+    click() {
+      this._tone([{freq:800, start:0, dur:0.05}], 0.05, 0.08);
+      this._vibrate(8);
+    },
+    batch() {
+      this._tone([{freq:900, start:0, dur:0.04}, {freq:1200, start:0.04, dur:0.06}], 0.1, 0.15);
+      this._vibrate(20);
+    },
+    success() {
+      this._tone([{freq:600, start:0, dur:0.08}, {freq:900, start:0.09, dur:0.1}], 0.2, 0.2);
+      this._vibrate([25, 15, 25]);
+    },
+    score() {
+      this._tone([
+        {freq:500, start:0,    dur:0.03},
+        {freq:700, start:0.04, dur:0.03},
+        {freq:900, start:0.08, dur:0.05}
+      ], 0.13, 0.18);
+      this._vibrate(15);
+    },
+    celebrate() {
+      this._tone([
+        {freq:500,  start:0,    dur:0.06},
+        {freq:700,  start:0.07, dur:0.06},
+        {freq:1000, start:0.14, dur:0.1}
+      ], 0.24, 0.25);
+      this._vibrate([40, 20, 40, 20, 80]);
+    },
+    error() {
+      this._tone([{freq:200, start:0, dur:0.1}], 0.1, 0.1);
+      this._vibrate(40);
+    },
+    toggle() {
+      this._enabled = !this._enabled;
+      localStorage.setItem('myle_sound', this._enabled ? '1' : '0');
+      return this._enabled;
+    },
+    init() {
+      var saved = localStorage.getItem('myle_sound');
+      this._enabled = (saved !== '0');
+    }
+  };
+  window.MyleSound.init();
+
+  /* ── Sound toggle button handler ─────────────────────── */
+  window.toggleSound = function() {
+    var on   = MyleSound.toggle();
+    var icon = document.getElementById('soundIcon');
+    if (icon) {
+      icon.className   = on ? 'bi bi-volume-up-fill' : 'bi bi-volume-mute-fill';
+      icon.style.color = on ? '' : '#dc2626';
+    }
+  };
+
+  /* Set initial icon state after DOM ready */
+  document.addEventListener('DOMContentLoaded', function() {
+    if (!MyleSound._enabled) {
+      var icon = document.getElementById('soundIcon');
+      if (icon) { icon.className = 'bi bi-volume-mute-fill'; icon.style.color = '#dc2626'; }
+    }
+  });
+
+  /* ── Auto-attach via event delegation ────────────────── */
+  document.addEventListener('click', function(e) {
+    var el = e.target.closest('a, button, .btn, .nav-link, .mbn-item, .form-check-input, .status-select');
+    if (!el) return;
+    if (el.dataset.soundPlayed) return;
+    if (el.classList.contains('form-check-input')) {
+      MyleSound.batch();
+    } else {
+      MyleSound.click();
+    }
+  }, { passive: true });
+
+  /* Status / call-result selects */
+  document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('status-select')) { MyleSound.success(); }
+    else if (e.target.classList.contains('call-result-select')) { MyleSound.click(); }
+  }, { passive: true });
+
+  /* ── Wrap showToast to add sound ─────────────────────── */
+  (function patchToast() {
+    if (typeof window.showToast !== 'function') {
+      /* showToast not defined yet — retry after scripts load */
+      setTimeout(patchToast, 100);
+      return;
+    }
+    var _orig = window.showToast;
+    window.showToast = function(msg, type) {
+      type = type || 'success';
+      if (type === 'success') {
+        if (msg && (msg.indexOf('pts') !== -1 || msg.indexOf('points') !== -1)) {
+          MyleSound.score();
+        } else {
+          MyleSound.success();
+        }
+      } else if (type === 'danger') {
+        MyleSound.error();
+      } else {
+        MyleSound.click();
+      }
+      return _orig(msg, type);
+    };
+  })();
+})();
+</script>
 
 {% if session.get('username') %}
 <!-- ╔══════════════════════════════════════════════╗
@@ -1182,5 +1352,6 @@
 })();
 </script>
 {% endif %}
+
 </body>
 </html>

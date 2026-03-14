@@ -1208,3 +1208,33 @@ p,span,td,li { color: inherit; }
   color: #fff;
 }
 .d2-batch-toggle:disabled { opacity: 0.45; cursor: default; }
+
+/* ── Pipeline Chips (dashboard) ──────────────────────────── */
+.pipeline-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 12px;
+  text-decoration: none;
+  min-width: 72px;
+  flex-shrink: 0;
+  border: 1.5px solid transparent;
+  transition: transform 0.15s ease;
+}
+.pipeline-chip:active { transform: scale(0.95); }
+.chip-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.chip-count {
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-top: 2px;
+}
+[data-theme="dark"] .pipeline-chip {
+  filter: brightness(0.75) saturate(0.85);
+}

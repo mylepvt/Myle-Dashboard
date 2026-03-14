@@ -883,8 +883,18 @@ def inject_pending_count():
               (SELECT COUNT(*) FROM wallet_recharges WHERE status='pending') as wp
         """).fetchone()
         db.close()
-        return {'pending_count': row['pu'], 'wallet_pending': row['wp']}
-    return {'pending_count': 0, 'wallet_pending': 0}
+        return {'pending_count': row['pu'], 'wallet_pending': row['wp'], 'has_pending_work': False}
+    uname = session.get('username')
+    if uname:
+        db = get_db()
+        has_pending_work = db.execute(
+            "SELECT COUNT(*) FROM leads "
+            "WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status='Day 1' AND d1_morning=0",
+            (uname,)
+        ).fetchone()[0] > 0
+        db.close()
+        return {'pending_count': 0, 'wallet_pending': 0, 'has_pending_work': has_pending_work}
+    return {'pending_count': 0, 'wallet_pending': 0, 'has_pending_work': False}
 
 
 # ──────────────────────────────────────────────────────────────
@@ -1479,6 +1489,30 @@ def team_dashboard():
           )
     """, [username] + list(FOLLOWUP_TAGS)).fetchone()[0]
 
+    # Pipeline chip counts
+    _s1_ph = ','.join('?' * len(STAGE1_STATUSES))
+    stage1_count = db.execute(
+        f"SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status IN ({_s1_ph})",
+        (username, *STAGE1_STATUSES)
+    ).fetchone()[0]
+    day1_count = db.execute(
+        "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status='Day 1'",
+        (username,)
+    ).fetchone()[0]
+    day2_count = db.execute(
+        "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status='Day 2'",
+        (username,)
+    ).fetchone()[0]
+    day3_count = db.execute(
+        "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to=?"
+        " AND status IN ('Interview','Track Selected')",
+        (username,)
+    ).fetchone()[0]
+    pending_count_pipeline = db.execute(
+        "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status='Seat Hold Confirmed'",
+        (username,)
+    ).fetchone()[0]
+
     # Monthly goals + actuals
     current_month = _now_ist().strftime('%Y-%m')
     target_rows = db.execute(
@@ -1525,7 +1559,12 @@ def team_dashboard():
                            zoom_link=zoom_link,
                            zoom_title=zoom_title,
                            zoom_time=zoom_time,
-                           funnel_leads=funnel_leads))
+                           funnel_leads=funnel_leads,
+                           stage1_count=stage1_count,
+                           day1_count=day1_count,
+                           day2_count=day2_count,
+                           day3_count=day3_count,
+                           pending_count_pipeline=pending_count_pipeline))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
     return resp
 
