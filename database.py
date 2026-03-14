@@ -346,6 +346,12 @@ def migrate_db():
         # Working section metadata
         ("working_date",     "TEXT NOT NULL DEFAULT ''"),
         ("daily_score",      "INTEGER NOT NULL DEFAULT 0"),
+        # Pipeline system (Part 2)
+        ("pipeline_stage",   "TEXT NOT NULL DEFAULT 'enrollment'"),
+        ("current_owner",    "TEXT NOT NULL DEFAULT ''"),
+        ("call_status",      "TEXT NOT NULL DEFAULT 'Not Called Yet'"),
+        ("priority_score",   "INTEGER NOT NULL DEFAULT 0"),
+        ("seat_hold_expiry", "TEXT NOT NULL DEFAULT ''"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE leads ADD COLUMN {col} {definition}")
@@ -387,6 +393,8 @@ def migrate_db():
         ("badges_json",           "TEXT NOT NULL DEFAULT '[]'"),
         ("test_score",            "INTEGER NOT NULL DEFAULT -1"),
         ("test_attempts",         "INTEGER NOT NULL DEFAULT 0"),
+        # Pipeline role system (Part 2)
+        ("upline_username",       "TEXT NOT NULL DEFAULT ''"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
@@ -664,8 +672,25 @@ def migrate_db():
     except Exception:
         pass
 
+    # --- lead_stage_history table (pipeline transitions log) ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS lead_stage_history (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                lead_id      INTEGER NOT NULL,
+                stage        TEXT    NOT NULL,
+                owner        TEXT    NOT NULL DEFAULT '',
+                triggered_by TEXT    NOT NULL DEFAULT '',
+                created_at   TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+        """)
+    except Exception:
+        pass
+
     # --- Performance indexes ---
     indexes = [
+        "CREATE INDEX IF NOT EXISTS idx_stage_history_lead ON lead_stage_history(lead_id)",
+        "CREATE INDEX IF NOT EXISTS idx_leads_pipeline ON leads(pipeline_stage, current_owner)",
         "CREATE INDEX IF NOT EXISTS idx_leads_pool_assigned  ON leads(in_pool, assigned_to)",
         "CREATE INDEX IF NOT EXISTS idx_leads_pool_status    ON leads(in_pool, status)",
         "CREATE INDEX IF NOT EXISTS idx_leads_payment        ON leads(payment_done, in_pool)",

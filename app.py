@@ -116,7 +116,41 @@ STATUSES = ['New Lead', 'New', 'Contacted', 'Invited', 'Video Sent', 'Video Watc
             'Paid ₹196', 'Mindset Lock',
             'Day 1', 'Day 2', 'Interview',
             'Track Selected', 'Seat Hold Confirmed', 'Fully Converted',
-            'Converted', 'Lost', 'Retarget']
+            'Training', 'Converted', 'Lost', 'Retarget']
+
+# Pipeline stage mapping — always sync when status changes
+STATUS_TO_STAGE = {
+    'New Lead':            'enrollment',
+    'New':                 'enrollment',
+    'Contacted':           'enrollment',
+    'Invited':             'enrollment',
+    'Video Sent':          'enrollment',
+    'Video Watched':       'enrollment',
+    'Paid ₹196':           'enrollment',
+    'Mindset Lock':        'enrollment',
+    'Day 1':               'day1',
+    'Day 2':               'day2',
+    'Interview':           'day3',
+    'Track Selected':      'day3',
+    'Seat Hold Confirmed': 'seat_hold',
+    'Fully Converted':     'closing',
+    'Training':            'training',
+    'Converted':           'complete',
+    'Lost':                'lost',
+    'Retarget':            'enrollment',
+}
+
+# Call status values (use regular hyphens, NOT em-dashes)
+CALL_STATUS_VALUES = [
+    'Not Called Yet',
+    'Called - No Answer',
+    'Called - Interested',
+    'Called - Not Interested',
+    'Called - Follow Up',
+    'Video Sent',
+    'Video Watched',
+    'Payment Done',
+]
 
 TRACKS = {
     'Slow Track':   {'price': 8000,  'seat_hold': 2000},
@@ -853,6 +887,180 @@ def _send_password_reset_email(user_email, username, reset_url):
         return False
 
 
+
+# ──────────────────────────────────────────────────────────────────────
+#  Pipeline Helpers (Part 4)
+# ──────────────────────────────────────────────────────────────────────
+
+def _get_admin_username(db):
+    """Return username of first admin user."""
+    row = db.execute("SELECT username FROM users WHERE role='admin' LIMIT 1").fetchone()
+    return row['username'] if row else 'admin'
+
+
+def _get_leader_for_user(db, username):
+    """Return the direct leader/upline username for a given user."""
+    if not username:
+        return _get_admin_username(db)
+    row = db.execute(
+        "SELECT upline_name, upline_username FROM users WHERE username=?", (username,)
+    ).fetchone()
+    if not row:
+        return _get_admin_username(db)
+    # Check upline_username (new field) then upline_name (existing populated field)
+    leader = (row['upline_username'] or '').strip() or (row['upline_name'] or '').strip()
+    if not leader:
+        return _get_admin_username(db)
+    lrow = db.execute(
+        "SELECT username FROM users WHERE username=? AND status='approved'", (leader,)
+    ).fetchone()
+    return lrow['username'] if lrow else _get_admin_username(db)
+
+
+def _calculate_priority(lead):
+    """Compute a priority score for a lead (call on every query, never cache)."""
+    score = 0
+    today = _today_ist().isoformat()
+    keys = lead.keys() if hasattr(lead, 'keys') else []
+    status = lead['status'] if 'status' in keys else ''
+    if status == 'Video Watched':
+        score += 20
+    payment_done = lead['payment_done'] if 'payment_done' in keys else 0
+    if payment_done:
+        score += 40
+    follow_up_date = lead['follow_up_date'] if 'follow_up_date' in keys else ''
+    if follow_up_date and follow_up_date[:10] == today:
+        score += 50
+    created_at = lead['created_at'] if 'created_at' in keys else ''
+    if created_at and created_at[:10] == today:
+        score += 10
+    return score
+
+
+def _leads_with_priority(raw_leads):
+    """Return list of dicts sorted by priority score descending."""
+    result = []
+    for lead in raw_leads:
+        d = dict(lead)
+        d['priority_score'] = _calculate_priority(lead)
+        result.append(d)
+    result.sort(key=lambda x: (-x['priority_score'], x.get('created_at', '')))
+    return result
+
+
+def _transition_stage(db, lead_id, new_stage, triggered_by):
+    """
+    Move a lead to a new pipeline stage, updating current_owner, status, and
+    logging to lead_stage_history. Returns (new_stage, new_owner).
+    """
+    lead = db.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone()
+    if not lead:
+        return new_stage, ''
+
+    lead_keys = lead.keys()
+    current_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead_keys else 'enrollment'
+    current_owner = lead['current_owner'] if 'current_owner' in lead_keys else ''
+
+    # Determine new_owner based on transition
+    if current_stage == 'enrollment' and new_stage == 'day1':
+        new_owner = _get_leader_for_user(db, lead['assigned_to'])
+    elif current_stage == 'day1' and new_stage == 'day2':
+        new_owner = _get_admin_username(db)
+    elif current_stage == 'day2' and new_stage == 'day3':
+        hist = db.execute(
+            "SELECT owner FROM lead_stage_history WHERE lead_id=? AND stage='day1' ORDER BY created_at DESC LIMIT 1",
+            (lead_id,)
+        ).fetchone()
+        new_owner = hist['owner'] if hist else _get_leader_for_user(db, lead['assigned_to'])
+    elif current_stage == 'day3' and new_stage == 'seat_hold':
+        new_owner = current_owner
+    elif new_stage in ('closing', 'training', 'complete'):
+        new_owner = _get_admin_username(db)
+    elif new_stage == 'lost':
+        new_owner = current_owner
+    else:
+        new_owner = current_owner or _get_admin_username(db)
+
+    _stage_to_status = {
+        'day1':      'Day 1',
+        'day2':      'Day 2',
+        'day3':      'Interview',
+        'seat_hold': 'Seat Hold Confirmed',
+        'closing':   'Fully Converted',
+        'training':  'Training',
+        'complete':  'Converted',
+        'lost':      'Lost',
+    }
+    new_status = _stage_to_status.get(new_stage)
+    now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
+
+    if new_status is not None:
+        db.execute(
+            "UPDATE leads SET pipeline_stage=?, current_owner=?, status=?, updated_at=? WHERE id=?",
+            (new_stage, new_owner, new_status, now_str, lead_id)
+        )
+    else:
+        db.execute(
+            "UPDATE leads SET pipeline_stage=?, current_owner=?, updated_at=? WHERE id=?",
+            (new_stage, new_owner, now_str, lead_id)
+        )
+
+    db.execute(
+        "INSERT INTO lead_stage_history (lead_id, stage, owner, triggered_by, created_at) VALUES (?,?,?,?,?)",
+        (lead_id, new_stage, new_owner, triggered_by, now_str)
+    )
+
+    if new_stage == 'training':
+        _trigger_training_unlock(db, lead)
+
+    db.commit()
+    return new_stage, new_owner
+
+
+def _trigger_training_unlock(db, lead):
+    """When a lead reaches the training stage, unlock the assigned user training."""
+    import re as _re2
+    phone = lead['phone'] if 'phone' in lead.keys() else ''
+    clean = _re2.sub(r'[^0-9]', '', phone)
+    if clean.startswith('91') and len(clean) == 12:
+        clean = clean[2:]
+    if not clean:
+        return
+    user_row = db.execute("""
+        SELECT * FROM users WHERE
+        REPLACE(REPLACE(REPLACE(phone,'+91',''),'+',''),' ','') = ?
+        OR REPLACE(REPLACE(phone,'+91',''),' ','') = ?
+    """, (clean, clean)).fetchone()
+    if user_row and user_row['training_status'] != 'completed':
+        db.execute(
+            "UPDATE users SET training_status='pending' WHERE username=?",
+            (user_row['username'],)
+        )
+        try:
+            _push_to_users(db, user_row['username'],
+                           'Training Ready!',
+                           '7-day training shuru karo. Certificate milega!',
+                           '/training')
+        except Exception:
+            pass
+        _log_activity(db, user_row['username'], 'training_unlocked',
+                      f'Lead #{lead["id"]} transitioned to training')
+
+
+def _check_seat_hold_expiry(db, username):
+    """Revert expired seat_hold leads back to day3 stage."""
+    now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
+    expired = db.execute("""
+        SELECT * FROM leads
+        WHERE current_owner=? AND pipeline_stage='seat_hold'
+        AND seat_hold_expiry != '' AND seat_hold_expiry < ?
+    """, (username, now_str)).fetchall()
+    for lead in expired:
+        _transition_stage(db, lead['id'], 'day3', 'system_expiry')
+        _log_activity(db, 'system', 'seat_hold_expired',
+                      f'Lead #{lead["id"]} seat hold expired')
+
+
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Template Filters
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -1387,6 +1595,10 @@ def admin_dashboard():
 def team_dashboard():
     username = session['username']
     db       = get_db()
+
+    # Check seat_hold expiry on every dashboard load
+    _check_seat_hold_expiry(db, username)
+
     metrics  = _get_metrics(db, username=username)
     wallet   = _get_wallet(db, username)
 
@@ -1604,7 +1816,10 @@ def team_dashboard():
                            today_score=today_score,
                            today_streak=today_streak,
                            pending_batches=pending_batches,
-                           batch_videos=batch_videos))
+                           batch_videos=batch_videos,
+                           user_role=session.get('role', 'team'),
+                           call_status_values=CALL_STATUS_VALUES,
+                           csrf_token=session.get('_csrf_token', '')))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
     return resp
 
@@ -1911,6 +2126,10 @@ def edit_lead(lead_id):
         else:
             assigned_to = lead['assigned_to'] or ''
 
+        # Sync pipeline_stage from status
+        new_pipeline_stage = STATUS_TO_STAGE.get(status, 'enrollment')
+        lead_pipeline_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'enrollment'
+
         db.execute("""
             UPDATE leads
             SET name=?, phone=?, email=?, referred_by=?, assigned_to=?, status=?,
@@ -1918,6 +2137,7 @@ def edit_lead(lead_id):
                 day1_done=?, day2_done=?, interview_done=?,
                 follow_up_date=?, call_result=?, notes=?, city=?,
                 track_selected=?, track_price=?, seat_hold_amount=?, pending_amount=?,
+                pipeline_stage=?,
                 updated_at=?
             WHERE id=?
         """, (name, phone, email, referred_by, assigned_to, status,
@@ -1925,12 +2145,21 @@ def edit_lead(lead_id):
               day1_done, day2_done, interview_done,
               follow_up_date, call_result, notes, city,
               track_selected_val, track_price_val, seat_hold_amount_val, pending_amount_val,
+              new_pipeline_stage,
               _now_ist().strftime('%Y-%m-%d %H:%M:%S'),
               lead_id))
         db.commit()
+
+        # If stage changed, use _transition_stage to set owner + log history
+        if new_pipeline_stage != lead_pipeline_stage:
+            try:
+                _transition_stage(db, lead_id, new_pipeline_stage, session['username'])
+            except Exception:
+                pass
+
         try:
             _log_activity(db, session['username'], 'lead_update',
-                          f"Lead #{lead_id} updated → status: {status}")
+                          f"Lead #{lead_id} updated to status: {status} stage: {new_pipeline_stage}")
         except Exception:
             pass  # Non-fatal: commit already succeeded
         finally:
@@ -2100,15 +2329,26 @@ def update_status(lead_id):
         flash('Access denied.', 'danger')
         return redirect(url_for('leads'))
 
+    new_pipeline_stage = STATUS_TO_STAGE.get(new_status, 'enrollment')
+    lead_pipeline_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'enrollment'
+
     db.execute(
-        "UPDATE leads SET status=?, updated_at=? WHERE id=? AND in_pool=0",
-        (new_status, _now_ist().strftime('%Y-%m-%d %H:%M:%S'), lead_id)
+        "UPDATE leads SET status=?, pipeline_stage=?, updated_at=? WHERE id=? AND in_pool=0",
+        (new_status, new_pipeline_stage, _now_ist().strftime('%Y-%m-%d %H:%M:%S'), lead_id)
     )
-    _log_lead_event(db, lead_id, session['username'], f'Status → {new_status}')
+    _log_lead_event(db, lead_id, session['username'], f'Status to {new_status}')
     _log_activity(db, session['username'], 'lead_status_change',
-                  f'{lead["name"]} → {new_status}')
+                  f'{lead["name"]} to {new_status}')
     new_badges = _check_and_award_badges(db, lead['assigned_to'])
     db.commit()
+
+    # If stage changed, use _transition_stage to handle owner assignment
+    if new_pipeline_stage != lead_pipeline_stage:
+        try:
+            _transition_stage(db, lead_id, new_pipeline_stage, session['username'])
+        except Exception:
+            pass
+
     db.close()
 
     if is_ajax:
@@ -4607,10 +4847,47 @@ def job_calling_reminder():
 #  Boot \u2013 runs on every startup
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
+
+
+def migrate_pipeline_stages(db):
+    """One-time startup migration: sync pipeline_stage + current_owner for all existing leads."""
+    leads = db.execute("""
+        SELECT id, status, assigned_to, pipeline_stage, current_owner
+        FROM leads WHERE in_pool=0 AND deleted_at=''
+    """).fetchall()
+    for lead in leads:
+        current_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else ''
+        expected_stage = STATUS_TO_STAGE.get(lead['status'], 'enrollment')
+        needs_update = (not current_stage or current_stage == '' or current_stage != expected_stage)
+        if needs_update:
+            stage = expected_stage
+            owner = lead['current_owner'] if 'current_owner' in lead.keys() else ''
+            if not owner:
+                if stage == 'enrollment':
+                    owner = lead['assigned_to'] or ''
+                elif stage in ('day1', 'day3', 'seat_hold'):
+                    owner = _get_leader_for_user(db, lead['assigned_to'])
+                else:
+                    owner = _get_admin_username(db)
+            db.execute(
+                "UPDATE leads SET pipeline_stage=?, current_owner=? WHERE id=?",
+                (stage, owner, lead['id'])
+            )
+    db.commit()
+
 init_db()
 migrate_db()
 seed_users()
 seed_training_questions()
+
+# Sync existing leads to pipeline stages
+try:
+    _boot_db = get_db()
+    migrate_pipeline_stages(_boot_db)
+    _boot_db.close()
+except Exception as _e:
+    import sys
+    print(f'[Pipeline] migrate_pipeline_stages failed: {_e}', file=sys.stderr)
 
 # ── Scheduler startup ───────────────────────────────────────────────────────
 # start_scheduler() uses a file lock so exactly ONE worker process runs it.
@@ -4715,8 +4992,9 @@ def admin_live_session():
 @admin_required
 def admin_members():
     db = get_db()
+    # Include team AND leader roles (admin manages both)
     users = db.execute(
-        "SELECT * FROM users WHERE role='team' ORDER BY status, created_at DESC"
+        "SELECT * FROM users WHERE role IN ('team','leader') ORDER BY role, status, created_at DESC"
     ).fetchall()
 
     _rows = db.execute("""
@@ -4734,11 +5012,40 @@ def admin_members():
     ).fetchall()
     report_map = {r['username']: r['report_count'] for r in _rep_rows}
 
+    # Leader metrics: for each leader, count day1, seat_hold, converted in their downline
+    leader_metrics = {}
+    for u in users:
+        if u['role'] == 'leader':
+            uname = u['username']
+            downline = _get_downline_usernames(db, uname)
+            dl_ph = ','.join('?' * len(downline)) if downline else "''"
+            day1_c = db.execute(
+                f"SELECT COUNT(*) FROM leads WHERE pipeline_stage='day1' AND assigned_to IN ({dl_ph}) AND in_pool=0",
+                downline
+            ).fetchone()[0] if downline else 0
+            seat_c = db.execute(
+                f"SELECT COUNT(*) FROM leads WHERE pipeline_stage='seat_hold' AND current_owner=? AND in_pool=0",
+                (uname,)
+            ).fetchone()[0]
+            conv_c = db.execute(
+                f"SELECT COUNT(*) FROM leads WHERE pipeline_stage='complete' AND assigned_to IN ({dl_ph}) AND in_pool=0",
+                downline
+            ).fetchone()[0] if downline else 0
+            conv_pct = round(conv_c / day1_c * 100, 1) if day1_c > 0 else 0
+            leader_metrics[uname] = {
+                'downline_count': len(downline),
+                'day1_leads': day1_c,
+                'seat_holds': seat_c,
+                'converted': conv_c,
+                'conv_pct': conv_pct,
+            }
+
     db.close()
     return render_template('all_members.html',
                            users=users,
                            stats_map=stats_map,
-                           report_map=report_map)
+                           report_map=report_map,
+                           leader_metrics=leader_metrics)
 
 
 @app.route('/admin/members/<username>')
@@ -5917,6 +6224,9 @@ def working():
     username = session['username']
     today   = _today_ist().strftime('%Y-%m-%d')
 
+    # Check seat_hold expiry
+    _check_seat_hold_expiry(db, username)
+
     if role == 'admin':
         # ── Admin view ─────────────────────────────────────────────
         stage_placeholders = ','.join('?' * len(STAGE1_STATUSES))
@@ -6028,6 +6338,9 @@ def working():
             batch_completion=batch_completion,
             tracks=TRACKS,
             batch_videos=admin_batch_videos,
+            user_role='admin',
+            call_status_values=CALL_STATUS_VALUES,
+            csrf_token=session.get('_csrf_token', ''),
         )
 
     # ── Team member view ───────────────────────────────────────────
@@ -6146,6 +6459,9 @@ def working():
         tracks=TRACKS,
         statuses=STATUSES,
         batch_videos=team_batch_videos,
+        user_role=role or 'team',
+        call_status_values=CALL_STATUS_VALUES,
+        csrf_token=session.get('_csrf_token', ''),
     )
 
 
@@ -6290,6 +6606,150 @@ def quick_advance(lead_id):
         'today_score': today_score,
         'new_badges': [BADGE_DEFS[k]['label'] for k in new_badges if k in BADGE_DEFS],
     }
+
+
+
+# ──────────────────────────────────────────────────────────────────────
+#  Pipeline Stage Advance (Part 5)
+# ──────────────────────────────────────────────────────────────────────
+
+@app.route('/leads/<int:lead_id>/stage-advance', methods=['POST'])
+@login_required
+def stage_advance(lead_id):
+    """Advance a lead to the next pipeline stage."""
+    data = request.get_json(silent=True) or {}
+    action = data.get('action', '')
+    role = session.get('role', 'team')
+    username = session['username']
+
+    ACTION_MAP = {
+        'enroll_complete':   (['team', 'leader', 'admin'], 'day1'),
+        'day1_complete':     (['leader', 'admin'],          'day2'),
+        'day2_complete':     (['admin'],                    'day3'),
+        'interview_done':    (['leader', 'admin'],          'day3'),
+        'seat_hold_done':    (['leader', 'admin'],          'seat_hold'),
+        'fully_converted':   (['admin'],                    'closing'),
+        'training_complete': (['admin'],                    'complete'),
+        'mark_lost':         (['team', 'leader', 'admin'],  'lost'),
+    }
+
+    if action not in ACTION_MAP:
+        return {'ok': False, 'error': 'Invalid action'}, 400
+
+    allowed_roles, new_stage = ACTION_MAP[action]
+    if role not in allowed_roles:
+        return {'ok': False, 'error': 'Permission denied'}, 403
+
+    db = get_db()
+    lead = db.execute("SELECT * FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''", (lead_id,)).fetchone()
+
+    if not lead:
+        db.close()
+        return {'ok': False, 'error': 'Lead not found'}, 404
+
+    lead_keys = lead.keys()
+
+    if action == 'seat_hold_done':
+        track_sel = lead['track_selected'] if 'track_selected' in lead_keys else ''
+        if not track_sel:
+            db.close()
+            return {'ok': False, 'error': 'Track select karo pehle (track_selected required)'}, 400
+        expiry = (_now_ist() + datetime.timedelta(hours=48)).strftime('%Y-%m-%d %H:%M:%S')
+        db.execute("UPDATE leads SET seat_hold_expiry=? WHERE id=?", (expiry, lead_id))
+
+    if action == 'interview_done':
+        now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
+        db.execute("UPDATE leads SET interview_done=1, status='Track Selected', updated_at=? WHERE id=?",
+                   (now_str, lead_id))
+        db.commit()
+
+    new_stage_result, new_owner = _transition_stage(db, lead_id, new_stage, username)
+    _log_activity(db, username, 'stage_advance', f'Lead #{lead_id} {action} to {new_stage_result}')
+    db.close()
+
+    stage_labels = {
+        'enrollment': 'Enrollment',
+        'day1': 'Day 1',
+        'day2': 'Day 2',
+        'day3': 'Day 3 / Interview',
+        'seat_hold': 'Seat Hold',
+        'closing': 'Closing / Fully Converted',
+        'training': 'Training',
+        'complete': 'Converted',
+        'lost': 'Lost',
+    }
+    return {
+        'ok': True,
+        'new_stage': new_stage_result,
+        'new_owner': new_owner,
+        'message': f'Stage updated to {stage_labels.get(new_stage_result, new_stage_result)}',
+    }
+
+
+@app.route('/leads/<int:lead_id>/call-status', methods=['POST'])
+@login_required
+def update_call_status(lead_id):
+    """Update call_status — only for the assigned team member."""
+    data = request.get_json(silent=True) or {}
+    call_status = (data.get('call_status') or '').strip()
+
+    if call_status not in CALL_STATUS_VALUES:
+        return {'ok': False, 'error': 'Invalid call_status'}, 400
+
+    db = get_db()
+    lead = db.execute("SELECT * FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''", (lead_id,)).fetchone()
+    if not lead:
+        db.close()
+        return {'ok': False, 'error': 'Not found'}, 404
+
+    role = session.get('role', 'team')
+    username = session['username']
+
+    if role == 'leader':
+        db.close()
+        return {'ok': False, 'error': 'Leaders can only view call status'}, 403
+    if role != 'admin' and lead['assigned_to'] != username:
+        db.close()
+        return {'ok': False, 'error': 'Only the assigned member can update call status'}, 403
+
+    now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
+    db.execute("UPDATE leads SET call_status=?, updated_at=? WHERE id=?",
+               (call_status, now_str, lead_id))
+    _log_activity(db, username, 'call_status_update', f'Lead #{lead_id} call_status={call_status}')
+    db.commit()
+    db.close()
+    return {'ok': True, 'call_status': call_status}
+
+
+@app.route('/admin/members/<username>/promote-leader', methods=['POST'])
+@admin_required
+def admin_promote_leader(username):
+    """Toggle a team member between team and leader roles."""
+    db = get_db()
+    user = db.execute("SELECT role FROM users WHERE username=?", (username,)).fetchone()
+    if not user:
+        db.close()
+        flash('Member not found.', 'danger')
+        return redirect(url_for('admin_members'))
+
+    current_role = user['role']
+    if current_role == 'team':
+        new_role = 'leader'
+        msg = f'{username} promoted to Leader.'
+    elif current_role == 'leader':
+        new_role = 'team'
+        msg = f'{username} demoted back to Team.'
+    else:
+        db.close()
+        flash('Only team/leader roles can be toggled.', 'warning')
+        return redirect(url_for('admin_members'))
+
+    db.execute("UPDATE users SET role=? WHERE username=?", (new_role, username))
+    db.commit()
+    _log_activity(db, session['username'], 'role_change', f'{username}: {current_role} to {new_role}')
+    db.close()
+    flash(msg, 'success')
+    return redirect(url_for('admin_members'))
 
 
 @app.route('/api/today-score')

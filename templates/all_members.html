@@ -98,6 +98,9 @@
                 {% endif %}
                 <div>
                   <div class="fw-semibold" style="font-size:0.9rem;">@{{ u.username }}</div>
+                  {% if u.role == 'leader' %}
+                  <span class="badge bg-warning text-dark" style="font-size:0.58rem;letter-spacing:0.03em;">⭐ Leader</span>
+                  {% endif %}
                 </div>
               </div>
             </td>
@@ -131,10 +134,28 @@
             <td class="text-muted small text-nowrap">{{ u.created_at[:10] }}</td>
 
             <td>
-              <a href="{{ url_for('member_detail', username=u.username) }}"
-                 class="btn btn-xs btn-outline-primary text-nowrap">
-                <i class="bi bi-eye-fill me-1"></i>View Activity
-              </a>
+              <div class="d-flex gap-1 flex-wrap">
+                <a href="{{ url_for('member_detail', username=u.username) }}"
+                   class="btn btn-xs btn-outline-primary text-nowrap">
+                  <i class="bi bi-eye-fill me-1"></i>View
+                </a>
+                {% if u.role in ('team', 'leader') %}
+                <form method="POST"
+                      action="{{ url_for('admin_promote_leader', username=u.username) }}"
+                      class="d-inline"
+                      onsubmit="return confirm('{{ 'Remove Leader role from' if u.role == 'leader' else 'Promote to Leader' }}: @{{ u.username }}?')">
+                  <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token', '') }}">
+                  <button type="submit"
+                          class="btn btn-xs {% if u.role == 'leader' %}btn-warning text-dark{% else %}btn-outline-warning{% endif %} text-nowrap">
+                    {% if u.role == 'leader' %}
+                    <i class="bi bi-person-dash me-1"></i>Demote
+                    {% else %}
+                    <i class="bi bi-person-up me-1"></i>Leader
+                    {% endif %}
+                  </button>
+                </form>
+                {% endif %}
+              </div>
             </td>
           </tr>
           {% else %}
@@ -149,6 +170,49 @@
     </div>
   </div>
 </div>
+
+{% if leader_metrics %}
+<!-- Leader Metrics Section -->
+<div class="card border-0 shadow-sm mt-4">
+  <div class="card-header bg-transparent border-0 pt-3 pb-0">
+    <h6 class="mb-0 fw-semibold"><i class="bi bi-people-fill me-2 text-warning"></i>Leader Downline Metrics</h6>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0 small">
+        <thead class="table-light">
+          <tr>
+            <th>Leader</th>
+            <th class="text-center">Downline</th>
+            <th class="text-center">Day 1</th>
+            <th class="text-center">Seat Holds</th>
+            <th class="text-center">Converted</th>
+            <th class="text-center">Conv %</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lname, m in leader_metrics.items() %}
+          <tr>
+            <td class="fw-semibold">
+              <i class="bi bi-star-fill text-warning me-1" style="font-size:0.7rem;"></i>@{{ lname }}
+            </td>
+            <td class="text-center">{{ m.downline_count }}</td>
+            <td class="text-center">{{ m.day1_leads }}</td>
+            <td class="text-center text-success fw-semibold">{{ m.seat_holds }}</td>
+            <td class="text-center text-primary fw-semibold">{{ m.converted }}</td>
+            <td class="text-center">
+              <span class="badge {% if m.conv_pct >= 20 %}bg-success{% elif m.conv_pct >= 10 %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                {{ m.conv_pct }}%
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <script>
 function filterTable() {

@@ -118,6 +118,15 @@
         <div class="flex-grow-1 min-w-0">
           <div class="fw-semibold small text-truncate">{{ lead.name }}</div>
           <span class="badge" style="background:#eef2ff;color:#6366f1;font-size:0.65rem;">{{ lead.status }}</span>
+          <div class="pipeline-indicator mt-1">
+            {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
+            <div class="d-flex align-items-center" style="gap:2px;">
+              {% for stage_id, stage_short in stages %}
+              <div class="pipeline-step {% if lead.pipeline_stage == stage_id %}active{% endif %}" title="{{ stage_id }}">{{ stage_short }}</div>
+              {% if not loop.last %}<div class="pipeline-connector"></div>{% endif %}
+              {% endfor %}
+            </div>
+          </div>
         </div>
         <div class="d-flex gap-1 flex-shrink-0">
           <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-outline-success px-2"
@@ -174,6 +183,15 @@
           <div class="fw-semibold small text-truncate" style="max-width:160px;">{{ lead.name }}</div>
           <span class="small text-muted ms-2 flex-shrink-0" id="db-bd-{{ lead.id }}">{{ bd }}/3</span>
         </div>
+        <div class="pipeline-indicator mb-1">
+          {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
+          <div class="d-flex align-items-center" style="gap:2px;">
+            {% for stage_id, stage_short in stages %}
+            <div class="pipeline-step {% if lead.pipeline_stage == stage_id %}active{% endif %}" title="{{ stage_id }}">{{ stage_short }}</div>
+            {% if not loop.last %}<div class="pipeline-connector"></div>{% endif %}
+            {% endfor %}
+          </div>
+        </div>
         <div class="db-batch-progress mb-2">
           <div class="db-batch-bar db-bar-d1" id="db-bar-{{ lead.id }}"
                style="width:{{ (bd/3*100)|int }}%"></div>
@@ -196,9 +214,10 @@
                class="btn btn-xs px-2" style="background:#25D366;color:#fff;border-radius:4px;">
               <i class="bi bi-whatsapp"></i>
             </a>
-            {% if all_done %}
+            {% if all_done and user_role in ('leader', 'admin') %}
             <button class="btn btn-xs btn-success advance-btn px-2"
                     data-lead="{{ lead.id }}" data-status="Day 1"
+                    onclick="stageAdvance({{ lead.id }}, 'day1_complete', this)"
                     title="Move to Day 2">
               <i class="bi bi-arrow-right me-1"></i>D2
             </button>
@@ -242,6 +261,15 @@
           <div class="fw-semibold small text-truncate" style="max-width:160px;">{{ lead.name }}</div>
           <span class="small text-muted ms-2 flex-shrink-0" id="db-bd-{{ lead.id }}">{{ bd }}/3</span>
         </div>
+        <div class="pipeline-indicator mb-1">
+          {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
+          <div class="d-flex align-items-center" style="gap:2px;">
+            {% for stage_id, stage_short in stages %}
+            <div class="pipeline-step {% if lead.pipeline_stage == stage_id %}active{% endif %}" title="{{ stage_id }}">{{ stage_short }}</div>
+            {% if not loop.last %}<div class="pipeline-connector"></div>{% endif %}
+            {% endfor %}
+          </div>
+        </div>
         <div class="db-batch-progress mb-2">
           <div class="db-batch-bar db-bar-d2" id="db-bar-{{ lead.id }}"
                style="width:{{ (bd/3*100)|int }}%"></div>
@@ -264,9 +292,10 @@
                class="btn btn-xs px-2" style="background:#25D366;color:#fff;border-radius:4px;">
               <i class="bi bi-whatsapp"></i>
             </a>
-            {% if all_done %}
+            {% if all_done and user_role == 'admin' %}
             <button class="btn btn-xs btn-warning text-dark advance-btn px-2"
                     data-lead="{{ lead.id }}" data-status="Day 2"
+                    onclick="stageAdvance({{ lead.id }}, 'day2_complete', this)"
                     title="Move to Interview">
               <i class="bi bi-arrow-right me-1"></i>Int.
             </button>
@@ -297,6 +326,15 @@
       <div class="d-flex align-items-center gap-2 px-3 py-2 {% if not loop.last %}border-bottom{% endif %}">
         <div class="flex-grow-1 min-w-0">
           <div class="fw-semibold small text-truncate">{{ lead.name }}</div>
+          <div class="pipeline-indicator mt-1 mb-1">
+            {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
+            <div class="d-flex align-items-center" style="gap:2px;">
+              {% for stage_id, stage_short in stages %}
+              <div class="pipeline-step {% if lead.pipeline_stage == stage_id %}active{% endif %}" title="{{ stage_id }}">{{ stage_short }}</div>
+              {% if not loop.last %}<div class="pipeline-connector"></div>{% endif %}
+              {% endfor %}
+            </div>
+          </div>
           <div class="d-flex gap-1 flex-wrap mt-1">
             <span class="badge" style="background:#f5f3ff;color:#7c3aed;font-size:0.62rem;">{{ lead.status }}</span>
             {% if lead.interview_done %}
@@ -348,6 +386,15 @@
         <div class="flex-grow-1 min-w-0">
           <div class="fw-semibold small text-truncate">{{ lead.name }}</div>
           <div class="text-muted" style="font-size:0.7rem;">Seat Hold Confirmed</div>
+          <div class="pipeline-indicator mt-1">
+            {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
+            <div class="d-flex align-items-center" style="gap:2px;">
+              {% for stage_id, stage_short in stages %}
+              <div class="pipeline-step {% if lead.pipeline_stage == stage_id %}active{% endif %}" title="{{ stage_id }}">{{ stage_short }}</div>
+              {% if not loop.last %}<div class="pipeline-connector"></div>{% endif %}
+              {% endfor %}
+            </div>
+          </div>
         </div>
         <div class="d-flex gap-1 flex-shrink-0">
           <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-outline-success px-2" title="Call">
@@ -714,6 +761,54 @@ async function _markBatchDone(leadId, batchKey) {
 document.getElementById('batchPopup').addEventListener('click', function(e) {
   if (e.target === this) closeBatchPopup();
 });
+
+// ── Stage Advance via Pipeline ─────────────────────────────────
+function stageAdvance(leadId, action, btnEl) {
+  const origHTML = btnEl ? btnEl.innerHTML : '';
+  if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner-border spinner-border-sm"></span>'; }
+  fetch(`/leads/${leadId}/stage-advance`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrf_token }}' },
+    body: JSON.stringify({ action }),
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (!d.ok) {
+      showToast(d.error || 'Could not advance stage', 'danger');
+      if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = origHTML; }
+      return;
+    }
+    showToast(d.message || 'Stage advanced ✅', 'success');
+    const card = document.getElementById(`db-lead-${leadId}`);
+    if (card) {
+      card.style.transition = 'opacity 0.3s';
+      card.style.opacity = '0';
+      setTimeout(() => { card.remove(); }, 320);
+    }
+  })
+  .catch(() => {
+    showToast('Network error', 'danger');
+    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = origHTML; }
+  });
+}
+
+// ── Call Status Update ─────────────────────────────────────────
+function updateCallStatus(leadId, newStatus, selectEl) {
+  fetch(`/leads/${leadId}/call-status`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrf_token }}' },
+    body: JSON.stringify({ call_status: newStatus }),
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      showToast('Call status updated ✅', 'success');
+    } else {
+      showToast(d.error || 'Could not update', 'danger');
+    }
+  })
+  .catch(() => { showToast('Network error', 'danger'); });
+}
 </script>
 
 <!-- Batch Popup HTML -->

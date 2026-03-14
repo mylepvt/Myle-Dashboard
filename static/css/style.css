@@ -1289,3 +1289,60 @@ p,span,td,li { color: inherit; }
 }
 .db-batch-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .db-batch-btn:not(:disabled):active { transform: scale(0.93); }
+
+/* ══════════════════════════════════════════════════════════════════
+   PIPELINE INDICATOR  (Part 9 — Lead Lifecycle System)
+   ══════════════════════════════════════════════════════════════════ */
+
+.pipeline-indicator {
+  display: block;
+}
+
+/* Individual stage dot */
+.pipeline-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 0.58rem;
+  font-weight: 700;
+  background: #e5e7eb;
+  color: #9ca3af;
+  flex-shrink: 0;
+  transition: background 0.2s, color 0.2s;
+  cursor: default;
+}
+
+.pipeline-step.active {
+  background: #6366f1;
+  color: #fff;
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.3);
+}
+
+/* Connector line between dots */
+.pipeline-connector {
+  width: 8px;
+  height: 2px;
+  background: #d1d5db;
+  flex-shrink: 0;
+}
+
+/* Stage advance button */
+.btn-stage-advance {
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.btn-stage-advance:active {
+  transform: scale(0.97);
+}
+
+/* Read-only notice for leaders */
+.pipeline-readonly-notice {
+  font-size: 0.65rem;
+  color: #9ca3af;
+  font-style: italic;
+}
