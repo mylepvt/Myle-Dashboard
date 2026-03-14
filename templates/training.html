@@ -500,14 +500,19 @@ function togglePodcast(btn, url, isLocal) {
     }
     wrap.style.display = 'block';
     btn.innerHTML = '<i class="bi bi-x-circle me-2"></i>Close Podcast';
-    /* Auto-play local audio — with better error handling */
+    /* Handle load error (e.g. file not uploaded) */
     var aud = wrap.querySelector('audio');
     if (aud) {
+      aud.addEventListener('error', function() {
+        wrap.innerHTML = '<div class="small text-danger p-2 rounded" style="background:#fff5f5;">' +
+          '<i class="bi bi-exclamation-circle me-1"></i>Podcast file not found. Admin please upload the audio file.' +
+          '</div>';
+        btn.innerHTML = '<i class="bi bi-headphones me-2"></i>Listen Podcast';
+      });
       var playPromise = aud.play();
       if (playPromise !== undefined) {
         playPromise.catch(function(err) {
           console.log('Podcast autoplay blocked:', err);
-          aud.pause();
         });
       }
     }

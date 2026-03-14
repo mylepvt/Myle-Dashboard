@@ -552,6 +552,10 @@ def migrate_db():
         except Exception:
             pass
 
+    # Clear placeholder seed podcast/pdf URLs (local paths to files that never existed)
+    cursor.execute("UPDATE training_videos SET podcast_url='' WHERE podcast_url LIKE 'audio/day%_podcast.%'")
+    cursor.execute("UPDATE training_videos SET pdf_url='' WHERE pdf_url LIKE 'pdf/day%_resource.pdf'")
+
     # --- training_progress table ---
     try:
         cursor.execute("""
