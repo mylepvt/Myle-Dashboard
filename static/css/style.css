@@ -1289,3 +1289,185 @@ p,span,td,li { color: inherit; }
 }
 .db-batch-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .db-batch-btn:not(:disabled):active { transform: scale(0.93); }
+
+/* ── Minimal Dashboard (.dash-*) ───────────────────────────── */
+.dash-pill {
+  border-radius: 99px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+}
+
+/* Section header button */
+.dash-sec-hdr {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 16px;
+  border: 1px solid rgba(0,0,0,0.07);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  cursor: pointer;
+  text-align: left;
+  transition: border-radius 0.15s ease;
+}
+.dash-sec-hdr[aria-expanded="true"] {
+  border-radius: 12px 12px 0 0;
+  border-bottom-color: transparent;
+  box-shadow: none;
+}
+
+/* Colored number circle */
+.dash-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* Section name */
+.dash-sec-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e2035;
+}
+
+/* Alert count pill inside header */
+.dash-alert-pill {
+  border-radius: 99px;
+  padding: 2px 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+/* Chevron icon */
+.dash-chevron {
+  transition: transform 0.2s ease;
+  font-size: 0.8rem;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+.dash-chevron.rotated {
+  transform: rotate(180deg);
+}
+
+/* Collapsible content body */
+.dash-sec-body {
+  background: #fafbff;
+  border-radius: 0 0 12px 12px;
+  border: 1px solid rgba(0,0,0,0.07);
+  border-top: none;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+/* Generic row inside a section */
+.dash-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+}
+.dash-row:last-child { border-bottom: none; }
+
+/* Batch row container */
+.dash-batch-row {
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+  transition: background 0.2s ease;
+}
+.dash-batch-row:last-child { border-bottom: none; }
+.dash-batch-row.dash-batch-complete { background: #f0fdf4; }
+
+/* 32px circle action buttons (📞 💬 ✏) */
+.dash-action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  text-decoration: none;
+  flex-shrink: 0;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.dash-action-btn:hover { opacity: 0.8; }
+.dash-action-btn:active { transform: scale(0.9); }
+
+/* M / A / E batch toggle buttons */
+.dash-mael-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1.5px solid #e5e7eb;
+  background: #f3f4f6;
+  color: #9ca3af;
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  flex-shrink: 0;
+}
+.dash-mael-btn.dash-mael-done {
+  background: #d1fae5;
+  color: #065f46;
+  border-color: #6ee7b7;
+}
+.dash-mael-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.dash-mael-btn:not(:disabled):active { transform: scale(0.92); }
+
+/* Progress text colour helpers */
+.dash-prog-red   { color: #dc2626; font-weight: 700; }
+.dash-prog-amber { color: #d97706; font-weight: 700; }
+.dash-prog-green { color: #16a34a; font-weight: 700; }
+
+/* Dark-mode overrides */
+[data-theme="dark"] .dash-sec-hdr {
+  background: var(--bs-card-bg);
+  border-color: var(--bs-border-color);
+  box-shadow: none;
+}
+[data-theme="dark"] .dash-sec-hdr[aria-expanded="true"] {
+  border-bottom-color: transparent;
+}
+[data-theme="dark"] .dash-sec-name { color: var(--bs-body-color); }
+[data-theme="dark"] .dash-sec-body {
+  background: var(--bs-tertiary-bg);
+  border-color: var(--bs-border-color);
+}
+[data-theme="dark"] .dash-row { border-bottom-color: var(--bs-border-color); }
+[data-theme="dark"] .dash-batch-row { border-bottom-color: var(--bs-border-color); }
+[data-theme="dark"] .dash-batch-row.dash-batch-complete {
+  background: rgba(34, 197, 94, 0.08);
+}
+[data-theme="dark"] .dash-mael-btn {
+  background: var(--bs-tertiary-bg);
+  border-color: var(--bs-border-color);
+  color: var(--bs-secondary-color);
+}
+[data-theme="dark"] .dash-mael-btn.dash-mael-done {
+  background: rgba(5, 150, 105, 0.2);
+  color: #6ee7b7;
+  border-color: #6ee7b7;
+}
