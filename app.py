@@ -1552,6 +1552,22 @@ def team_dashboard():
         targets_data.append({'label': metric_labels.get(key, key),
                               'actual': actual, 'target': int(target), 'pct': pct})
 
+    # Build batch_videos BEFORE closing database
+    batch_videos = {
+        'd1_morning_v1':   _get_setting(db, 'batch_d1_morning_v1', ''),
+        'd1_morning_v2':   _get_setting(db, 'batch_d1_morning_v2', ''),
+        'd1_afternoon_v1': _get_setting(db, 'batch_d1_afternoon_v1', ''),
+        'd1_afternoon_v2': _get_setting(db, 'batch_d1_afternoon_v2', ''),
+        'd1_evening_v1':   _get_setting(db, 'batch_d1_evening_v1', ''),
+        'd1_evening_v2':   _get_setting(db, 'batch_d1_evening_v2', ''),
+        'd2_morning_v1':   _get_setting(db, 'batch_d2_morning_v1', ''),
+        'd2_morning_v2':   _get_setting(db, 'batch_d2_morning_v2', ''),
+        'd2_afternoon_v1': _get_setting(db, 'batch_d2_afternoon_v1', ''),
+        'd2_afternoon_v2': _get_setting(db, 'batch_d2_afternoon_v2', ''),
+        'd2_evening_v1':   _get_setting(db, 'batch_d2_evening_v1', ''),
+        'd2_evening_v2':   _get_setting(db, 'batch_d2_evening_v2', ''),
+    }
+
     db.close()
     resp = make_response(render_template('dashboard.html',
                            metrics=metrics,
@@ -1588,20 +1604,7 @@ def team_dashboard():
                            today_score=today_score,
                            today_streak=today_streak,
                            pending_batches=pending_batches,
-                           batch_videos={
-                               'd1_morning_v1': _get_setting(db, 'batch_d1_morning_v1', ''),
-                               'd1_morning_v2': _get_setting(db, 'batch_d1_morning_v2', ''),
-                               'd1_afternoon_v1': _get_setting(db, 'batch_d1_afternoon_v1', ''),
-                               'd1_afternoon_v2': _get_setting(db, 'batch_d1_afternoon_v2', ''),
-                               'd1_evening_v1': _get_setting(db, 'batch_d1_evening_v1', ''),
-                               'd1_evening_v2': _get_setting(db, 'batch_d1_evening_v2', ''),
-                               'd2_morning_v1': _get_setting(db, 'batch_d2_morning_v1', ''),
-                               'd2_morning_v2': _get_setting(db, 'batch_d2_morning_v2', ''),
-                               'd2_afternoon_v1': _get_setting(db, 'batch_d2_afternoon_v1', ''),
-                               'd2_afternoon_v2': _get_setting(db, 'batch_d2_afternoon_v2', ''),
-                               'd2_evening_v1': _get_setting(db, 'batch_d2_evening_v1', ''),
-                               'd2_evening_v2': _get_setting(db, 'batch_d2_evening_v2', ''),
-                           }))
+                           batch_videos=batch_videos))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
     return resp
 
@@ -5999,6 +6002,22 @@ def working():
             'd2_pct': round(d2_done / d2_total * 100) if d2_total else 0,
         }
 
+        # Build batch_videos BEFORE closing database
+        admin_batch_videos = {
+            'd1_morning_v1': _get_setting(db, 'batch_d1_morning_v1', ''),
+            'd1_morning_v2': _get_setting(db, 'batch_d1_morning_v2', ''),
+            'd1_afternoon_v1': _get_setting(db, 'batch_d1_afternoon_v1', ''),
+            'd1_afternoon_v2': _get_setting(db, 'batch_d1_afternoon_v2', ''),
+            'd1_evening_v1': _get_setting(db, 'batch_d1_evening_v1', ''),
+            'd1_evening_v2': _get_setting(db, 'batch_d1_evening_v2', ''),
+            'd2_morning_v1': _get_setting(db, 'batch_d2_morning_v1', ''),
+            'd2_morning_v2': _get_setting(db, 'batch_d2_morning_v2', ''),
+            'd2_afternoon_v1': _get_setting(db, 'batch_d2_afternoon_v1', ''),
+            'd2_afternoon_v2': _get_setting(db, 'batch_d2_afternoon_v2', ''),
+            'd2_evening_v1': _get_setting(db, 'batch_d2_evening_v1', ''),
+            'd2_evening_v2': _get_setting(db, 'batch_d2_evening_v2', ''),
+        }
+
         db.close()
         return render_template('working.html',
             is_admin=True,
@@ -6008,20 +6027,7 @@ def working():
             stale_leads=stale_leads,
             batch_completion=batch_completion,
             tracks=TRACKS,
-            batch_videos={
-                'd1_morning_v1': _get_setting(db, 'batch_d1_morning_v1', ''),
-                'd1_morning_v2': _get_setting(db, 'batch_d1_morning_v2', ''),
-                'd1_afternoon_v1': _get_setting(db, 'batch_d1_afternoon_v1', ''),
-                'd1_afternoon_v2': _get_setting(db, 'batch_d1_afternoon_v2', ''),
-                'd1_evening_v1': _get_setting(db, 'batch_d1_evening_v1', ''),
-                'd1_evening_v2': _get_setting(db, 'batch_d1_evening_v2', ''),
-                'd2_morning_v1': _get_setting(db, 'batch_d2_morning_v1', ''),
-                'd2_morning_v2': _get_setting(db, 'batch_d2_morning_v2', ''),
-                'd2_afternoon_v1': _get_setting(db, 'batch_d2_afternoon_v1', ''),
-                'd2_afternoon_v2': _get_setting(db, 'batch_d2_afternoon_v2', ''),
-                'd2_evening_v1': _get_setting(db, 'batch_d2_evening_v1', ''),
-                'd2_evening_v2': _get_setting(db, 'batch_d2_evening_v2', ''),
-            },
+            batch_videos=admin_batch_videos,
         )
 
     # ── Team member view ───────────────────────────────────────────
@@ -6109,6 +6115,22 @@ def working():
         'closings_due':   closings_due,
     }
 
+    # Build batch_videos BEFORE closing database
+    team_batch_videos = {
+        'd1_morning_v1': _get_setting(db, 'batch_d1_morning_v1', ''),
+        'd1_morning_v2': _get_setting(db, 'batch_d1_morning_v2', ''),
+        'd1_afternoon_v1': _get_setting(db, 'batch_d1_afternoon_v1', ''),
+        'd1_afternoon_v2': _get_setting(db, 'batch_d1_afternoon_v2', ''),
+        'd1_evening_v1': _get_setting(db, 'batch_d1_evening_v1', ''),
+        'd1_evening_v2': _get_setting(db, 'batch_d1_evening_v2', ''),
+        'd2_morning_v1': _get_setting(db, 'batch_d2_morning_v1', ''),
+        'd2_morning_v2': _get_setting(db, 'batch_d2_morning_v2', ''),
+        'd2_afternoon_v1': _get_setting(db, 'batch_d2_afternoon_v1', ''),
+        'd2_afternoon_v2': _get_setting(db, 'batch_d2_afternoon_v2', ''),
+        'd2_evening_v1': _get_setting(db, 'batch_d2_evening_v1', ''),
+        'd2_evening_v2': _get_setting(db, 'batch_d2_evening_v2', ''),
+    }
+
     db.close()
     return render_template('working.html',
         is_admin=False,
@@ -6123,20 +6145,7 @@ def working():
         today_actions=today_actions,
         tracks=TRACKS,
         statuses=STATUSES,
-        batch_videos={
-            'd1_morning_v1': _get_setting(db, 'batch_d1_morning_v1', ''),
-            'd1_morning_v2': _get_setting(db, 'batch_d1_morning_v2', ''),
-            'd1_afternoon_v1': _get_setting(db, 'batch_d1_afternoon_v1', ''),
-            'd1_afternoon_v2': _get_setting(db, 'batch_d1_afternoon_v2', ''),
-            'd1_evening_v1': _get_setting(db, 'batch_d1_evening_v1', ''),
-            'd1_evening_v2': _get_setting(db, 'batch_d1_evening_v2', ''),
-            'd2_morning_v1': _get_setting(db, 'batch_d2_morning_v1', ''),
-            'd2_morning_v2': _get_setting(db, 'batch_d2_morning_v2', ''),
-            'd2_afternoon_v1': _get_setting(db, 'batch_d2_afternoon_v1', ''),
-            'd2_afternoon_v2': _get_setting(db, 'batch_d2_afternoon_v2', ''),
-            'd2_evening_v1': _get_setting(db, 'batch_d2_evening_v1', ''),
-            'd2_evening_v2': _get_setting(db, 'batch_d2_evening_v2', ''),
-        },
+        batch_videos=team_batch_videos,
     )
 
 
