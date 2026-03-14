@@ -119,16 +119,20 @@
                     </label>
                     {% if vid and vid.podcast_url and not vid.podcast_url.startswith('http') %}
                     <div class="alert alert-info py-1 px-2 small border-0 mb-1">
-                      <i class="bi bi-check-circle me-1"></i>Current: {{ vid.podcast_url.split('/')[-1] }}
+                      <i class="bi bi-check-circle me-1"></i>Current file: {{ vid.podcast_url.split('/')[-1] }}
                     </div>
                     {% elif vid and vid.podcast_url %}
                     <div class="alert alert-info py-1 px-2 small border-0 mb-1">
-                      <i class="bi bi-link me-1"></i>External URL set
+                      <i class="bi bi-link me-1"></i>External URL: {{ vid.podcast_url[:60] }}{% if vid.podcast_url|length > 60 %}…{% endif %}
                     </div>
                     {% endif %}
+                    <input type="url" name="podcast_external_url" class="form-control form-control-sm mb-1"
+                           placeholder="Or paste external URL (Google Drive, Dropbox, SoundCloud…)"
+                           value="{{ vid.podcast_url if vid and vid.podcast_url and vid.podcast_url.startswith('http') else '' }}">
+                    <div class="form-text mb-1">Paste an external link above <strong>OR</strong> upload a file below:</div>
                     <input type="file" name="podcast_file" class="form-control form-control-sm"
                            accept="audio/*,.mp3,.m4a,.ogg,.wav">
-                    <div class="form-text">Upload new file to replace. Leave empty to keep existing.</div>
+                    <div class="form-text">File upload takes priority over external URL. Leave both empty to keep existing.</div>
                   </div>
                   <div class="mb-2">
                     <label class="form-label small fw-semibold mb-1">

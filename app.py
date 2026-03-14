@@ -5705,9 +5705,14 @@ def admin_training_save_video():
         flash('Invalid day number.', 'danger')
         return redirect(url_for('admin_training'))
 
-    # Keep existing values as fallback if no new file uploaded
+    # Keep existing values as fallback if no new file/url provided
     podcast_url = request.form.get('podcast_url_existing', '').strip()
     pdf_url     = request.form.get('pdf_url_existing', '').strip()
+
+    # External URL takes over existing (file upload below can override again)
+    ext_podcast_url = request.form.get('podcast_external_url', '').strip()
+    if ext_podcast_url:
+        podcast_url = ext_podcast_url
 
     media_dir = os.path.join(os.path.dirname(__file__), 'uploads', 'training')
     audio_dir = os.path.join(media_dir, 'audio')
