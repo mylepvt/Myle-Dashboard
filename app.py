@@ -3611,8 +3611,11 @@ def import_lead_pool_csv():
     skipped  = 0
 
     for row in rows_list:
+        _fn = (row.get('First Name') or row.get('first_name') or '').strip()
+        _ln = (row.get('Last Name') or row.get('last_name') or '').strip()
         name  = (row.get('Full Name') or row.get('full_name') or
-                 row.get('name') or row.get('Name') or '').strip()
+                 row.get('name') or row.get('Name') or
+                 ((_fn + ' ' + _ln).strip() if _fn or _ln else '') or '').strip()
         phone = (row.get('Phone Number (Calling Number)') or
                  row.get('phone_number') or row.get('phone') or
                  row.get('Phone') or row.get('Phone Number') or '').strip()
@@ -4195,12 +4198,15 @@ def meta_webhook_receive():
                     for f in field_data
                 }
 
-                name  = lead_fields.get('full_name', lead_fields.get('name', 'Meta Lead')).strip()
+                name  = (lead_fields.get('full_name') or lead_fields.get('name') or
+                         lead_fields.get('full name') or '').strip()
                 phone = lead_fields.get('phone_number', lead_fields.get('phone', '')).strip()
                 email = lead_fields.get('email', '').strip()
 
                 if not phone:
                     phone = str(value.get('leadgen_id', 'N/A'))
+                if not name:
+                    name = phone
 
                 leadgen_id = str(value.get('leadgen_id', ''))
                 if leadgen_id:
@@ -4676,8 +4682,11 @@ def import_leads():
             return redirect(url_for('leads'))
 
         for row in raw_rows:
+            _fn2 = (row.get('First Name') or row.get('first_name') or '').strip()
+            _ln2 = (row.get('Last Name') or row.get('last_name') or '').strip()
             name  = (row.get('Full Name') or row.get('full_name') or
-                     row.get('name') or row.get('Name') or '').strip()
+                     row.get('name') or row.get('Name') or
+                     ((_fn2 + ' ' + _ln2).strip() if _fn2 or _ln2 else '') or '').strip()
             phone = (row.get('Phone Number (Calling Number)') or
                      row.get('phone_number') or row.get('phone') or
                      row.get('Phone') or row.get('Phone Number') or '').strip()

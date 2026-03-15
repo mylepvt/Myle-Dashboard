@@ -9,7 +9,7 @@
 <div class="wl-card" id="wcard-{{ lead.id }}">
   <div class="d-flex align-items-start justify-content-between gap-2 mb-1">
     <div>
-      <div class="wl-name">{{ lead.name }}</div>
+      <div class="wl-name">{{ lead.name or ('Lead #' ~ lead.id) }}</div>
       {% if lead.city %}<div class="wl-city"><i class="bi bi-geo-alt-fill me-1"></i>{{ lead.city }}</div>{% endif %}
     </div>
     {% if day == 0 %}
@@ -403,7 +403,7 @@
                      value="{{ lead.id }}" aria-label="Select {{ lead.name }}" style="accent-color:#6366f1;">
             </div>
             <div>
-              <div class="fw-semibold" style="font-size:0.875rem;">{{ lead.name }}</div>
+              <div class="fw-semibold" style="font-size:0.875rem;">{{ lead.name or ('Lead #' ~ lead.id) }}</div>
               {% if lead.city %}
               <div class="text-muted" style="font-size:0.72rem;"><i class="bi bi-geo-alt-fill me-1"></i>{{ lead.city }}</div>
               {% endif %}
@@ -469,7 +469,7 @@
               </td>
               <td class="text-muted label-sm">{{ lead.id }}</td>
               <td>
-                <div class="fw-semibold" style="font-size:0.875rem;letter-spacing:-0.01em;">{{ lead.name }}</div>
+                <div class="fw-semibold" style="font-size:0.875rem;letter-spacing:-0.01em;">{{ lead.name or ('Lead #' ~ lead.id) }}</div>
                 {% if lead.city %}<div class="text-muted" style="font-size:0.72rem;"><i class="bi bi-geo-alt-fill me-1"></i>{{ lead.city }}</div>{% endif %}
                 {% if lead.email %}<div class="text-muted" style="font-size:0.72rem;">{{ lead.email }}</div>{% endif %}
               </td>
