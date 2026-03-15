@@ -1894,6 +1894,8 @@ def leads():
                            active_leads=active_leads,
                            statuses=STATUSES,
                            call_result_tags=CALL_RESULT_TAGS,
+                           call_status_values=CALL_STATUS_VALUES,
+                           user_role=session.get('role', 'team'),
                            sources=SOURCES,
                            selected_status=status,
                            search=search,
@@ -2322,37 +2324,49 @@ def update_status(lead_id):
         flash('Lead not found.', 'danger')
         return redirect(url_for('leads'))
 
-    if session.get('role') != 'admin' and lead['assigned_to'] != session['username']:
-        db.close()
-        if is_ajax:
-            return {'ok': False, 'error': 'Access denied'}, 403
-        flash('Access denied.', 'danger')
-        return redirect(url_for('leads'))
+    # Allow assigned_to OR current_owner (stage may have changed ownership)
+    if session.get('role') != 'admin':
+        lead_keys = lead.keys()
+        allowed = {lead['assigned_to']}
+        if 'current_owner' in lead_keys and lead['current_owner']:
+            allowed.add(lead['current_owner'])
+        if session['username'] not in allowed:
+            db.close()
+            if is_ajax:
+                return {'ok': False, 'error': 'Access denied'}, 403
+            flash('Access denied.', 'danger')
+            return redirect(url_for('leads'))
 
     new_pipeline_stage = STATUS_TO_STAGE.get(new_status, 'enrollment')
     lead_pipeline_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'enrollment'
+    stage_changed = new_pipeline_stage != lead_pipeline_stage
+    now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
 
-    db.execute(
-        "UPDATE leads SET status=?, pipeline_stage=?, updated_at=? WHERE id=? AND in_pool=0",
-        (new_status, new_pipeline_stage, _now_ist().strftime('%Y-%m-%d %H:%M:%S'), lead_id)
-    )
+    if stage_changed:
+        # Only update status — let _transition_stage handle pipeline_stage + current_owner
+        # (so _transition_stage reads correct current_stage from DB)
+        db.execute(
+            "UPDATE leads SET status=?, updated_at=? WHERE id=? AND in_pool=0",
+            (new_status, now_str, lead_id)
+        )
+        _transition_stage(db, lead_id, new_pipeline_stage, session['username'])
+    else:
+        db.execute(
+            "UPDATE leads SET status=?, pipeline_stage=?, updated_at=? WHERE id=? AND in_pool=0",
+            (new_status, new_pipeline_stage, now_str, lead_id)
+        )
+
     _log_lead_event(db, lead_id, session['username'], f'Status to {new_status}')
     _log_activity(db, session['username'], 'lead_status_change',
                   f'{lead["name"]} to {new_status}')
     new_badges = _check_and_award_badges(db, lead['assigned_to'])
     db.commit()
-
-    # If stage changed, use _transition_stage to handle owner assignment
-    if new_pipeline_stage != lead_pipeline_stage:
-        try:
-            _transition_stage(db, lead_id, new_pipeline_stage, session['username'])
-        except Exception:
-            pass
-
     db.close()
 
     if is_ajax:
         return {'ok': True, 'status': new_status,
+                'stage_changed': stage_changed,
+                'new_stage': new_pipeline_stage if stage_changed else None,
                 'new_badges': [BADGE_DEFS[k]['label'] for k in new_badges if k in BADGE_DEFS]}
 
     flash('Status updated.', 'success')
@@ -5040,12 +5054,16 @@ def admin_members():
                 'conv_pct': conv_pct,
             }
 
+    leaders = db.execute(
+        "SELECT username FROM users WHERE role='leader' AND status='approved' ORDER BY username"
+    ).fetchall()
     db.close()
     return render_template('all_members.html',
                            users=users,
                            stats_map=stats_map,
                            report_map=report_map,
-                           leader_metrics=leader_metrics)
+                           leader_metrics=leader_metrics,
+                           leaders=leaders)
 
 
 @app.route('/admin/members/<username>')
@@ -6628,7 +6646,7 @@ def stage_advance(lead_id):
     username = session['username']
 
     ACTION_MAP = {
-        'enroll_complete':   (['team', 'leader', 'admin'], 'day1'),
+        'enroll_complete':   (['admin'], 'day1'),          # team uses Payment Done call_status instead
         'day1_complete':     (['leader', 'admin'],          'day2'),
         'day2_complete':     (['admin'],                    'day3'),
         'interview_done':    (['leader', 'admin'],          'day3'),
@@ -6721,9 +6739,18 @@ def update_call_status(lead_id):
     db.execute("UPDATE leads SET call_status=?, updated_at=? WHERE id=?",
                (call_status, now_str, lead_id))
     _log_activity(db, username, 'call_status_update', f'Lead #{lead_id} call_status={call_status}')
+
+    # Auto-advance enrollment → day1 when "Payment Done" is set
+    stage_advanced = False
+    if call_status == 'Payment Done':
+        lead_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'enrollment'
+        if lead_stage == 'enrollment':
+            _transition_stage(db, lead_id, 'day1', username)
+            stage_advanced = True
+
     db.commit()
     db.close()
-    return {'ok': True, 'call_status': call_status}
+    return {'ok': True, 'call_status': call_status, 'stage_advanced': stage_advanced}
 
 
 @app.route('/admin/members/<username>/promote-leader', methods=['POST'])
@@ -6754,6 +6781,37 @@ def admin_promote_leader(username):
     _log_activity(db, session['username'], 'role_change', f'{username}: {current_role} to {new_role}')
     db.close()
     flash(msg, 'success')
+    return redirect(url_for('admin_members'))
+
+
+@app.route('/admin/members/<username>/set-upline', methods=['POST'])
+@admin_required
+def admin_set_upline(username):
+    """Admin assigns an upline leader to a team member."""
+    upline_username = request.form.get('upline_username', '').strip()
+    db = get_db()
+    user = db.execute("SELECT role FROM users WHERE username=?", (username,)).fetchone()
+    if not user or user['role'] not in ('team', 'leader'):
+        db.close()
+        flash('Member not found or invalid role.', 'danger')
+        return redirect(url_for('admin_members'))
+
+    if upline_username:
+        leader = db.execute(
+            "SELECT username FROM users WHERE username=? AND role='leader' AND status='approved'",
+            (upline_username,)
+        ).fetchone()
+        if not leader:
+            db.close()
+            flash(f'Leader "{upline_username}" not found or not approved.', 'danger')
+            return redirect(url_for('admin_members'))
+
+    db.execute("UPDATE users SET upline_username=? WHERE username=?", (upline_username, username))
+    db.commit()
+    _log_activity(db, session['username'], 'set_upline',
+                  f'{username} upline → {upline_username or "(none)"}')
+    db.close()
+    flash(f'Upline for @{username} set to @{upline_username or "none"}', 'success')
     return redirect(url_for('admin_members'))
 
 
