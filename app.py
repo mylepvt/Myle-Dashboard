@@ -4972,6 +4972,26 @@ def intelligence():
             (username,)
         ).fetchall()
 
+    # ── Leaderboard data (weekly scores) ──
+    try:
+        lb_rows = db.execute("""
+            SELECT u.username,
+                   COALESCE(SUM(ds.total_points), 0)   AS week_pts,
+                   COALESCE(SUM(ds.batches_marked), 0) AS batches,
+                   MAX(ds.streak_days)                 AS streak
+            FROM users u
+            LEFT JOIN daily_scores ds
+                   ON ds.username = u.username
+                  AND ds.score_date >= date('now', '-6 days')
+            WHERE u.role IN ('team','leader') AND u.status='approved'
+            GROUP BY u.username
+            ORDER BY week_pts DESC
+            LIMIT 10
+        """).fetchall()
+        lb_board = [dict(r) for r in lb_rows]
+    except Exception:
+        lb_board = []
+
     db.close()
 
     enriched = _enrich_leads(raw_leads)
@@ -4991,7 +5011,9 @@ def intelligence():
                            urgent_count=urgent_count,
                            hot_count=hot_count,
                            user_role=role,
-                           badge_meta=BADGE_META)
+                           badge_meta=BADGE_META,
+                           lb_board=lb_board,
+                           current_user=username)
 
 
 @app.route('/ai/lead-intelligence')

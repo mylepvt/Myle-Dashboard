@@ -206,14 +206,42 @@
 
   <!-- Leaderboard Tab (hidden initially) -->
   <div id="panel-lb" style="display:none;padding:14px;">
-    <!-- Pass weekly_board from leaderboard route via AJAX or just link out -->
+
+    <!-- Weekly Leaderboard -->
     <div class="card border-0 shadow-sm mb-3">
       <div class="card-header fw-bold py-2" style="background:linear-gradient(135deg,#13152e,#1a1d3a);color:#fff;border-radius:12px 12px 0 0;">
         <i class="bi bi-trophy-fill me-2 text-warning"></i>This Week's Leaderboard
       </div>
-      <div id="lb-content" class="text-center text-muted p-4" style="font-size:0.82rem;">
-        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-        <div class="mt-2">Loading…</div>
+      {% if lb_board %}
+        {% for row in lb_board %}
+        {% set loop_idx = loop.index %}
+        <div class="lb-weekly-row {% if row.username == current_user %}me{% endif %}">
+          <div class="rank-medal {% if loop_idx == 1 %}gold{% elif loop_idx == 2 %}silver{% elif loop_idx == 3 %}bronze{% else %}other{% endif %}">
+            {% if loop_idx == 1 %}🥇{% elif loop_idx == 2 %}🥈{% elif loop_idx == 3 %}🥉{% else %}{{ loop_idx }}{% endif %}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div class="fw-bold" style="font-size:0.82rem;{% if row.username == current_user %}color:#6366f1;{% endif %}">
+              {{ row.username }}{% if row.username == current_user %} <span style="font-size:0.65rem;">(you)</span>{% endif %}
+            </div>
+            <div style="font-size:0.65rem;color:#9ca3af;">
+              {{ row.batches }} batches · 🔥 {{ row.streak or 0 }}d streak
+            </div>
+          </div>
+          <div class="fw-bold" style="font-size:0.88rem;color:#6366f1;">
+            {{ row.week_pts }} pts
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+      <div class="text-center text-muted p-4" style="font-size:0.82rem;">
+        <i class="bi bi-trophy display-6 d-block mb-2 opacity-25"></i>
+        Is hafte koi score nahi hai abhi tak.
+      </div>
+      {% endif %}
+      <div class="p-2 text-center border-top" style="background:#f9fafb;border-radius:0 0 12px 12px;">
+        <a href="{{ url_for('leaderboard') }}" class="btn btn-sm btn-outline-primary" style="font-size:0.75rem;">
+          Full Leaderboard dekho →
+        </a>
       </div>
     </div>
 
@@ -244,7 +272,6 @@ function switchTab(id, btn) {
   btn.classList.add('active');
   document.getElementById('panel-intel').style.display = id === 'intel' ? '' : 'none';
   document.getElementById('panel-lb').style.display    = id === 'lb'    ? '' : 'none';
-  if (id === 'lb') loadLeaderboard();
 }
 
 function toggleTip(btn) {
@@ -252,23 +279,6 @@ function toggleTip(btn) {
   const open = body.style.display !== 'none';
   body.style.display = open ? 'none' : '';
   btn.textContent = open ? '🤖 AI Insight ▼' : '🤖 AI Insight ▲';
-}
-
-function loadLeaderboard() {
-  const el = document.getElementById('lb-content');
-  if (el.dataset.loaded) return;
-  el.dataset.loaded = '1';
-  fetch('/ai/lead-intelligence')
-    .then(r => r.json())
-    .catch(() => null)
-    .then(() => {
-      // Load weekly board from leaderboard page data
-      fetch('/leaderboard', {headers:{'X-Requested-With':'XMLHttpRequest'}})
-        .then(r => r.text())
-        .then(() => {
-          el.innerHTML = '<a href="/leaderboard" class="btn btn-outline-primary btn-sm">Full Leaderboard dekho →</a>';
-        });
-    });
 }
 </script>
 {% endblock %}
