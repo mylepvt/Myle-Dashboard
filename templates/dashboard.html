@@ -127,6 +127,17 @@
               {% endfor %}
             </div>
           </div>
+          {% if lead.heat is defined %}
+          <div class="d-flex align-items-center gap-1 mt-1">
+            <div class="progress flex-grow-1" style="height:3px;border-radius:99px;">
+              <div class="progress-bar {% if lead.heat >= 75 %}bg-danger{% elif lead.heat >= 40 %}bg-warning{% else %}bg-secondary{% endif %}" style="width:{{ lead.heat }}%;"></div>
+            </div>
+            <span style="font-size:0.6rem;font-weight:700;color:{% if lead.heat >= 75 %}#dc2626{% elif lead.heat >= 40 %}#d97706{% else %}#9ca3af{% endif %};">
+              {% if lead.heat >= 75 %}🔥{% elif lead.heat >= 40 %}🌤{% else %}❄{% endif %} {{ lead.heat }}
+            </span>
+          </div>
+          {% if lead.next_action %}<span class="next-action-badge {{ lead.next_action_type or 'followup' }}" style="font-size:0.6rem;padding:2px 6px;margin-top:2px;display:inline-flex;">{% if lead.next_action_type == 'urgent' %}🚨{% elif lead.next_action_type == 'today' %}⏰{% elif lead.next_action_type == 'followup' %}📞{% else %}❄{% endif %} {{ lead.next_action }}</span>{% endif %}
+          {% endif %}
         </div>
         <div class="d-flex gap-1 flex-shrink-0">
           <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-outline-success px-2"
@@ -192,6 +203,17 @@
             {% endfor %}
           </div>
         </div>
+        {% if lead.heat is defined %}
+        <div class="d-flex align-items-center gap-1 mb-1">
+          <div class="progress flex-grow-1" style="height:3px;border-radius:99px;">
+            <div class="progress-bar {% if lead.heat >= 75 %}bg-danger{% elif lead.heat >= 40 %}bg-warning{% else %}bg-secondary{% endif %}" style="width:{{ lead.heat }}%;"></div>
+          </div>
+          <span style="font-size:0.6rem;font-weight:700;color:{% if lead.heat >= 75 %}#dc2626{% elif lead.heat >= 40 %}#d97706{% else %}#9ca3af{% endif %};">
+            {% if lead.heat >= 75 %}🔥{% elif lead.heat >= 40 %}🌤{% else %}❄{% endif %} {{ lead.heat }}
+          </span>
+        </div>
+        {% if lead.next_action %}<span class="next-action-badge {{ lead.next_action_type or 'today' }}" style="font-size:0.6rem;padding:2px 6px;margin-bottom:4px;display:inline-flex;">{% if lead.next_action_type == 'urgent' %}🚨{% elif lead.next_action_type == 'today' %}⏰{% else %}📞{% endif %} {{ lead.next_action }}</span>{% endif %}
+        {% endif %}
         <div class="db-batch-progress mb-2">
           <div class="db-batch-bar db-bar-d1" id="db-bar-{{ lead.id }}"
                style="width:{{ (bd/3*100)|int }}%"></div>
@@ -270,6 +292,17 @@
             {% endfor %}
           </div>
         </div>
+        {% if lead.heat is defined %}
+        <div class="d-flex align-items-center gap-1 mb-1">
+          <div class="progress flex-grow-1" style="height:3px;border-radius:99px;">
+            <div class="progress-bar {% if lead.heat >= 75 %}bg-danger{% elif lead.heat >= 40 %}bg-warning{% else %}bg-secondary{% endif %}" style="width:{{ lead.heat }}%;"></div>
+          </div>
+          <span style="font-size:0.6rem;font-weight:700;color:{% if lead.heat >= 75 %}#dc2626{% elif lead.heat >= 40 %}#d97706{% else %}#9ca3af{% endif %};">
+            {% if lead.heat >= 75 %}🔥{% elif lead.heat >= 40 %}🌤{% else %}❄{% endif %} {{ lead.heat }}
+          </span>
+        </div>
+        {% if lead.next_action %}<span class="next-action-badge {{ lead.next_action_type or 'today' }}" style="font-size:0.6rem;padding:2px 6px;margin-bottom:4px;display:inline-flex;">{% if lead.next_action_type == 'urgent' %}🚨{% elif lead.next_action_type == 'today' %}⏰{% else %}📞{% endif %} {{ lead.next_action }}</span>{% endif %}
+        {% endif %}
         <div class="db-batch-progress mb-2">
           <div class="db-batch-bar db-bar-d2" id="db-bar-{{ lead.id }}"
                style="width:{{ (bd/3*100)|int }}%"></div>
@@ -335,6 +368,17 @@
               {% endfor %}
             </div>
           </div>
+          {% if lead.heat is defined %}
+          <div class="d-flex align-items-center gap-1 mb-1">
+            <div class="progress flex-grow-1" style="height:3px;border-radius:99px;">
+              <div class="progress-bar {% if lead.heat >= 75 %}bg-danger{% elif lead.heat >= 40 %}bg-warning{% else %}bg-secondary{% endif %}" style="width:{{ lead.heat }}%;"></div>
+            </div>
+            <span style="font-size:0.6rem;font-weight:700;color:{% if lead.heat >= 75 %}#dc2626{% elif lead.heat >= 40 %}#d97706{% else %}#9ca3af{% endif %};">
+              {% if lead.heat >= 75 %}🔥{% elif lead.heat >= 40 %}🌤{% else %}❄{% endif %} {{ lead.heat }}
+            </span>
+          </div>
+          {% if lead.next_action %}<span class="next-action-badge {{ lead.next_action_type or 'urgent' }}" style="font-size:0.6rem;padding:2px 6px;margin-bottom:4px;display:inline-flex;">{% if lead.next_action_type == 'urgent' %}🚨{% elif lead.next_action_type == 'today' %}⏰{% else %}📞{% endif %} {{ lead.next_action }}</span>{% endif %}
+          {% endif %}
           <div class="d-flex gap-1 flex-wrap mt-1">
             <span class="badge" style="background:#f5f3ff;color:#7c3aed;font-size:0.62rem;">{{ lead.status }}</span>
             {% if lead.interview_done %}

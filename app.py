@@ -35,7 +35,7 @@ from email.mime.text import MIMEText
 from functools import wraps
 from urllib.parse import quote as _url_quote
 from flask import (Flask, render_template, request, redirect, url_for,
-                   flash, session, Response, make_response, abort, send_from_directory)
+                   flash, session, Response, make_response, abort, send_from_directory, jsonify)
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_db, init_db, migrate_db, seed_users, seed_training_questions
 
