@@ -1131,10 +1131,14 @@ def _generate_ai_tip(lead):
 def _enrich_lead(lead):
     """Add heat, next_action, next_action_type to a lead. Returns a dict."""
     d  = dict(lead)
-    # Ensure batch fields exist (template selectattr needs them)
+    # Ensure fields exist that template accesses directly (prevent UndefinedError)
     for k in ('day1_batch', 'day2_batch', 'day3_batch',
               'heat', 'next_action', 'next_action_type'):
         d.setdefault(k, '' if 'batch' in k else 0 if k == 'heat' else '')
+    # Guard NULL-prone fields used with [:10] slicing in templates
+    for k in ('created_at', 'updated_at', 'claimed_at', 'follow_up_date'):
+        if d.get(k) is None:
+            d[k] = ''
     try:
         na = _get_next_action(lead)
         d['heat']             = _calculate_heat_score(lead)
@@ -2149,6 +2153,15 @@ def team_dashboard():
 @app.route('/leads')
 @login_required
 def leads():
+    import traceback as _tb
+    try:
+        return _leads_inner()
+    except Exception as e:
+        app.logger.error(f"leads() CRASH: {e}\n{_tb.format_exc()}")
+        flash(f'Leads page error: {e}', 'danger')
+        return redirect(url_for('dashboard'))
+
+def _leads_inner():
     from datetime import datetime as _dt
     db     = get_db()
     status = request.args.get('status', '')
