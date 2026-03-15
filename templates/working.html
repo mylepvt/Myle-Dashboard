@@ -355,6 +355,7 @@
       </div>
       <div class="small text-muted mb-2 wk-batch-count">{{ batches_done }}/3 batches done</div>
       <!-- Batch toggles -->
+      {% if user_role in ('leader', 'admin') %}
       <div class="d-flex gap-2 mb-2 align-items-center">
         <button class="wk-batch-btn {% if lead.d1_morning %}wk-batch-done{% endif %}"
                 data-lead-id="{{ lead.id }}" data-batch="d1_morning" title="Morning batch"
@@ -372,6 +373,20 @@
           <i class="bi bi-moon-fill"></i><span class="d-none d-sm-inline ms-1">E</span>
         </button>
       </div>
+      {% else %}
+      <div class="d-flex gap-2 mb-2 align-items-center">
+        <span class="wk-batch-btn {% if lead.d1_morning %}wk-batch-done{% endif %}" style="pointer-events:none;opacity:0.7;" title="Morning">
+          <i class="bi bi-sunrise-fill"></i><span class="d-none d-sm-inline ms-1">M</span>
+        </span>
+        <span class="wk-batch-btn {% if lead.d1_afternoon %}wk-batch-done{% endif %}" style="pointer-events:none;opacity:0.7;" title="Afternoon">
+          <i class="bi bi-sun-fill"></i><span class="d-none d-sm-inline ms-1">A</span>
+        </span>
+        <span class="wk-batch-btn {% if lead.d1_evening %}wk-batch-done{% endif %}" style="pointer-events:none;opacity:0.7;" title="Evening">
+          <i class="bi bi-moon-fill"></i><span class="d-none d-sm-inline ms-1">E</span>
+        </span>
+        <span class="text-muted ms-1" style="font-size:0.68rem;"><i class="bi bi-eye me-1"></i>View only</span>
+      </div>
+      {% endif %}
       <!-- Heat + Next Action for Day 1 -->
       {% if lead.heat is defined %}
       <div class="heat-bar-wrap mt-1 mb-1">
@@ -451,7 +466,7 @@
         <div class="wk-batch-bar wk-batch-bar-d2" style="width:{{ (batches_done/3*100)|int }}%"></div>
       </div>
       <div class="small text-muted mb-2 wk-batch-count">{{ batches_done }}/3 batches done</div>
-      {% if user_role in ('admin', 'leader') %}
+      {% if user_role == 'admin' %}
       <div class="d-flex gap-2 mb-2 align-items-center">
         <button class="wk-batch-btn {% if lead.d2_morning %}wk-batch-done{% endif %}"
                 data-lead-id="{{ lead.id }}" data-batch="d2_morning" title="Morning batch"
@@ -470,8 +485,17 @@
         </button>
       </div>
       {% else %}
-      <div class="small text-muted mb-2" style="font-size:0.68rem;">
-        <i class="bi bi-lock me-1"></i>Batches marked by admin
+      <div class="d-flex gap-2 mb-2 align-items-center">
+        <span class="wk-batch-btn {% if lead.d2_morning %}wk-batch-done{% endif %}" style="pointer-events:none;opacity:0.7;" title="Morning">
+          <i class="bi bi-sunrise-fill"></i><span class="d-none d-sm-inline ms-1">M</span>
+        </span>
+        <span class="wk-batch-btn {% if lead.d2_afternoon %}wk-batch-done{% endif %}" style="pointer-events:none;opacity:0.7;" title="Afternoon">
+          <i class="bi bi-sun-fill"></i><span class="d-none d-sm-inline ms-1">A</span>
+        </span>
+        <span class="wk-batch-btn {% if lead.d2_evening %}wk-batch-done{% endif %}" style="pointer-events:none;opacity:0.7;" title="Evening">
+          <i class="bi bi-moon-fill"></i><span class="d-none d-sm-inline ms-1">E</span>
+        </span>
+        <span class="text-muted ms-1" style="font-size:0.68rem;"><i class="bi bi-eye me-1"></i>View only</span>
       </div>
       {% endif %}
       <div class="d-flex gap-2 align-items-center flex-wrap">
