@@ -7101,7 +7101,7 @@ def stage_advance(lead_id):
 
     ACTION_MAP = {
         'enroll_complete':   (['admin'], 'day1'),          # team uses Payment Done call_status instead
-        'day1_complete':     (['leader', 'admin'],          'day2'),
+        'day1_complete':     (['team', 'leader', 'admin'],  'day2'),
         'day2_complete':     (['admin'],                    'day3'),
         'interview_done':    (['leader', 'admin'],          'day3'),
         'seat_hold_done':    (['leader', 'admin'],          'seat_hold'),
