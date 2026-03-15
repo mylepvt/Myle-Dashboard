@@ -911,8 +911,8 @@ async function sendAndMark() {
 
 async function alreadySentMark() {
   const { leadId, batchKey } = _popupState;
+  closeBatchPopup();  // close first so toast is visible (same as sendAndMark)
   await _markBatchDone(leadId, batchKey);
-  closeBatchPopup();
 }
 
 async function _markBatchDone(leadId, batchKey) {
@@ -954,6 +954,8 @@ async function _markBatchDone(leadId, batchKey) {
       }
       if (typeof MyleSound !== 'undefined') MyleSound.batch();
       showToast('+15 pts! Batch mark ho gayi ✅', 'success');
+    } else {
+      showToast(data.error || 'Batch update failed. Dobara try karo.', 'danger');
     }
   } catch(e) {
     showToast('Error. Dobara try karo.', 'danger');
