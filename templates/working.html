@@ -269,21 +269,12 @@
         <div class="mt-1" style="font-size:0.65rem;color:#9ca3af;">With: <span style="font-weight:700;color:#6366f1;">{{ lead.current_owner }}</span></div>
         {% endif %}
       </div>
-      <!-- Call status -->
-      {% if user_role != 'leader' %}
+      <!-- Call status (read-only — update from My Leads) -->
       <div class="mb-2">
-        <select class="form-select form-select-sm" style="font-size:0.72rem;padding:2px 6px;"
-                onchange="updateCallStatus({{ lead.id }}, this.value, this)">
-          {% for cs in call_status_values %}
-          <option value="{{ cs }}" {% if lead.call_status == cs %}selected{% endif %}>{{ cs }}</option>
-          {% endfor %}
-        </select>
+        <span class="badge bg-secondary" style="font-size:0.7rem;">
+          <i class="bi bi-telephone me-1"></i>{{ lead.call_status or 'Not Called Yet' }}
+        </span>
       </div>
-      {% else %}
-      <div class="mb-2">
-        <span class="badge bg-secondary" style="font-size:0.7rem;">{{ lead.call_status or 'Not Called Yet' }}</span>
-      </div>
-      {% endif %}
       <div class="d-flex gap-2">
         <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn" title="Call">
           <i class="bi bi-telephone-fill"></i>
@@ -292,11 +283,13 @@
            class="btn btn-sm btn-outline-success wk-btn" title="WhatsApp">
           <i class="bi bi-whatsapp"></i>
         </a>
+        {% if user_role == 'admin' %}
         <button class="btn btn-sm btn-primary wk-btn ms-auto"
                 onclick="stageAdvance({{ lead.id }}, 'enroll_complete', this)"
-                title="Advance to Day 1">
+                title="Force advance to Day 1 (Admin)">
           <i class="bi bi-arrow-right"></i>
         </button>
+        {% endif %}
       </div>
     </div>
     {% endfor %}
@@ -476,21 +469,12 @@
           {% endfor %}
         </div>
       </div>
-      <!-- Call status (Day 3 - only team/admin can update) -->
-      {% if user_role != 'leader' %}
+      <!-- Call status (read-only — update from My Leads) -->
       <div class="mb-2">
-        <select class="form-select form-select-sm" style="font-size:0.72rem;padding:2px 6px;"
-                onchange="updateCallStatus({{ lead.id }}, this.value, this)">
-          {% for cs in call_status_values %}
-          <option value="{{ cs }}" {% if lead.call_status == cs %}selected{% endif %}>{{ cs }}</option>
-          {% endfor %}
-        </select>
+        <span class="badge bg-secondary" style="font-size:0.7rem;">
+          <i class="bi bi-telephone me-1"></i>{{ lead.call_status or 'Not Called Yet' }}
+        </span>
       </div>
-      {% else %}
-      <div class="mb-2">
-        <span class="badge bg-secondary" style="font-size:0.7rem;">{{ lead.call_status or 'Not Called Yet' }}</span>
-      </div>
-      {% endif %}
       <div class="mb-2">
         <div class="small text-muted">Interview:
           {% if lead.interview_done %}<span class="text-success fw-semibold">✅ Done</span>

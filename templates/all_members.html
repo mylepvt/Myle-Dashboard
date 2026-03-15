@@ -106,7 +106,7 @@
             </td>
 
             <td class="d-none d-md-table-cell text-muted small">{{ u.fbo_id or '—' }}</td>
-            <td class="d-none d-md-table-cell text-muted small">{{ u.upline_name or '—' }}</td>
+            <td class="d-none d-md-table-cell text-muted small">{{ u.upline_username or u.upline_name or '—' }}</td>
             <td class="d-none d-sm-table-cell">
               <div class="small">{{ u.phone or '—' }}</div>
               <div class="text-muted" style="font-size:0.75rem;">{{ u.email or '—' }}</div>
@@ -152,6 +152,25 @@
                     {% else %}
                     <i class="bi bi-person-up me-1"></i>Leader
                     {% endif %}
+                  </button>
+                </form>
+                {% endif %}
+                {% if u.role == 'team' %}
+                <form method="POST" action="{{ url_for('admin_set_upline', username=u.username) }}"
+                      class="d-inline-flex align-items-center gap-1 mt-1">
+                  <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token', '') }}">
+                  <select name="upline_username" class="form-select form-select-sm"
+                          style="font-size:0.7rem;width:auto;max-width:120px;">
+                    <option value="">— Upline —</option>
+                    {% for ldr in leaders %}
+                    <option value="{{ ldr.username }}"
+                            {% if u.upline_username == ldr.username %}selected{% endif %}>
+                      ⭐ {{ ldr.username }}
+                    </option>
+                    {% endfor %}
+                  </select>
+                  <button type="submit" class="btn btn-xs btn-outline-info" title="Save upline">
+                    <i class="bi bi-check-lg"></i>
                   </button>
                 </form>
                 {% endif %}
