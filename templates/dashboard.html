@@ -1190,10 +1190,10 @@ async function sendAndMark() {
 async function alreadySentMark() {
   const { leadId, batchKey } = _popupState;
   closeBatchPopup();  // close first so toast is visible
-  await _markBatchDone(leadId, batchKey);
+  await _markBatchDone(leadId, batchKey, true);  // force_mark=true → always mark done
 }
 
-async function _markBatchDone(leadId, batchKey) {
+async function _markBatchDone(leadId, batchKey, forceMark = false) {
   const dbColumn = batchKey;
   try {
     const res = await fetch(`/leads/${leadId}/batch-toggle`, {
@@ -1202,7 +1202,7 @@ async function _markBatchDone(leadId, batchKey) {
         'Content-Type': 'application/json',
         'X-CSRF-Token': '{{ csrf_token }}'
       },
-      body: JSON.stringify({ batch: dbColumn })
+      body: JSON.stringify({ batch: dbColumn, force_mark: forceMark })
     });
     const data = await res.json();
     if (data.ok) {
@@ -1210,9 +1210,15 @@ async function _markBatchDone(leadId, batchKey) {
       if (card) {
         const btn = card.querySelector(`[data-batch="${batchKey}"]`);
         if (btn) {
-          btn.style.background = '#d1fae5';
-          btn.style.color = '#065f46';
-          btn.style.borderColor = '#6ee7b7';
+          if (data.new_val) {
+            btn.style.background = '#d1fae5';
+            btn.style.color = '#065f46';
+            btn.style.borderColor = '#6ee7b7';
+          } else {
+            btn.style.background = '';
+            btn.style.color = '';
+            btn.style.borderColor = '';
+          }
         }
         if (data.all_done) {
           card.style.borderLeftColor = '#16a34a';
@@ -1221,8 +1227,8 @@ async function _markBatchDone(leadId, batchKey) {
           if (advBtn) advBtn.style.display = 'block';
         }
       }
-      if (typeof MyleSound !== 'undefined') MyleSound.batch();
-      showToast('+15 pts! Batch mark ho gayi ✅', 'success');
+      if (data.new_val && typeof MyleSound !== 'undefined') MyleSound.batch();
+      showToast(data.new_val ? '+15 pts! Batch mark ho gayi ✅' : 'Batch un-mark ho gayi', data.new_val ? 'success' : 'warning');
     } else {
       showToast(data.error || 'Batch update failed. Dobara try karo.', 'danger');
     }

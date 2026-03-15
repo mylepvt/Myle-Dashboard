@@ -6963,10 +6963,14 @@ def batch_toggle(lead_id):
     if session.get('role') != 'admin' and owner != session['username']:
         db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
 
-    # Toggle
+    # Toggle (or force-mark if force_mark=true, used by "already sent" button)
+    force_mark = data.get('force_mark', False)
     current  = row[batch]
-    new_val  = 0 if current else 1
-    delta_pts = 15 if new_val else -15
+    if force_mark:
+        new_val = 1
+    else:
+        new_val  = 0 if current else 1
+    delta_pts = 15 if (new_val == 1 and current == 0) else (-15 if (new_val == 0 and current == 1) else 0)
 
     db.execute(
         f"UPDATE leads SET {batch}=?, updated_at=? WHERE id=?",

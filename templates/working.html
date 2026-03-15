@@ -911,11 +911,11 @@ async function sendAndMark() {
 
 async function alreadySentMark() {
   const { leadId, batchKey } = _popupState;
-  closeBatchPopup();  // close first so toast is visible (same as sendAndMark)
-  await _markBatchDone(leadId, batchKey);
+  closeBatchPopup();  // close first so toast is visible
+  await _markBatchDone(leadId, batchKey, true);  // force_mark=true → always mark done
 }
 
-async function _markBatchDone(leadId, batchKey) {
+async function _markBatchDone(leadId, batchKey, forceMark = false) {
   const dbColumn = batchKey;
   try {
     const res = await fetch(`/leads/${leadId}/batch-toggle`, {
@@ -924,16 +924,17 @@ async function _markBatchDone(leadId, batchKey) {
         'Content-Type': 'application/json',
         'X-CSRF-Token': '{{ csrf_token }}'
       },
-      body: JSON.stringify({ batch: dbColumn })
+      body: JSON.stringify({ batch: dbColumn, force_mark: forceMark })
     });
     const data = await res.json();
     if (data.ok) {
       const card = _popupState.cardEl;
       if (card) {
-        // Mark the batch button as done
+        // Update batch button visual state based on actual new_val
         const btn = card.querySelector(`[data-batch="${batchKey}"]`);
         if (btn) {
-          btn.classList.add('wk-batch-done');
+          if (data.new_val) btn.classList.add('wk-batch-done');
+          else btn.classList.remove('wk-batch-done');
         }
 
         // Recount done batches and update progress bar + count text
@@ -947,13 +948,12 @@ async function _markBatchDone(leadId, batchKey) {
 
         if (data.all_done) {
           card.classList.add('wk-lead-complete');
-          // Show advance button (class is wk-advance-btn, not advance-btn)
           const advBtn = card.querySelector('.wk-advance-btn');
           if (advBtn) advBtn.style.display = 'inline-flex';
         }
       }
-      if (typeof MyleSound !== 'undefined') MyleSound.batch();
-      showToast('+15 pts! Batch mark ho gayi ✅', 'success');
+      if (data.new_val && typeof MyleSound !== 'undefined') MyleSound.batch();
+      showToast(data.new_val ? '+15 pts! Batch mark ho gayi ✅' : 'Batch un-mark ho gayi', data.new_val ? 'success' : 'warning');
     } else {
       showToast(data.error || 'Batch update failed. Dobara try karo.', 'danger');
     }
