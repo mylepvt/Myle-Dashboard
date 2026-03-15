@@ -948,6 +948,307 @@ def _leads_with_priority(raw_leads):
     return result
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  Heat Score Engine
+# ─────────────────────────────────────────────────────────────────────────────
+def _calculate_heat_score(lead):
+    """Return 0-100 heat score: call_status signal + stage + recency + follow-up."""
+    score = 0
+    keys  = lead.keys() if hasattr(lead, 'keys') else []
+    get   = lambda k, d='': lead[k] if k in keys else d
+
+    # Call status signal
+    score += {
+        'Payment Done':         40,
+        'Video Watched':        25,
+        'Called - Interested':  20,
+        'Called - Follow Up':   15,
+        'Video Sent':           10,
+        'Called - No Answer':    5,
+    }.get(get('call_status'), 0)
+
+    # Pipeline stage signal
+    stage = get('pipeline_stage', 'enrollment')
+    if stage in ('day3', 'seat_hold'):
+        score += 20
+    elif stage in ('day1', 'day2'):
+        score += 10
+
+    # Recency (days since updated_at)
+    upd = get('updated_at') or get('created_at', '')
+    if upd:
+        try:
+            upd_date = datetime.datetime.strptime(upd[:10], '%Y-%m-%d').date()
+            days_old = (_today_ist() - upd_date).days
+            if   days_old <= 1: score += 20
+            elif days_old <= 3: score += 10
+            elif days_old >= 8: score -= 15
+        except Exception:
+            pass
+
+    # Follow-up date
+    today_str = _today_ist().isoformat()
+    fu = get('follow_up_date', '')
+    if fu:
+        if   fu[:10] == today_str: score += 20
+        elif fu[:10] <  today_str: score -= 10  # overdue
+
+    return max(0, min(100, int(score)))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Next Action Engine
+# ─────────────────────────────────────────────────────────────────────────────
+def _get_next_action(lead):
+    """Return {action, type, priority} — the single most important next step."""
+    keys = lead.keys() if hasattr(lead, 'keys') else []
+    get  = lambda k, d='': lead[k] if k in keys else d
+
+    stage        = get('pipeline_stage', 'enrollment')
+    call_status  = get('call_status', '')
+    status       = get('status', '')
+    payment_done = int(get('payment_done', 0) or 0)
+
+    if stage == 'enrollment':
+        if not call_status or call_status == 'Not Called Yet':
+            return {'action': 'Pehli call karo', 'type': 'urgent', 'priority': 1}
+        if call_status == 'Called - Interested' and status != 'Video Sent':
+            return {'action': 'Video bhejo abhi', 'type': 'urgent', 'priority': 1}
+        if call_status in ('Called - No Answer', 'Called - Follow Up'):
+            return {'action': 'Follow-up call karo', 'type': 'today', 'priority': 2}
+        if call_status == 'Video Watched' and not payment_done:
+            return {'action': 'Payment ke liye call karo', 'type': 'urgent', 'priority': 1}
+        if payment_done and status != 'Mindset Lock':
+            return {'action': 'Mindset Lock call karo', 'type': 'today', 'priority': 2}
+        if status == 'Mindset Lock':
+            return {'action': 'Day 1 mein move karo', 'type': 'today', 'priority': 2}
+        return {'action': 'Follow up karo', 'type': 'followup', 'priority': 3}
+
+    if stage == 'day1':
+        d1_m = int(get('d1_morning', 0) or 0)
+        d1_a = int(get('d1_afternoon', 0) or 0)
+        d1_e = int(get('d1_evening', 0) or 0)
+        rem   = 3 - (d1_m + d1_a + d1_e)
+        if rem > 0:
+            return {'action': f'{rem} batch(es) baaki hain', 'type': 'today', 'priority': 2}
+        return {'action': 'Day 2 ke liye bhejo', 'type': 'today', 'priority': 2}
+
+    if stage == 'day2':
+        return {'action': 'Admin conduct kar raha hai', 'type': 'followup', 'priority': 4}
+
+    if stage == 'day3':
+        if not int(get('interview_done', 0) or 0):
+            return {'action': 'Interview karo', 'type': 'urgent', 'priority': 1}
+        if not int(get('track_selected', 0) or 0):
+            return {'action': 'Track select karo', 'type': 'urgent', 'priority': 1}
+        return {'action': 'Seat Hold confirm karo', 'type': 'urgent', 'priority': 1}
+
+    if stage == 'seat_hold':
+        expiry_str = get('seat_hold_expiry', '')
+        if expiry_str:
+            try:
+                expiry = datetime.datetime.strptime(expiry_str[:19], '%Y-%m-%d %H:%M:%S')
+                now    = _now_ist().replace(tzinfo=None)
+                hours  = (expiry - now).total_seconds() / 3600
+                if hours < 12:
+                    return {'action': f'URGENT: {max(0,int(hours))}h mein expire!',
+                            'type': 'urgent', 'priority': 0}
+            except Exception:
+                pass
+        return {'action': 'Final payment follow up', 'type': 'followup', 'priority': 3}
+
+    if stage in ('closing', 'training'):
+        return {'action': 'Closing process mein hai', 'type': 'followup', 'priority': 4}
+
+    if stage in ('complete', 'lost'):
+        return {'action': '—', 'type': 'cold', 'priority': 9}
+
+    return {'action': 'Follow up karo', 'type': 'followup', 'priority': 3}
+
+
+def _generate_ai_tip(lead):
+    """Return a Hindi/Hinglish AI tip string based on lead state."""
+    get   = lambda k, d='': lead.get(k, d) if isinstance(lead, dict) else (
+        lead[k] if hasattr(lead, 'keys') and k in lead.keys() else d)
+    stage        = get('pipeline_stage', 'enrollment')
+    heat         = int(get('heat', _calculate_heat_score(lead)))
+    name         = get('name', 'Prospect')
+    call_status  = get('call_status', '')
+    payment_done = int(get('payment_done', 0) or 0)
+    today_str    = _today_ist().isoformat()
+
+    # Calculate days in pipeline
+    created = get('created_at', '')
+    days_in = 0
+    if created:
+        try:
+            days_in = (_today_ist() - datetime.datetime.strptime(created[:10], '%Y-%m-%d').date()).days
+        except Exception:
+            pass
+
+    # Seat hold expiry check
+    expiry_str = get('seat_hold_expiry', '')
+    expiry_soon = False
+    if expiry_str:
+        try:
+            expiry = datetime.datetime.strptime(expiry_str[:19], '%Y-%m-%d %H:%M:%S')
+            hours  = (expiry - _now_ist().replace(tzinfo=None)).total_seconds() / 3600
+            expiry_soon = hours < 24
+        except Exception:
+            pass
+
+    # Day1 batches
+    d1_done = int(get('d1_morning', 0) or 0) + int(get('d1_afternoon', 0) or 0) + int(get('d1_evening', 0) or 0)
+
+    # Rule-based tips (order matters — most specific first)
+    if stage == 'seat_hold' and expiry_soon:
+        return f"⚠️ {name} ka seat hold kal expire ho raha hai — aaj final call must hai!"
+    if stage == 'day1' and d1_done == 3:
+        return f"✅ Saare batches complete! {name} ko abhi Day 2 pe move karo."
+    if stage == 'enrollment' and heat >= 75:
+        return f"🔥 {name} bahut interested lag raha/rahi hai — aaj hi convert karne ki koshish karo."
+    if stage == 'enrollment' and call_status == 'Video Watched' and not payment_done:
+        return f"👀 {name} ne video dekh liya hai — payment ke liye ek strong call lagao abhi."
+    if stage == 'enrollment' and call_status == 'Payment Done':
+        return f"💰 Payment confirm! {name} ko Day 1 mein move karo aur Mindset Lock call karo."
+    if stage == 'enrollment' and days_in > 5 and heat < 30:
+        return f"❄️ {name} {days_in}d se stuck hai aur cold ho rahi/raha hai — ek strong follow-up call karo."
+    if stage == 'enrollment' and not call_status or call_status == 'Not Called Yet':
+        return f"📞 {name} ko pehli baar call nahi kiya abhi tak — aaj contact karo."
+    if stage == 'day1' and d1_done < 3:
+        return f"⏳ {name} ke {d1_done}/3 batches hue hain — baaki ke liye remind karo."
+    if stage == 'day2':
+        return f"🎓 {name} Day 2 mein hai — admin se interview schedule karo."
+    if stage == 'day3':
+        return f"🏁 {name} interview stage pe hai — track select karwa ke seat hold confirm karo."
+    if stage == 'seat_hold':
+        return f"🛡️ {name} seat hold pe hai — final payment ke liye follow up karo."
+    if heat < 40 and days_in > 3:
+        return f"❄️ {name} {days_in}d se inactive — ek baar call karke status update karo."
+    return f"📋 {name} ke saath regular follow up maintain karo."
+
+
+def _enrich_lead(lead):
+    """Add heat, next_action, next_action_type to a lead. Returns a dict."""
+    d  = dict(lead)
+    na = _get_next_action(lead)
+    d['heat']             = _calculate_heat_score(lead)
+    d['next_action']      = na['action']
+    d['next_action_type'] = na['type']
+    return d
+
+
+def _enrich_leads(lead_list):
+    """Enrich a list of SQLite rows / dicts with heat + next_action fields."""
+    return [_enrich_lead(l) for l in lead_list]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Badge Award System
+# ─────────────────────────────────────────────────────────────────────────────
+BADGE_META = {
+    'hot_streak':    ('🔥', 'Hot Streak',    '7+ din active raho'),
+    'speed_closer':  ('⚡', 'Speed Closer',  'Enrollment → Day1 in ≤3 days'),
+    'money_maker':   ('💰', 'Money Maker',   '5+ payments collected'),
+    'first_convert': ('🏆', 'Converter',     'Pehli full conversion'),
+    'rising_star':   ('⭐', 'Rising Star',   'Week ka top scorer'),
+    'centurion':     ('💯', 'Centurion',     '10,000+ total points'),
+    'batch_master':  ('📚', 'Batch Master',  '100 batches marked total'),
+}
+
+
+def _check_and_award_badges(db, username):
+    """Check badge conditions and award new ones. Returns list of new badge keys."""
+    new_badges = []
+    today  = _today_ist().strftime('%Y-%m-%d')
+    mon    = (_today_ist() - datetime.timedelta(days=_today_ist().weekday())).strftime('%Y-%m-%d')
+
+    def _already_has(key):
+        return db.execute(
+            "SELECT 1 FROM user_badges WHERE username=? AND badge_key=?", (username, key)
+        ).fetchone() is not None
+
+    def _award(key):
+        db.execute(
+            "INSERT OR IGNORE INTO user_badges (username, badge_key) VALUES (?,?)",
+            (username, key)
+        )
+        new_badges.append(key)
+
+    # hot_streak: 7+ consecutive active days
+    streak_row = db.execute(
+        "SELECT streak_days FROM daily_scores WHERE username=? AND score_date=?",
+        (username, today)
+    ).fetchone()
+    if streak_row and (streak_row['streak_days'] or 0) >= 7 and not _already_has('hot_streak'):
+        _award('hot_streak')
+
+    # speed_closer: any lead went from claimed to day1 in ≤3 days
+    if not _already_has('speed_closer'):
+        fast = db.execute("""
+            SELECT COUNT(*) as cnt FROM leads
+            WHERE assigned_to=? AND in_pool=0
+              AND pipeline_stage IN ('day1','day2','day3','seat_hold','closing','complete')
+              AND claimed_at != ''
+              AND julianday(datetime(working_date)) - julianday(datetime(claimed_at)) <= 3
+        """, (username,)).fetchone()
+        if fast and (fast['cnt'] or 0) > 0:
+            _award('speed_closer')
+
+    # money_maker: 5+ payments
+    payments = db.execute(
+        "SELECT COUNT(*) as cnt FROM leads WHERE assigned_to=? AND payment_done=1 AND in_pool=0",
+        (username,)
+    ).fetchone()
+    if payments and (payments['cnt'] or 0) >= 5 and not _already_has('money_maker'):
+        _award('money_maker')
+
+    # first_convert: any fully converted lead
+    if not _already_has('first_convert'):
+        conv = db.execute(
+            "SELECT COUNT(*) as cnt FROM leads WHERE assigned_to=? AND status IN ('Converted','Fully Converted') AND in_pool=0",
+            (username,)
+        ).fetchone()
+        if conv and (conv['cnt'] or 0) > 0:
+            _award('first_convert')
+
+    # centurion: 10000+ total points
+    pts = db.execute(
+        "SELECT COALESCE(SUM(total_points),0) as p FROM daily_scores WHERE username=?",
+        (username,)
+    ).fetchone()
+    if pts and (pts['p'] or 0) >= 10000 and not _already_has('centurion'):
+        _award('centurion')
+
+    # batch_master: 100+ batches marked
+    batches = db.execute(
+        "SELECT COALESCE(SUM(batches_marked),0) as b FROM daily_scores WHERE username=?",
+        (username,)
+    ).fetchone()
+    if batches and (batches['b'] or 0) >= 100 and not _already_has('batch_master'):
+        _award('batch_master')
+
+    # rising_star: top scorer this week (check at end of day actions)
+    if not _already_has('rising_star'):
+        top = db.execute("""
+            SELECT username, SUM(total_points) as wpts
+            FROM daily_scores WHERE score_date >= ?
+            GROUP BY username ORDER BY wpts DESC LIMIT 1
+        """, (mon,)).fetchone()
+        if top and top['username'] == username:
+            _award('rising_star')
+
+    return new_badges
+
+
+def _get_user_badges_emoji(db, username):
+    """Return a space-joined emoji string for user's badges."""
+    rows = db.execute(
+        "SELECT badge_key FROM user_badges WHERE username=?", (username,)
+    ).fetchall()
+    return ' '.join(BADGE_META[r['badge_key']][0] for r in rows if r['badge_key'] in BADGE_META)
+
+
 def _transition_stage(db, lead_id, new_stage, triggered_by):
     """
     Move a lead to a new pipeline stage, updating current_owner, status, and
@@ -1566,6 +1867,7 @@ def admin_dashboard():
         ).fetchall()
         funnel_members[_mk] = [r['assigned_to'] for r in _rows]
 
+    recent = _enrich_leads(recent)
     db.close()
     resp = make_response(render_template('admin.html',
                            metrics=metrics,
@@ -1780,11 +2082,18 @@ def team_dashboard():
         'd2_evening_v2':   _get_setting(db, 'batch_d2_evening_v2', ''),
     }
 
+    # Enrich leads with heat + next_action
+    stage1_leads_e  = _enrich_leads(stage1_leads)
+    day1_leads_e    = _enrich_leads(day1_leads_db)
+    day2_leads_e    = _enrich_leads(day2_leads_db)
+    day3_leads_e    = _enrich_leads(day3_leads)
+    pending_leads_e = _enrich_leads(pending_leads)
+    recent_e        = _enrich_leads(recent)
     db.close()
     resp = make_response(render_template('dashboard.html',
                            metrics=metrics,
                            wallet=wallet,
-                           recent=recent,
+                           recent=recent_e,
                            status_data=status_data,
                            monthly=monthly,
                            payment_amount=PAYMENT_AMOUNT,
@@ -1808,11 +2117,11 @@ def team_dashboard():
                            day2_count=day2_count,
                            day3_count=day3_count,
                            pending_count_pipeline=pending_count_pipeline,
-                           stage1_leads=stage1_leads,
-                           day1_leads=day1_leads_db,
-                           day2_leads=day2_leads_db,
-                           day3_leads=day3_leads,
-                           pending_leads=pending_leads,
+                           stage1_leads=stage1_leads_e,
+                           day1_leads=day1_leads_e,
+                           day2_leads=day2_leads_e,
+                           day3_leads=day3_leads_e,
+                           pending_leads=pending_leads_e,
                            today_score=today_score,
                            today_streak=today_streak,
                            pending_batches=pending_batches,
@@ -1871,17 +2180,21 @@ def leads():
         f"NOT {today_cond}", [today, today]
     )
 
-    today_leads = db.execute(today_q + " ORDER BY created_at DESC", today_p).fetchall()
-    hist_leads  = db.execute(hist_q  + " ORDER BY created_at DESC", hist_p).fetchall()
-    team        = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
+    today_leads_raw = db.execute(today_q + " ORDER BY created_at DESC", today_p).fetchall()
+    hist_leads_raw  = db.execute(hist_q  + " ORDER BY created_at DESC", hist_p).fetchall()
+    team            = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
     db.close()
 
+    # Enrich with heat + next_action
+    today_leads = _enrich_leads(today_leads_raw)
+    hist_leads  = _enrich_leads(hist_leads_raw)
+
     # Split today_leads by tab
-    day1_leads   = [l for l in today_leads if l['status'] == 'Day 1']
-    day2_leads   = [l for l in today_leads if l['status'] == 'Day 2']
-    day3_leads   = [l for l in today_leads if l['status'] == 'Interview']
+    day1_leads   = [l for l in today_leads if l.get('status') == 'Day 1']
+    day2_leads   = [l for l in today_leads if l.get('status') == 'Day 2']
+    day3_leads   = [l for l in today_leads if l.get('status') == 'Interview']
     active_leads = [l for l in today_leads
-                    if l['status'] not in ('Day 1', 'Day 2', 'Interview')]
+                    if l.get('status') not in ('Day 1', 'Day 2', 'Interview')]
 
     return render_template('leads.html',
                            # legacy key kept for any other templates that reference it
@@ -2618,6 +2931,8 @@ def report_submit():
               calls_picked, wrong_numbers, enrollments_done, pending_enroll,
               underage, leads_educated, plan_2cc, seat_holdings, remarks,
               _now_ist().strftime('%Y-%m-%d %H:%M:%S'), _now_ist().strftime('%Y-%m-%d %H:%M:%S')))
+        _upsert_daily_score(db, username, 20)  # 20 pts for daily report
+        new_badges = _check_and_award_badges(db, username)
         db.commit()
         _log_activity(db, username, 'report_submit', f"Date: {today}")
         db.close()
@@ -4575,6 +4890,36 @@ def leaderboard():
     else:
         growth_data = []
 
+    # Weekly gamification scores
+    monday_str = (_today_ist() - datetime.timedelta(days=_today_ist().weekday())).strftime('%Y-%m-%d')
+    last_mon   = (_today_ist() - datetime.timedelta(days=_today_ist().weekday()+7)).strftime('%Y-%m-%d')
+
+    weekly_rows = db.execute("""
+        SELECT u.username, u.display_picture,
+               COALESCE(SUM(CASE WHEN ds.score_date >= ? THEN ds.total_points ELSE 0 END),0) AS week_pts,
+               COALESCE(SUM(CASE WHEN ds.score_date >= ? AND ds.score_date < ? THEN ds.total_points ELSE 0 END),0) AS last_week_pts,
+               COALESCE(SUM(ds.total_points),0) AS all_time_pts,
+               COALESCE(MAX(ds.streak_days),0) AS streak
+        FROM users u
+        LEFT JOIN daily_scores ds ON ds.username = u.username
+        WHERE u.role='team' AND u.status='approved'
+        GROUP BY u.username
+        ORDER BY week_pts DESC, all_time_pts DESC
+    """, (monday_str, last_mon, monday_str)).fetchall()
+
+    # Attach badges
+    weekly_board = []
+    for r in weekly_rows:
+        d = dict(r)
+        badges_emoji = _get_user_badges_emoji(db, r['username'])
+        d['badges']  = badges_emoji
+        d['trend']   = (d['week_pts'] or 0) - (d['last_week_pts'] or 0)
+        weekly_board.append(d)
+
+    # Current user rank in weekly board
+    weekly_usernames = [w['username'] for w in weekly_board]
+    current_user_rank = (weekly_usernames.index(username) + 1) if username in weekly_usernames else None
+
     db.close()
     return render_template('leaderboard.html',
                            rows=rows,
@@ -4582,7 +4927,110 @@ def leaderboard():
                            role=session.get('role'),
                            network_by_gen=network_by_gen,
                            net_summary=net_summary,
-                           growth_data=growth_data)
+                           growth_data=growth_data,
+                           weekly_board=weekly_board,
+                           current_user_rank=current_user_rank)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  AI Lead Intelligence
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route('/intelligence')
+@login_required
+def intelligence():
+    db       = get_db()
+    username = session['username']
+    role     = session.get('role')
+
+    if role == 'admin':
+        raw_leads = db.execute(
+            "SELECT * FROM leads WHERE in_pool=0 AND deleted_at=\'\' ORDER BY updated_at DESC LIMIT 150"
+        ).fetchall()
+    elif role == 'leader':
+        downline = _get_network_usernames(db, username)
+        if downline:
+            phs = ','.join('?' for _ in downline)
+            raw_leads = db.execute(
+                f"SELECT * FROM leads WHERE in_pool=0 AND deleted_at=\'\' AND assigned_to IN ({phs}) ORDER BY updated_at DESC",
+                downline
+            ).fetchall()
+        else:
+            raw_leads = []
+    else:
+        raw_leads = db.execute(
+            "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at=\'\' ORDER BY updated_at DESC",
+            (username,)
+        ).fetchall()
+
+    db.close()
+
+    enriched = _enrich_leads(raw_leads)
+    for d in enriched:
+        d['ai_tip'] = _generate_ai_tip(d)
+
+    enriched.sort(key=lambda x: (
+        {'urgent': 0, 'today': 1, 'followup': 2, 'cold': 3}.get(x.get('next_action_type', 'cold'), 9),
+        -x.get('heat', 0),
+    ))
+
+    urgent_count = sum(1 for l in enriched if l.get('next_action_type') == 'urgent')
+    hot_count    = sum(1 for l in enriched if l.get('heat', 0) >= 75)
+
+    return render_template('intelligence.html',
+                           leads=enriched,
+                           urgent_count=urgent_count,
+                           hot_count=hot_count,
+                           user_role=role,
+                           badge_meta=BADGE_META)
+
+
+@app.route('/ai/lead-intelligence')
+@login_required
+def ai_lead_intelligence():
+    db       = get_db()
+    username = session['username']
+    role     = session.get('role')
+
+    if role == 'admin':
+        raw_leads = db.execute(
+            "SELECT * FROM leads WHERE in_pool=0 AND deleted_at=\'\' ORDER BY updated_at DESC LIMIT 150"
+        ).fetchall()
+    else:
+        raw_leads = db.execute(
+            "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at=\'\' ORDER BY updated_at DESC",
+            (username,)
+        ).fetchall()
+
+    db.close()
+
+    enriched = _enrich_leads(raw_leads)
+    for d in enriched:
+        d['ai_tip'] = _generate_ai_tip(d)
+
+    enriched.sort(key=lambda x: (
+        {'urgent': 0, 'today': 1, 'followup': 2, 'cold': 3}.get(x.get('next_action_type', 'cold'), 9),
+        -x.get('heat', 0),
+    ))
+
+    urgent_count = sum(1 for l in enriched if l.get('next_action_type') == 'urgent')
+    hot_count    = sum(1 for l in enriched if l.get('heat', 0) >= 75)
+
+    return jsonify({
+        'leads': [{
+            'id':               l.get('id'),
+            'name':             l.get('name', ''),
+            'stage':            l.get('pipeline_stage', 'enrollment'),
+            'heat':             l.get('heat', 0),
+            'next_action':      l.get('next_action', ''),
+            'next_action_type': l.get('next_action_type', 'followup'),
+            'call_status':      l.get('call_status', ''),
+            'ai_tip':           l.get('ai_tip', ''),
+            'owner':            l.get('assigned_to', ''),
+        } for l in enriched],
+        'urgent_count': urgent_count,
+        'hot_count':    hot_count,
+    })
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -6467,6 +6915,12 @@ def working():
         'd2_evening_v2': _get_setting(db, 'batch_d2_evening_v2', ''),
     }
 
+    # Enrich team view leads with heat + next_action
+    stage1_leads  = _enrich_leads(stage1_leads)
+    day1_leads    = _enrich_leads(day1_leads)
+    day2_leads    = _enrich_leads(day2_leads)
+    day3_leads    = _enrich_leads(day3_leads)
+    pending_leads = _enrich_leads(pending_leads)
     db.close()
     return render_template('working.html',
         is_admin=False,
@@ -6740,6 +7194,23 @@ def update_call_status(lead_id):
                (call_status, now_str, lead_id))
     _log_activity(db, username, 'call_status_update', f'Lead #{lead_id} call_status={call_status}')
 
+    # Gamification: award points for call actions
+    pts = 0
+    delta_calls    = 0
+    delta_payments = 0
+    delta_videos   = 0
+    if call_status in ('Called - Interested', 'Called - No Answer', 'Called - Follow Up'):
+        pts += 5; delta_calls += 1
+    elif call_status == 'Video Sent':
+        pts += 10; delta_videos += 1
+    elif call_status == 'Payment Done':
+        pts += 25; delta_payments += 1
+    if pts:
+        _upsert_daily_score(db, username, pts,
+                            delta_calls=delta_calls,
+                            delta_videos=delta_videos,
+                            delta_payments=delta_payments)
+
     # Auto-advance enrollment → day1 when "Payment Done" is set
     stage_advanced = False
     if call_status == 'Payment Done':
@@ -6748,9 +7219,11 @@ def update_call_status(lead_id):
             _transition_stage(db, lead_id, 'day1', username)
             stage_advanced = True
 
+    new_badges = _check_and_award_badges(db, username)
     db.commit()
     db.close()
-    return {'ok': True, 'call_status': call_status, 'stage_advanced': stage_advanced}
+    return {'ok': True, 'call_status': call_status, 'stage_advanced': stage_advanced,
+            'new_badges': [BADGE_META.get(b, ('','',''))[1] for b in new_badges]}
 
 
 @app.route('/admin/members/<username>/promote-leader', methods=['POST'])

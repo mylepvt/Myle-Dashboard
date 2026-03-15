@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% block title %}AI Intelligence — Myle{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Intelligence page ────────────────────────────── */
+.intel-header {
+  background: linear-gradient(135deg, #13152e, #1a1d3a);
+  padding: 18px 20px 14px;
+  border-radius: 0 0 18px 18px;
+}
+.intel-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 13px; border-radius: 99px;
+  font-size: 0.7rem; font-weight: 700;
+}
+.intel-tabs {
+  border-bottom: 1px solid rgba(0,0,0,0.07);
+  background: #fff;
+}
+.intel-tab {
+  flex: 1; padding: 11px 8px; border: none;
+  background: none; cursor: pointer; font-size: 0.8rem; font-weight: 700;
+  color: #9ca3af;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+}
+.intel-tab.active { color: #6366f1; border-bottom-color: #6366f1; }
+/* Lead card */
+.intel-card {
+  background: #fff; border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.07);
+  padding: 13px 15px; margin-bottom: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border-left-width: 4px; border-left-style: solid;
+}
+.intel-card.stage-enrollment { border-left-color: #6366f1; }
+.intel-card.stage-day1       { border-left-color: #0891b2; }
+.intel-card.stage-day2       { border-left-color: #d97706; }
+.intel-card.stage-day3       { border-left-color: #7c3aed; }
+.intel-card.stage-seat_hold  { border-left-color: #059669; }
+.intel-card.stage-closing    { border-left-color: #dc2626; }
+/* Heat meter */
+.heat-bar-wrap { margin-bottom: 8px; }
+.heat-val-hot     { color: #dc2626; font-weight: 700; }
+.heat-val-warm    { color: #d97706; font-weight: 700; }
+.heat-val-cold    { color: #9ca3af; font-weight: 700; }
+/* Next action badge */
+.na-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 8px;
+  font-size: 0.73rem; font-weight: 700;
+  border: 1px solid transparent;
+}
+.na-badge.urgent   { background:#fee2e2; color:#dc2626; border-color:#fca5a522; }
+.na-badge.today    { background:#fff7ed; color:#d97706; border-color:#fcd34d22; }
+.na-badge.followup { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd22; }
+.na-badge.cold     { background:#f3f4f6; color:#6b7280; border-color:#d1d5db22; }
+/* AI tip collapse */
+.ai-tip-btn {
+  background: linear-gradient(90deg,#eef2ff,#f5f3ff);
+  border: 1px solid #c7d2fe; border-radius: 8px;
+  padding: 4px 10px; font-size: 0.7rem; font-weight: 700;
+  color: #6366f1; cursor: pointer;
+}
+.ai-tip-body {
+  margin-top: 6px; padding: 8px 12px; border-radius: 8px;
+  background: #fafbff; border: 1px solid #c7d2fe;
+  font-size: 0.76rem; color: #4f46e5; line-height: 1.55;
+}
+/* Leaderboard weekly */
+.lb-weekly-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  transition: background 0.15s;
+}
+.lb-weekly-row:last-child { border-bottom: none; }
+.lb-weekly-row.me { background: #eef2ff; border-left: 3px solid #6366f1; }
+.lb-weekly-row:first-child { background: #fffbeb; }
+.rank-medal {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 800; flex-shrink: 0;
+}
+.rank-medal.gold   { background:#f59e0b; color:#fff; }
+.rank-medal.silver { background:#9ca3af; color:#fff; }
+.rank-medal.bronze { background:#cd7c3a; color:#fff; }
+.rank-medal.other  { background:#f3f4f6; color:#6b7280; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:500px;margin:0 auto;padding-bottom:80px;">
+
+  <!-- Header strip -->
+  <div class="intel-header mb-0">
+    <div class="text-white fw-bold mb-2" style="font-size:1rem;">
+      <i class="bi bi-lightning-charge-fill me-2 text-warning"></i>AI Intelligence
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <span class="intel-pill" style="background:#fee2e2;color:#dc2626;">
+        🚨 {{ urgent_count }} Urgent
+      </span>
+      <span class="intel-pill" style="background:#fff7ed;color:#d97706;">
+        🔥 {{ hot_count }} Hot
+      </span>
+      <span class="intel-pill" style="background:#eef2ff;color:#6366f1;">
+        📊 {{ leads|length }} Total
+      </span>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="intel-tabs d-flex mb-0">
+    <button class="intel-tab active" id="tab-intel" onclick="switchTab('intel', this)">
+      🤖 AI Intelligence
+    </button>
+    <button class="intel-tab" id="tab-lb" onclick="switchTab('lb', this)">
+      🏆 Leaderboard
+    </button>
+  </div>
+
+  <!-- Intelligence Tab -->
+  <div id="panel-intel" style="padding:14px;">
+    <div class="text-uppercase fw-bold mb-3"
+         style="font-size:0.65rem;color:#9ca3af;letter-spacing:0.08em;">
+      Priority Order — Urgent First
+    </div>
+
+    {% for lead in leads %}
+    {% set stage = lead.get('pipeline_stage','enrollment') %}
+    {% set heat  = lead.get('heat', 0) %}
+    {% set nat   = lead.get('next_action_type','followup') %}
+    <div class="intel-card stage-{{ stage }}">
+      <!-- Title row -->
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <div class="fw-bold" style="font-size:0.92rem;">{{ lead.name }}</div>
+          <div style="font-size:0.62rem;color:#9ca3af;">
+            {{ lead.get('assigned_to','') }} ·
+            <span class="badge bg-light text-dark border" style="font-size:0.58rem;vertical-align:middle;">
+              {{ stage.upper().replace('_',' ') }}
+            </span>
+          </div>
+        </div>
+        <div class="d-flex gap-1">
+          {% if lead.get('phone') %}
+          <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-outline-success" style="padding:2px 7px;font-size:0.7rem;">
+            <i class="bi bi-telephone-fill"></i>
+          </a>
+          <a href="https://wa.me/91{{ lead.phone }}" target="_blank"
+             class="btn btn-xs btn-outline-success" style="padding:2px 7px;font-size:0.7rem;">
+            <i class="bi bi-whatsapp"></i>
+          </a>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Heat meter -->
+      <div class="heat-bar-wrap">
+        <div class="d-flex justify-content-between mb-1">
+          <span style="font-size:0.62rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Heat</span>
+          <span class="heat-val-{% if heat >= 75 %}hot{% elif heat >= 40 %}warm{% else %}cold{% endif %}"
+                style="font-size:0.62rem;">
+            {% if heat >= 75 %}🔥{% elif heat >= 40 %}🌤{% else %}❄{% endif %} {{ heat }}
+          </span>
+        </div>
+        <div class="progress" style="height:5px;border-radius:99px;">
+          <div class="progress-bar {% if heat >= 75 %}bg-danger{% elif heat >= 40 %}bg-warning{% else %}bg-secondary{% endif %}"
+               style="width:{{ heat }}%;border-radius:99px;"></div>
+        </div>
+      </div>
+
+      <!-- Next Action -->
+      <div class="mb-2">
+        <div style="font-size:0.62rem;color:#9ca3af;font-weight:700;text-transform:uppercase;margin-bottom:4px;">
+          Next Action
+        </div>
+        <span class="na-badge {{ nat }}">
+          {% if nat == 'urgent' %}🚨
+          {% elif nat == 'today' %}⏰
+          {% elif nat == 'followup' %}📞
+          {% else %}❄{% endif %}
+          {{ lead.get('next_action','—') }}
+        </span>
+      </div>
+
+      <!-- AI Tip collapsible -->
+      {% if lead.get('ai_tip') %}
+      <div>
+        <button class="ai-tip-btn" onclick="toggleTip(this)" type="button">
+          🤖 AI Insight ▼
+        </button>
+        <div class="ai-tip-body" style="display:none;">{{ lead.ai_tip }}</div>
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-5">
+      <i class="bi bi-lightning-charge display-5 d-block mb-2 text-warning opacity-50"></i>
+      Koi lead nahi mili. Leads claim karo ya add karo.
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Leaderboard Tab (hidden initially) -->
+  <div id="panel-lb" style="display:none;padding:14px;">
+    <!-- Pass weekly_board from leaderboard route via AJAX or just link out -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header fw-bold py-2" style="background:linear-gradient(135deg,#13152e,#1a1d3a);color:#fff;border-radius:12px 12px 0 0;">
+        <i class="bi bi-trophy-fill me-2 text-warning"></i>This Week's Leaderboard
+      </div>
+      <div id="lb-content" class="text-center text-muted p-4" style="font-size:0.82rem;">
+        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+        <div class="mt-2">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Badge guide -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="fw-bold mb-3" style="font-size:0.9rem;">🏅 Badge System</div>
+        {% for key, (emoji, name, desc) in badge_meta.items() %}
+        <div class="d-flex align-items-center gap-3 mb-2">
+          <span style="font-size:1.3rem;width:28px;text-align:center;">{{ emoji }}</span>
+          <div>
+            <div class="fw-bold" style="font-size:0.82rem;">{{ name }}</div>
+            <div class="text-muted" style="font-size:0.65rem;">{{ desc }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function switchTab(id, btn) {
+  document.querySelectorAll('.intel-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panel-intel').style.display = id === 'intel' ? '' : 'none';
+  document.getElementById('panel-lb').style.display    = id === 'lb'    ? '' : 'none';
+  if (id === 'lb') loadLeaderboard();
+}
+
+function toggleTip(btn) {
+  const body = btn.nextElementSibling;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  btn.textContent = open ? '🤖 AI Insight ▼' : '🤖 AI Insight ▲';
+}
+
+function loadLeaderboard() {
+  const el = document.getElementById('lb-content');
+  if (el.dataset.loaded) return;
+  el.dataset.loaded = '1';
+  fetch('/ai/lead-intelligence')
+    .then(r => r.json())
+    .catch(() => null)
+    .then(() => {
+      // Load weekly board from leaderboard page data
+      fetch('/leaderboard', {headers:{'X-Requested-With':'XMLHttpRequest'}})
+        .then(r => r.text())
+        .then(() => {
+          el.innerHTML = '<a href="/leaderboard" class="btn btn-outline-primary btn-sm">Full Leaderboard dekho →</a>';
+        });
+    });
+}
+</script>
+{% endblock %}

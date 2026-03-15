@@ -270,12 +270,34 @@
         {% endif %}
       </div>
       <!-- Call status (read-only — update from My Leads) -->
-      <div class="mb-2">
+      <div class="mb-1">
         <span class="badge bg-secondary" style="font-size:0.7rem;">
           <i class="bi bi-telephone me-1"></i>{{ lead.call_status or 'Not Called Yet' }}
         </span>
       </div>
-      <div class="d-flex gap-2">
+      <!-- Heat + Next Action -->
+      {% if lead.heat is defined %}
+      <div class="heat-bar-wrap">
+        <div class="d-flex justify-content-between mb-1">
+          <span style="font-size:0.6rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Heat</span>
+          <span style="font-size:0.6rem;font-weight:700;
+            color:{% if lead.heat >= 75 %}#dc2626{% elif lead.heat >= 40 %}#d97706{% else %}#9ca3af{% endif %}">
+            {% if lead.heat >= 75 %}🔥{% elif lead.heat >= 40 %}🌤{% else %}❄{% endif %} {{ lead.heat }}
+          </span>
+        </div>
+        <div class="progress" style="height:4px;">
+          <div class="progress-bar {% if lead.heat >= 75 %}bg-danger{% elif lead.heat >= 40 %}bg-warning{% else %}bg-secondary{% endif %}"
+               style="width:{{ lead.heat }}%;border-radius:99px;"></div>
+        </div>
+      </div>
+      {% if lead.next_action %}
+      <span class="next-action-badge {{ lead.next_action_type or 'followup' }}" style="font-size:0.67rem;padding:3px 8px;margin-bottom:4px;">
+        {% if lead.next_action_type == 'urgent' %}🚨{% elif lead.next_action_type == 'today' %}⏰{% elif lead.next_action_type == 'followup' %}📞{% else %}❄{% endif %}
+        {{ lead.next_action }}
+      </span>
+      {% endif %}
+      {% endif %}
+      <div class="d-flex gap-2 mt-1">
         <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn" title="Call">
           <i class="bi bi-telephone-fill"></i>
         </a>
@@ -350,7 +372,29 @@
           <i class="bi bi-moon-fill"></i><span class="d-none d-sm-inline ms-1">E</span>
         </button>
       </div>
-      <div class="d-flex gap-2 align-items-center flex-wrap">
+      <!-- Heat + Next Action for Day 1 -->
+      {% if lead.heat is defined %}
+      <div class="heat-bar-wrap mt-1 mb-1">
+        <div class="d-flex justify-content-between mb-1">
+          <span style="font-size:0.6rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Heat</span>
+          <span style="font-size:0.6rem;font-weight:700;
+            color:{% if lead.heat >= 75 %}#dc2626{% elif lead.heat >= 40 %}#d97706{% else %}#9ca3af{% endif %}">
+            {% if lead.heat >= 75 %}🔥{% elif lead.heat >= 40 %}🌤{% else %}❄{% endif %} {{ lead.heat }}
+          </span>
+        </div>
+        <div class="progress" style="height:4px;">
+          <div class="progress-bar {% if lead.heat >= 75 %}bg-danger{% elif lead.heat >= 40 %}bg-warning{% else %}bg-secondary{% endif %}"
+               style="width:{{ lead.heat }}%;border-radius:99px;"></div>
+        </div>
+      </div>
+      {% if lead.next_action %}
+      <span class="next-action-badge {{ lead.next_action_type or 'today' }}" style="font-size:0.67rem;padding:3px 8px;margin-bottom:4px;display:inline-flex;">
+        {% if lead.next_action_type == 'urgent' %}🚨{% elif lead.next_action_type == 'today' %}⏰{% else %}📞{% endif %}
+        {{ lead.next_action }}
+      </span>
+      {% endif %}
+      {% endif %}
+      <div class="d-flex gap-2 align-items-center flex-wrap mt-1">
         <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
         <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
         {% if user_role in ('leader', 'admin') %}
@@ -488,7 +532,28 @@
         <div class="small text-muted">Seat Hold: <span class="fw-semibold text-success">₹{{ "{:,.0f}".format(lead.seat_hold_amount) }}</span></div>
         {% endif %}
       </div>
-      <div class="d-flex gap-2 flex-wrap align-items-center">
+      <!-- Heat + Next Action for Day 3 -->
+      {% if lead.heat is defined %}
+      <div class="heat-bar-wrap mt-1 mb-1">
+        <div class="d-flex justify-content-between mb-1">
+          <span style="font-size:0.6rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Heat</span>
+          <span style="font-size:0.6rem;font-weight:700;color:{% if lead.heat >= 75 %}#dc2626{% elif lead.heat >= 40 %}#d97706{% else %}#9ca3af{% endif %}">
+            {% if lead.heat >= 75 %}🔥{% elif lead.heat >= 40 %}🌤{% else %}❄{% endif %} {{ lead.heat }}
+          </span>
+        </div>
+        <div class="progress" style="height:4px;">
+          <div class="progress-bar {% if lead.heat >= 75 %}bg-danger{% elif lead.heat >= 40 %}bg-warning{% else %}bg-secondary{% endif %}"
+               style="width:{{ lead.heat }}%;border-radius:99px;"></div>
+        </div>
+      </div>
+      {% if lead.next_action %}
+      <span class="next-action-badge {{ lead.next_action_type or 'urgent' }}" style="font-size:0.67rem;padding:3px 8px;margin-bottom:4px;display:inline-flex;">
+        {% if lead.next_action_type == 'urgent' %}🚨{% elif lead.next_action_type == 'today' %}⏰{% else %}📞{% endif %}
+        {{ lead.next_action }}
+      </span>
+      {% endif %}
+      {% endif %}
+      <div class="d-flex gap-2 flex-wrap align-items-center mt-1">
         <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
         <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
         {% if lead.status == 'Interview' and user_role in ('leader', 'admin') %}

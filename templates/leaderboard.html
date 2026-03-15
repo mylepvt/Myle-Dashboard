@@ -12,16 +12,23 @@
 <ul class="nav nav-tabs mb-3" id="leaderboardTabs" role="tablist">
   <li class="nav-item">
     <button class="nav-link active fw-semibold"
-            id="tab-lb" data-bs-toggle="tab" data-bs-target="#pane-lb"
+            id="tab-weekly" data-bs-toggle="tab" data-bs-target="#pane-weekly"
             role="tab" aria-selected="true">
-      <i class="bi bi-trophy-fill me-1 text-warning"></i>Leaderboard
+      <i class="bi bi-lightning-charge-fill me-1 text-warning"></i>This Week
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link fw-semibold"
+            id="tab-lb" data-bs-toggle="tab" data-bs-target="#pane-lb"
+            role="tab" aria-selected="false">
+      <i class="bi bi-trophy-fill me-1 text-warning"></i>All Time
     </button>
   </li>
   <li class="nav-item">
     <button class="nav-link fw-semibold"
             id="tab-net" data-bs-toggle="tab" data-bs-target="#pane-net"
             role="tab" aria-selected="false">
-      <i class="bi bi-diagram-3-fill me-1 text-primary"></i>My Network
+      <i class="bi bi-diagram-3-fill me-1 text-primary"></i>Network
       {% if net_summary.total > 0 %}
         <span class="badge bg-primary ms-1" style="font-size:0.6rem;">{{ net_summary.total }}</span>
       {% endif %}
@@ -31,8 +38,89 @@
 
 <div class="tab-content">
 
-  <!-- ── Tab 1: Leaderboard ─────────────────────────── -->
-  <div class="tab-pane fade show active" id="pane-lb" role="tabpanel">
+  <!-- ── Tab 1: Weekly Gamification ───────────────────── -->
+  <div class="tab-pane fade show active" id="pane-weekly" role="tabpanel">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header fw-semibold d-flex justify-content-between align-items-center"
+           style="background:linear-gradient(135deg,#13152e,#1a1d3a);color:#fff;border-radius:12px 12px 0 0;">
+        <span><i class="bi bi-lightning-charge-fill me-2 text-warning"></i>This Week</span>
+        {% if current_user_rank %}
+        <span class="badge bg-warning text-dark" style="font-size:0.65rem;">You: #{{ current_user_rank }}</span>
+        {% endif %}
+      </div>
+      <div class="card-body p-0">
+        {% for w in weekly_board %}
+        {% set idx = loop.index0 %}
+        <div class="leaderboard-row {% if w.username == current_user %}me{% endif %} {% if idx == 0 %}top1{% endif %}">
+          <!-- Rank medal -->
+          <div class="rank-medal {% if idx == 0 %}gold{% elif idx == 1 %}silver{% elif idx == 2 %}bronze{% else %}other{% endif %}">
+            {% if idx == 0 %}🥇{% elif idx == 1 %}🥈{% elif idx == 2 %}🥉{% else %}{{ loop.index }}{% endif %}
+          </div>
+          <!-- Avatar -->
+          {% if w.display_picture %}
+          <img src="{{ w.display_picture }}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" alt="dp">
+          {% else %}
+          <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);
+                      display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:0.85rem;flex-shrink:0;">
+            {{ w.username[0]|upper }}
+          </div>
+          {% endif %}
+          <!-- Info -->
+          <div class="flex-grow-1 min-width-0">
+            <div class="fw-bold" style="font-size:0.87rem;">
+              {{ w.username }}
+              {% if w.username == current_user %}
+              <span class="badge bg-primary" style="font-size:0.55rem;">You</span>
+              {% endif %}
+              {% if w.badges %}<span style="font-size:0.9rem;margin-left:4px;">{{ w.badges }}</span>{% endif %}
+            </div>
+            <div style="font-size:0.62rem;color:#9ca3af;">
+              🔥 {{ w.streak or 0 }}-day streak
+            </div>
+          </div>
+          <!-- Points + trend -->
+          <div class="text-end flex-shrink-0">
+            <div class="fw-bold" style="font-size:1rem;color:{% if idx == 0 %}#d97706{% else %}#1e2035{% endif %};">
+              {{ '{:,}'.format(w.week_pts or 0) }}
+            </div>
+            <div style="font-size:0.62rem;font-weight:700;
+                        color:{% if (w.trend or 0) >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
+              {% if (w.trend or 0) >= 0 %}▲{% else %}▼{% endif %}
+              {{ '{:,}'.format((w.trend or 0)|abs) }} this week
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="text-center text-muted p-4">Koi data nahi hai is week.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Points guide -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <div class="fw-bold mb-3" style="font-size:0.88rem;">⚡ Points Kaise Milte Hain</div>
+        {% for action, pts, icon in [
+          ('Call log karo', 5, '📞'),
+          ('Video bhejo', 10, '🎬'),
+          ('Batch mark karo', 15, '✅'),
+          ('Payment ₹196 confirm', 25, '💰'),
+          ('Daily report submit', 20, '📋'),
+          ('Seat Hold confirm', 50, '🛡️'),
+          ('Full conversion', 100, '🏆'),
+          ('Streak bonus (roz)', 10, '🔥'),
+        ] %}
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <div style="font-size:0.8rem;">{{ icon }} {{ action }}</div>
+          <span class="badge bg-primary-subtle text-primary fw-bold">+{{ pts }} pts</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab 2: All Time Leaderboard ─────────────────── -->
+  <div class="tab-pane fade" id="pane-lb" role="tabpanel">
     <div class="card border-0 shadow-sm">
       <div class="card-header bg-white d-flex align-items-center justify-content-between">
         <h6 class="mb-0"><i class="bi bi-trophy-fill me-2 text-warning"></i>Team Leaderboard</h6>

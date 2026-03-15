@@ -95,6 +95,33 @@
     {% endif %}
   </div>
   {% endif %}
+
+  {# Heat Score + Next Action #}
+  {% set heat = lead.heat if lead.heat is defined else 0 %}
+  {% if heat is defined and lead.next_action is defined %}
+  <div class="heat-bar-wrap mt-2">
+    <div class="d-flex justify-content-between mb-1">
+      <span style="font-size:0.6rem;color:#9ca3af;font-weight:700;letter-spacing:0.04em;">HEAT</span>
+      <span style="font-size:0.6rem;font-weight:700;
+        color:{% if heat >= 75 %}#dc2626{% elif heat >= 40 %}#d97706{% else %}#9ca3af{% endif %}">
+        {% if heat >= 75 %}🔥{% elif heat >= 40 %}🌤{% else %}❄{% endif %} {{ heat }}
+      </span>
+    </div>
+    <div class="progress" style="height:4px;">
+      <div class="progress-bar {% if heat >= 75 %}bg-danger{% elif heat >= 40 %}bg-warning{% else %}bg-secondary{% endif %}"
+           style="width:{{ heat }}%;border-radius:99px;transition:width 0.5s ease;"></div>
+    </div>
+  </div>
+  {% if lead.next_action and lead.next_action != '—' %}
+  <div class="next-action-badge {{ lead.next_action_type or 'followup' }}" style="font-size:0.68rem;padding:4px 9px;margin-top:5px;">
+    {% if lead.next_action_type == 'urgent' %}🚨
+    {% elif lead.next_action_type == 'today' %}⏰
+    {% elif lead.next_action_type == 'cold' %}❄
+    {% else %}📞{% endif %}
+    {{ lead.next_action }}
+  </div>
+  {% endif %}
+  {% endif %}
 </div>
 {% endmacro %}
 
