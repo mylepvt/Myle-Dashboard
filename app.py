@@ -5973,25 +5973,6 @@ def training_complete_day():
             flash('Please complete previous days first.', 'warning')
             return redirect(url_for('training_home'))
 
-    # ── Calendar enforcement: Day N only after day1_date + (N-1) days ──
-    if day > 1:
-        dates = _get_training_dates(db, username)
-        day1_str = dates.get(1, '')
-        if day1_str:
-            try:
-                day1_date = datetime.datetime.strptime(day1_str[:10], '%Y-%m-%d').date()
-                earliest = day1_date + datetime.timedelta(days=day - 1)
-                if datetime.date.today() < earliest:
-                    db.close()
-                    flash(
-                        f'Day {day} is locked until {earliest.strftime("%d %b %Y")}. '
-                        f'Training must be spread over 7 days.',
-                        'warning'
-                    )
-                    return redirect(url_for('training_home'))
-            except Exception:
-                pass
-
     now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
     db.execute(
         "INSERT INTO training_progress (username, day_number, completed, completed_at) "

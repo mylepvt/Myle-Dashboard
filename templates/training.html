@@ -188,7 +188,7 @@
   <!-- Top banner -->
   <div class="ap-notice mb-4">
     <i class="bi bi-mortarboard-fill"></i>
-    <span>Complete all 7 days of training to unlock the full app.</span>
+    <span>Watch all 7 training videos → Pass the test (60+) → Get your certificate.</span>
   </div>
 
   {% if all_done and training_status == 'completed' %}
@@ -366,27 +366,6 @@
     <p class="ap-desc mb-0"><i class="bi bi-info-circle me-1"></i>{{ vid.description }}</p>
     {% endif %}
 
-    <!-- Podcast & PDF for current day -->
-    {% if vid and (vid.podcast_url or vid.pdf_url) %}
-    <div class="ap-divider"></div>
-    <div class="d-flex gap-2 flex-wrap">
-      {% if vid.podcast_url %}
-      {% set purl = url_for('training_media', filename=vid.podcast_url) if not vid.podcast_url.startswith('http') else vid.podcast_url %}
-      <div class="ap-podcast-wrap">
-        <button type="button" class="ap-resource-btn podcast" onclick="togglePodcast(this, '{{ purl }}', {{ 'true' if not vid.podcast_url.startswith('http') else 'false' }})">
-          <i class="bi bi-headphones me-2"></i>Listen Podcast
-        </button>
-        <div class="ap-audio-player" style="display:none;margin-top:.5rem;"></div>
-      </div>
-      {% endif %}
-      {% if vid.pdf_url %}
-      {% set durl = url_for('training_media', filename=vid.pdf_url) if not vid.pdf_url.startswith('http') else vid.pdf_url %}
-      <a href="{{ durl }}" target="_blank" class="ap-resource-btn pdf">
-        <i class="bi bi-file-earmark-pdf me-2"></i>Download PDF
-      </a>
-      {% endif %}
-    </div>
-    {% endif %}
   </div>
   {% endif %}
 
@@ -401,14 +380,10 @@
         {% set is_active = (d == current_day and not all_done) %}
         {% set unlock_date = unlock_dates.get(d, '') %}
         <div class="d-flex flex-column align-items-center gap-1" style="min-width:44px;">
-          <div class="ap-day-dot {% if done %}done{% elif is_active %}current{% else %}locked{% endif %}"
-               {% if not done and not is_active and unlock_date %}title="Available from: {{ unlock_date }}"{% endif %}>
+          <div class="ap-day-dot {% if done %}done{% elif is_active %}current{% else %}locked{% endif %}">
             {% if done %}<i class="bi bi-check2"></i>{% else %}{{ d }}{% endif %}
           </div>
           <span style="font-size:.6rem;color:#8e8e93;">Day {{ d }}</span>
-          {% if not done and not is_active and unlock_date %}
-          <span style="font-size:.55rem;color:#ff3b30;text-align:center;line-height:1.2;max-width:50px;">{{ unlock_date }}</span>
-          {% endif %}
         </div>
       {% endfor %}
       {% if all_done %}
@@ -427,12 +402,6 @@
       <span>{{ (done_count / 7 * 100)|int }}%</span>
     </div>
 
-    {% if unlock_dates %}
-    <div class="ap-notice warning mt-3">
-      <i class="bi bi-calendar-lock"></i>
-      <span><strong>7-Day Rule:</strong> Each day must be completed on a separate calendar date.</span>
-    </div>
-    {% endif %}
   </div>
 
   <!-- Bonus Videos (shown after all days done) -->
