@@ -338,7 +338,7 @@ def _get_downline_usernames(db, username):
         WITH RECURSIVE downline(uname) AS (
             SELECT ?
             UNION ALL
-            SELECT u.username FROM users u JOIN downline d ON u.upline_name = d.uname
+            SELECT u.username FROM users u JOIN downline d ON (u.upline_name = d.uname OR u.upline_username = d.uname)
         )
         SELECT uname FROM downline
     """, (username,)).fetchall()
@@ -755,8 +755,8 @@ def _get_network_usernames(db, username):
     while queue:
         current  = queue.pop(0)
         downlines = db.execute(
-            "SELECT username FROM users WHERE upline_name=? AND status='approved'",
-            (current,)
+            "SELECT username FROM users WHERE (upline_name=? OR upline_username=?) AND status='approved'",
+            (current, current)
         ).fetchall()
         for row in downlines:
             u = row['username']
@@ -1131,10 +1131,19 @@ def _generate_ai_tip(lead):
 def _enrich_lead(lead):
     """Add heat, next_action, next_action_type to a lead. Returns a dict."""
     d  = dict(lead)
-    na = _get_next_action(lead)
-    d['heat']             = _calculate_heat_score(lead)
-    d['next_action']      = na['action']
-    d['next_action_type'] = na['type']
+    # Ensure batch fields exist (template selectattr needs them)
+    for k in ('day1_batch', 'day2_batch', 'day3_batch',
+              'heat', 'next_action', 'next_action_type'):
+        d.setdefault(k, '' if 'batch' in k else 0 if k == 'heat' else '')
+    try:
+        na = _get_next_action(lead)
+        d['heat']             = _calculate_heat_score(lead)
+        d['next_action']      = na['action']
+        d['next_action_type'] = na['type']
+    except Exception:
+        d['heat']             = 0
+        d['next_action']      = ''
+        d['next_action_type'] = 'cold'
     return d
 
 
@@ -2162,8 +2171,12 @@ def leads():
         if status:
             q += " AND status=?"; p.append(status)
         if search:
-            q += " AND (name LIKE ? OR phone LIKE ? OR email LIKE ?)"
-            p += [f'%{search}%', f'%{search}%', f'%{search}%']
+            if role == 'admin':
+                q += " AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR assigned_to LIKE ?)"
+                p += [f'%{search}%', f'%{search}%', f'%{search}%', f'%{search}%']
+            else:
+                q += " AND (name LIKE ? OR phone LIKE ? OR email LIKE ?)"
+                p += [f'%{search}%', f'%{search}%', f'%{search}%']
         return q, p
 
     base_params = []
@@ -2180,14 +2193,23 @@ def leads():
         f"NOT {today_cond}", [today, today]
     )
 
-    today_leads_raw = db.execute(today_q + " ORDER BY created_at DESC", today_p).fetchall()
-    hist_leads_raw  = db.execute(hist_q  + " ORDER BY created_at DESC", hist_p).fetchall()
+    try:
+        today_leads_raw = db.execute(today_q + " ORDER BY created_at DESC", today_p).fetchall()
+        hist_leads_raw  = db.execute(hist_q  + " ORDER BY created_at DESC", hist_p).fetchall()
+    except Exception as e:
+        app.logger.error(f"leads() query failed: {e}")
+        today_leads_raw, hist_leads_raw = [], []
     team            = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
     db.close()
 
     # Enrich with heat + next_action
-    today_leads = _enrich_leads(today_leads_raw)
-    hist_leads  = _enrich_leads(hist_leads_raw)
+    try:
+        today_leads = _enrich_leads(today_leads_raw)
+        hist_leads  = _enrich_leads(hist_leads_raw)
+    except Exception as e:
+        app.logger.error(f"leads() enrichment failed: {e}")
+        today_leads = [dict(l) for l in today_leads_raw]
+        hist_leads  = [dict(l) for l in hist_leads_raw]
 
     # Split today_leads by tab
     day1_leads   = [l for l in today_leads if l.get('status') == 'Day 1']
@@ -5000,15 +5022,18 @@ def intelligence():
 
     try:
         enriched = _enrich_leads(raw_leads)
-        for d in enriched:
-            d['ai_tip'] = _generate_ai_tip(d)
-        enriched.sort(key=lambda x: (
-            {'urgent': 0, 'today': 1, 'followup': 2, 'cold': 3}.get(x.get('next_action_type', 'cold'), 9),
-            -x.get('heat', 0),
-        ))
     except Exception as e:
         app.logger.error(f"intelligence() enrichment failed: {e}")
         enriched = []
+    for d in enriched:
+        try:
+            d['ai_tip'] = _generate_ai_tip(d)
+        except Exception:
+            d['ai_tip'] = ''
+    enriched.sort(key=lambda x: (
+        {'urgent': 0, 'today': 1, 'followup': 2, 'cold': 3}.get(x.get('next_action_type', 'cold'), 9),
+        -x.get('heat', 0),
+    ))
 
     urgent_count = sum(1 for l in enriched if l.get('next_action_type') == 'urgent')
     hot_count    = sum(1 for l in enriched if l.get('heat', 0) >= 75)
@@ -7306,7 +7331,7 @@ def admin_set_upline(username):
             flash(f'Leader "{upline_username}" not found or not approved.', 'danger')
             return redirect(url_for('admin_members'))
 
-    db.execute("UPDATE users SET upline_username=? WHERE username=?", (upline_username, username))
+    db.execute("UPDATE users SET upline_username=?, upline_name=? WHERE username=?", (upline_username, upline_username, username))
     db.commit()
     _log_activity(db, session['username'], 'set_upline',
                   f'{username} upline → {upline_username or "(none)"}')
