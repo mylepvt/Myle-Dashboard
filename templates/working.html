@@ -397,7 +397,7 @@
       <div class="d-flex gap-2 align-items-center flex-wrap mt-1">
         <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
         <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
-        {% if user_role in ('team', 'leader', 'admin') %}
+        {% if user_role in ('leader', 'admin') %}
         <button class="btn btn-sm btn-success wk-btn wk-advance-btn ms-auto"
                 data-lead-id="{{ lead.id }}" data-status="Day 1"
                 onclick="stageAdvance({{ lead.id }}, 'day1_complete', this)"
