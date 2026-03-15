@@ -6959,9 +6959,13 @@ def batch_toggle(lead_id):
     if not row:
         db.close(); return {'ok': False, 'error': 'Not found'}, 404
 
+    role  = session.get('role', 'team')
     owner = row['assigned_to']
-    if session.get('role') != 'admin' and owner != session['username']:
+    if role != 'admin' and owner != session['username']:
         db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
+    # Day 2 batches can only be marked by admin or leader
+    if batch.startswith('d2_') and role == 'team':
+        db.close(); return {'ok': False, 'error': 'Day 2 batches are marked by admin only'}, 403
 
     # Toggle (or force-mark if force_mark=true, used by "already sent" button)
     force_mark = data.get('force_mark', False)

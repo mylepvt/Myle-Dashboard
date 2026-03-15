@@ -451,6 +451,7 @@
         <div class="wk-batch-bar wk-batch-bar-d2" style="width:{{ (batches_done/3*100)|int }}%"></div>
       </div>
       <div class="small text-muted mb-2 wk-batch-count">{{ batches_done }}/3 batches done</div>
+      {% if user_role in ('admin', 'leader') %}
       <div class="d-flex gap-2 mb-2 align-items-center">
         <button class="wk-batch-btn {% if lead.d2_morning %}wk-batch-done{% endif %}"
                 data-lead-id="{{ lead.id }}" data-batch="d2_morning" title="Morning batch"
@@ -468,6 +469,11 @@
           <i class="bi bi-moon-fill"></i><span class="d-none d-sm-inline ms-1">E</span>
         </button>
       </div>
+      {% else %}
+      <div class="small text-muted mb-2" style="font-size:0.68rem;">
+        <i class="bi bi-lock me-1"></i>Batches marked by admin
+      </div>
+      {% endif %}
       <div class="d-flex gap-2 align-items-center flex-wrap">
         <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
         <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
