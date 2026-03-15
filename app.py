@@ -1113,7 +1113,7 @@ def _generate_ai_tip(lead):
         return f"💰 Payment confirm! {name} ko Day 1 mein move karo aur Mindset Lock call karo."
     if stage == 'enrollment' and days_in > 5 and heat < 30:
         return f"❄️ {name} {days_in}d se stuck hai aur cold ho rahi/raha hai — ek strong follow-up call karo."
-    if stage == 'enrollment' and not call_status or call_status == 'Not Called Yet':
+    if stage == 'enrollment' and (not call_status or call_status == 'Not Called Yet'):
         return f"📞 {name} ko pehli baar call nahi kiya abhi tak — aaj contact karo."
     if stage == 'day1' and d1_done < 3:
         return f"⏳ {name} ke {d1_done}/3 batches hue hain — baaki ke liye remind karo."
@@ -4950,27 +4950,31 @@ def leaderboard():
 def intelligence():
     db       = get_db()
     username = session['username']
-    role     = session.get('role')
+    role     = session.get('role', 'team')
 
-    if role == 'admin':
-        raw_leads = db.execute(
-            "SELECT * FROM leads WHERE in_pool=0 AND deleted_at=\'\' ORDER BY updated_at DESC LIMIT 150"
-        ).fetchall()
-    elif role == 'leader':
-        downline = _get_network_usernames(db, username)
-        if downline:
-            phs = ','.join('?' for _ in downline)
+    try:
+        if role == 'admin':
             raw_leads = db.execute(
-                f"SELECT * FROM leads WHERE in_pool=0 AND deleted_at=\'\' AND assigned_to IN ({phs}) ORDER BY updated_at DESC",
-                downline
+                "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' ORDER BY updated_at DESC LIMIT 150"
             ).fetchall()
+        elif role == 'leader':
+            downline = _get_network_usernames(db, username)
+            if downline:
+                phs = ','.join('?' for _ in downline)
+                raw_leads = db.execute(
+                    f"SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to IN ({phs}) ORDER BY updated_at DESC",
+                    downline
+                ).fetchall()
+            else:
+                raw_leads = []
         else:
-            raw_leads = []
-    else:
-        raw_leads = db.execute(
-            "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at=\'\' ORDER BY updated_at DESC",
-            (username,)
-        ).fetchall()
+            raw_leads = db.execute(
+                "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' ORDER BY updated_at DESC",
+                (username,)
+            ).fetchall()
+    except Exception as e:
+        app.logger.error(f"intelligence() leads query failed: {e}")
+        raw_leads = []
 
     # ── Leaderboard data (weekly scores) ──
     try:
@@ -4994,14 +4998,17 @@ def intelligence():
 
     db.close()
 
-    enriched = _enrich_leads(raw_leads)
-    for d in enriched:
-        d['ai_tip'] = _generate_ai_tip(d)
-
-    enriched.sort(key=lambda x: (
-        {'urgent': 0, 'today': 1, 'followup': 2, 'cold': 3}.get(x.get('next_action_type', 'cold'), 9),
-        -x.get('heat', 0),
-    ))
+    try:
+        enriched = _enrich_leads(raw_leads)
+        for d in enriched:
+            d['ai_tip'] = _generate_ai_tip(d)
+        enriched.sort(key=lambda x: (
+            {'urgent': 0, 'today': 1, 'followup': 2, 'cold': 3}.get(x.get('next_action_type', 'cold'), 9),
+            -x.get('heat', 0),
+        ))
+    except Exception as e:
+        app.logger.error(f"intelligence() enrichment failed: {e}")
+        enriched = []
 
     urgent_count = sum(1 for l in enriched if l.get('next_action_type') == 'urgent')
     hot_count    = sum(1 for l in enriched if l.get('heat', 0) >= 75)

@@ -420,6 +420,9 @@
     </span>
     <span>Finance</span>
   </a>
+  <a href="{{ url_for('intelligence') }}" class="mbn-item {% if request.endpoint == 'intelligence' %}active{% endif %}">
+    <i class="bi bi-lightning-charge-fill text-warning"></i><span>AI</span>
+  </a>
   {% else %}
   <a href="{{ url_for('team_dashboard') }}" class="mbn-item {% if request.endpoint == 'team_dashboard' %}active{% endif %}">
     <i class="bi bi-speedometer2"></i><span>Home</span>
