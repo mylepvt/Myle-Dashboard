@@ -715,6 +715,25 @@ def migrate_db():
         except Exception:
             pass
 
+    # ── FBO ID fix: 910900367506 is Karanveer Singh (admin) ──────────────────
+    # Any non-admin user who signed up with this ID was using a wrong/placeholder.
+    # Clear their FBO ID and mark them as admin's downline (upline = Karanveer Singh).
+    cursor.execute("""
+        UPDATE users
+        SET    fbo_id          = '',
+               upline_name     = CASE WHEN (upline_name IS NULL OR upline_name = '')
+                                      THEN 'Karanveer Singh' ELSE upline_name END,
+               upline_username = CASE WHEN (upline_username IS NULL OR upline_username = '')
+                                      THEN 'admin' ELSE upline_username END
+        WHERE  fbo_id = '910900367506'
+          AND  role   != 'admin'
+    """)
+    # Set the correct FBO ID on the admin account itself
+    cursor.execute("""
+        UPDATE users SET fbo_id = '910900367506'
+        WHERE role = 'admin' AND (fbo_id IS NULL OR fbo_id = '' OR fbo_id = '910900367506')
+    """)
+
     conn.commit()
     conn.close()
 
