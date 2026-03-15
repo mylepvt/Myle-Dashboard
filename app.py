@@ -1131,10 +1131,19 @@ def _generate_ai_tip(lead):
 def _enrich_lead(lead):
     """Add heat, next_action, next_action_type to a lead. Returns a dict."""
     d  = dict(lead)
-    na = _get_next_action(lead)
-    d['heat']             = _calculate_heat_score(lead)
-    d['next_action']      = na['action']
-    d['next_action_type'] = na['type']
+    # Ensure batch fields exist (template selectattr needs them)
+    for k in ('day1_batch', 'day2_batch', 'day3_batch',
+              'heat', 'next_action', 'next_action_type'):
+        d.setdefault(k, '' if 'batch' in k else 0 if k == 'heat' else '')
+    try:
+        na = _get_next_action(lead)
+        d['heat']             = _calculate_heat_score(lead)
+        d['next_action']      = na['action']
+        d['next_action_type'] = na['type']
+    except Exception:
+        d['heat']             = 0
+        d['next_action']      = ''
+        d['next_action_type'] = 'cold'
     return d
 
 
@@ -2184,14 +2193,23 @@ def leads():
         f"NOT {today_cond}", [today, today]
     )
 
-    today_leads_raw = db.execute(today_q + " ORDER BY created_at DESC", today_p).fetchall()
-    hist_leads_raw  = db.execute(hist_q  + " ORDER BY created_at DESC", hist_p).fetchall()
+    try:
+        today_leads_raw = db.execute(today_q + " ORDER BY created_at DESC", today_p).fetchall()
+        hist_leads_raw  = db.execute(hist_q  + " ORDER BY created_at DESC", hist_p).fetchall()
+    except Exception as e:
+        app.logger.error(f"leads() query failed: {e}")
+        today_leads_raw, hist_leads_raw = [], []
     team            = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
     db.close()
 
     # Enrich with heat + next_action
-    today_leads = _enrich_leads(today_leads_raw)
-    hist_leads  = _enrich_leads(hist_leads_raw)
+    try:
+        today_leads = _enrich_leads(today_leads_raw)
+        hist_leads  = _enrich_leads(hist_leads_raw)
+    except Exception as e:
+        app.logger.error(f"leads() enrichment failed: {e}")
+        today_leads = [dict(l) for l in today_leads_raw]
+        hist_leads  = [dict(l) for l in hist_leads_raw]
 
     # Split today_leads by tab
     day1_leads   = [l for l in today_leads if l.get('status') == 'Day 1']
