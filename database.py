@@ -11,12 +11,17 @@ DATABASE = os.environ.get(
 
 
 def get_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA busy_timeout=5000")
-    conn.execute("PRAGMA cache_size=-4000")   # 4 MB page cache
-    return conn
+    try:
+        conn = sqlite3.connect(DATABASE)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
+        conn.execute("PRAGMA cache_size=-4000")   # 4 MB page cache
+        return conn
+    except sqlite3.Error as e:
+        import logging
+        logging.getLogger('database').error(f"DB connection failed: {e}")
+        raise
 
 
 def init_db():

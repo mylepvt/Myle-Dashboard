@@ -92,6 +92,20 @@ except ImportError:
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
+# ── Structured logging ───────────────────────────────────────
+import logging as _logging
+_log_level = _logging.DEBUG if os.environ.get('FLASK_DEBUG') else _logging.INFO
+_log_fmt = _logging.Formatter(
+    '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+_stream_handler = _logging.StreamHandler()
+_stream_handler.setFormatter(_log_fmt)
+_stream_handler.setLevel(_log_level)
+app.logger.handlers.clear()
+app.logger.addHandler(_stream_handler)
+app.logger.setLevel(_log_level)
+
 # ── Secret key & cookie security ─────────────────────────────
 _env_secret = os.environ.get('SECRET_KEY')
 if _env_secret:
@@ -288,15 +302,19 @@ def _check_session_valid():
     username = session.get('username')
     if not username:
         return False
-    db = get_db()
-    row = db.execute(
-        "SELECT status FROM users WHERE username=?", (username,)
-    ).fetchone()
-    db.close()
-    if not row or row['status'] != 'approved':
-        session.clear()
-        return False
-    return True
+    try:
+        db = get_db()
+        row = db.execute(
+            "SELECT status FROM users WHERE username=?", (username,)
+        ).fetchone()
+        db.close()
+        if not row or row['status'] != 'approved':
+            session.clear()
+            return False
+        return True
+    except Exception as e:
+        app.logger.error(f"_check_session_valid() DB error: {e}")
+        return True  # fail-open: let the route handle the DB error
 
 
 def login_required(f):
@@ -325,6 +343,26 @@ def admin_required(f):
             flash('Admin access required.', 'danger')
             return redirect(url_for('team_dashboard'))
         return f(*args, **kwargs)
+    return decorated
+
+
+def safe_route(f):
+    """Catch unhandled exceptions in routes, log them, and show a friendly error."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except Exception as e:
+            import traceback as _tb
+            app.logger.error(f"Route {request.path} crashed: {e}\n{_tb.format_exc()}")
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+                return {'ok': False, 'error': 'Something went wrong, please try again'}, 500
+            flash('Kuch gadbad ho gayi. Please dubara try karein.', 'danger')
+            if session.get('role') == 'admin':
+                return redirect(url_for('admin_dashboard'))
+            if 'username' in session:
+                return redirect(url_for('team_dashboard'))
+            return redirect(url_for('login'))
     return decorated
 
 
@@ -1397,25 +1435,28 @@ def wa_phone_filter(phone):
 
 @app.context_processor
 def inject_pending_count():
-    if session.get('role') == 'admin':
-        db  = get_db()
-        row = db.execute("""
-            SELECT
-              (SELECT COUNT(*) FROM users           WHERE status='pending') as pu,
-              (SELECT COUNT(*) FROM wallet_recharges WHERE status='pending') as wp
-        """).fetchone()
-        db.close()
-        return {'pending_count': row['pu'], 'wallet_pending': row['wp'], 'has_pending_work': False}
-    uname = session.get('username')
-    if uname:
-        db = get_db()
-        has_pending_work = db.execute(
-            "SELECT COUNT(*) FROM leads "
-            "WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status='Day 1' AND d1_morning=0",
-            (uname,)
-        ).fetchone()[0] > 0
-        db.close()
-        return {'pending_count': 0, 'wallet_pending': 0, 'has_pending_work': has_pending_work}
+    try:
+        if session.get('role') == 'admin':
+            db  = get_db()
+            row = db.execute("""
+                SELECT
+                  (SELECT COUNT(*) FROM users           WHERE status='pending') as pu,
+                  (SELECT COUNT(*) FROM wallet_recharges WHERE status='pending') as wp
+            """).fetchone()
+            db.close()
+            return {'pending_count': row['pu'], 'wallet_pending': row['wp'], 'has_pending_work': False}
+        uname = session.get('username')
+        if uname:
+            db = get_db()
+            has_pending_work = db.execute(
+                "SELECT COUNT(*) FROM leads "
+                "WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status='Day 1' AND d1_morning=0",
+                (uname,)
+            ).fetchone()[0] > 0
+            db.close()
+            return {'pending_count': 0, 'wallet_pending': 0, 'has_pending_work': has_pending_work}
+    except Exception as e:
+        app.logger.error(f"inject_pending_count() failed: {e}")
     return {'pending_count': 0, 'wallet_pending': 0, 'has_pending_work': False}
 
 
@@ -1456,6 +1497,35 @@ def csrf_protect():
 def inject_csrf_token():
     """Make csrf_token available to every template."""
     return {'csrf_token': session.get('_csrf_token', '')}
+
+
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#  Global Error Handlers
+# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+@app.errorhandler(404)
+def not_found_error(error):
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+        return {'ok': False, 'error': 'Page not found'}, 404
+    return render_template('404.html'), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    import traceback as _tb
+    app.logger.error(f"500 Error: {error}\n{_tb.format_exc()}")
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+        return {'ok': False, 'error': 'Server error, please try again'}, 500
+    return render_template('500.html'), 500
+
+
+@app.errorhandler(Exception)
+def unhandled_exception(error):
+    import traceback as _tb
+    app.logger.error(f"Unhandled exception: {error}\n{_tb.format_exc()}")
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+        return {'ok': False, 'error': 'Something went wrong'}, 500
+    return render_template('500.html'), 500
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -1794,6 +1864,7 @@ def index():
 
 @app.route('/admin')
 @admin_required
+@safe_route
 def admin_dashboard():
     db      = get_db()
     metrics = _get_metrics(db)
@@ -1907,6 +1978,7 @@ def admin_dashboard():
 
 @app.route('/dashboard')
 @login_required
+@safe_route
 def team_dashboard():
     username = session['username']
     db       = get_db()
@@ -2152,6 +2224,7 @@ def team_dashboard():
 
 @app.route('/leads')
 @login_required
+@safe_route
 def leads():
     import traceback as _tb
     try:
@@ -2284,6 +2357,7 @@ def set_lead_batch(lid):
 
 @app.route('/leads/add', methods=['GET', 'POST'])
 @login_required
+@safe_route
 def add_lead():
     db   = get_db()
     team = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
@@ -2357,6 +2431,7 @@ def add_lead():
 
 @app.route('/leads/<int:lead_id>/edit', methods=['GET', 'POST'])
 @login_required
+@safe_route
 def edit_lead(lead_id):
     db   = get_db()
     team = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
@@ -2909,6 +2984,7 @@ def delete_team_member(member_id):
 
 @app.route('/reports/submit', methods=['GET', 'POST'])
 @login_required
+@safe_route
 def report_submit():
     username = session['username']
     today    = _today_ist().isoformat()
@@ -2985,6 +3061,7 @@ def report_submit():
 
 @app.route('/reports')
 @admin_required
+@safe_route
 def reports_admin():
     db          = get_db()
     filter_date = request.args.get('date', '')
@@ -3965,6 +4042,7 @@ def admin_wallet_adjust(username):
 
 @app.route('/wallet')
 @login_required
+@safe_route
 def wallet():
     username = session['username']
     db       = get_db()
@@ -4982,6 +5060,7 @@ def leaderboard():
 
 @app.route('/intelligence')
 @login_required
+@safe_route
 def intelligence():
     db       = get_db()
     username = session['username']
@@ -5528,6 +5607,7 @@ def admin_live_session():
 
 @app.route('/admin/members')
 @admin_required
+@safe_route
 def admin_members():
     db = get_db()
     # Include team AND leader roles (admin manages both)
@@ -6746,6 +6826,7 @@ def _get_today_score(db, username):
 
 @app.route('/working')
 @login_required
+@safe_route
 def working():
     db      = get_db()
     role    = session.get('role')
@@ -7397,4 +7478,5 @@ def day2_progress():
 
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5001)))
+    _debug = os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true', 'yes')
+    app.run(debug=_debug, host='0.0.0.0', port=int(os.environ.get('PORT', 5001)))
