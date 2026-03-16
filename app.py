@@ -6680,9 +6680,10 @@ def api_chat():
 
     # ── Failed ───────────────────────────────────────────────────────
     if reply is None:
+        app.logger.error(f"Maya API error: {last_err}")
         if '401' in last_err or '403' in last_err or 'api_key' in last_err.lower():
             return {'error': 'AI key invalid hai — Admin se contact karo.'}, 401
-        return {'error': 'Maya abhi available nahi hai. Thodi der baad try karo.'}, 503
+        return {'error': f'Maya error: {last_err[:200]}'}, 503
 
     # ── Save history (text only) ────────────────────────────────────
     if image_data and not message:
