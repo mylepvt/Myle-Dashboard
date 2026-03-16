@@ -679,11 +679,11 @@
     <div class="table-responsive">
       <table class="table table-sm table-hover align-middle small mb-0">
         <thead class="table-light">
-          <tr><th>Name</th><th>Status</th><th>Track</th><th>Date</th></tr>
+          <tr><th>Name</th><th>Status</th><th>Track</th><th>Date</th><th>Re-activate</th></tr>
         </thead>
         <tbody>
           {% for lead in past_leads %}
-          <tr>
+          <tr id="past-row-{{ lead.id }}">
             <td class="fw-semibold">{{ lead.name }}</td>
             <td>
               <span class="badge {% if lead.status in ('Fully Converted','Converted') %}bg-success{% else %}bg-danger{% endif %}">
@@ -692,6 +692,18 @@
             </td>
             <td class="text-muted">{{ lead.track_selected or '—' }}</td>
             <td class="text-muted">{{ lead.updated_at[:10] }}</td>
+            <td>
+              <select class="form-select form-select-sm" style="min-width:130px;font-size:0.72rem;"
+                      onchange="reactivateLead({{ lead.id }}, this)">
+                <option value="">— Move to —</option>
+                <option value="Retarget">Retarget</option>
+                <option value="Contacted">Contacted</option>
+                <option value="Invited">Invited</option>
+                <option value="Video Sent">Video Sent</option>
+                <option value="Paid ₹196">Paid ₹196 → Day 1</option>
+                <option value="Day 1">Day 1</option>
+              </select>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
@@ -1043,6 +1055,57 @@ function updateCallStatus(leadId, newStatus, selectEl) {
     }
   })
   .catch(() => { showToast('Network error', 'danger'); });
+}
+
+// ── Re-activate Past Lead ──────────────────────────────────────
+function reactivateLead(leadId, selectEl) {
+  const newStatus = selectEl.value;
+  if (!newStatus) return;
+
+  selectEl.disabled = true;
+
+  fetch(`/leads/${leadId}/status`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRF-Token': _csrf,
+    },
+    body: new URLSearchParams({ status: newStatus }),
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      showToast(`Lead pipeline mein wapas aa gaya → ${d.status} ✅`, 'success');
+      // Animate row removal
+      const row = document.getElementById(`past-row-${leadId}`);
+      if (row) {
+        row.style.transition = 'opacity 0.3s, transform 0.3s';
+        row.style.opacity = '0';
+        row.style.transform = 'translateX(20px)';
+        setTimeout(() => {
+          row.remove();
+          // Update the badge count in zone header
+          const badge = document.querySelector('#zone-past')
+            ?.closest('.mb-4')
+            ?.querySelector('.badge.bg-light');
+          if (badge) {
+            const cur = parseInt(badge.textContent) || 0;
+            badge.textContent = Math.max(0, cur - 1);
+          }
+        }, 320);
+      }
+    } else {
+      showToast(d.error || 'Status update failed. Dobara try karo.', 'danger');
+      selectEl.value = '';
+      selectEl.disabled = false;
+    }
+  })
+  .catch(() => {
+    showToast('Network error. Dobara try karo.', 'danger');
+    selectEl.value = '';
+    selectEl.disabled = false;
+  });
 }
 </script>
 
