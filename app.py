@@ -140,7 +140,7 @@ STATUS_TO_STAGE = {
     'Invited':             'enrollment',
     'Video Sent':          'enrollment',
     'Video Watched':       'enrollment',
-    'Paid ₹196':           'enrollment',
+    'Paid ₹196':           'day1',
     'Mindset Lock':        'enrollment',
     'Day 1':               'day1',
     'Day 2':               'day2',
@@ -2556,6 +2556,10 @@ def edit_lead(lead_id):
         if status not in STATUSES:
             status = lead['status']
 
+        # ₹196 paid → auto-advance to Day 1
+        if status == 'Paid ₹196':
+            status = 'Day 1'
+
         if session.get('role') == 'admin':
             # Guard against lead['assigned_to'] being None (unassigned leads)
             assigned_to = (request.form.get('assigned_to') or lead['assigned_to'] or '').strip()
@@ -2771,6 +2775,10 @@ def update_status(lead_id):
             flash('Access denied.', 'danger')
             return redirect(url_for('leads'))
 
+    # ₹196 paid → auto-advance to Day 1 and mark payment_done
+    if new_status == 'Paid ₹196':
+        new_status = 'Day 1'
+
     new_pipeline_stage = STATUS_TO_STAGE.get(new_status, 'enrollment')
     lead_pipeline_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'enrollment'
     stage_changed = new_pipeline_stage != lead_pipeline_stage
@@ -2780,7 +2788,7 @@ def update_status(lead_id):
         # Only update status — let _transition_stage handle pipeline_stage + current_owner
         # (so _transition_stage reads correct current_stage from DB)
         db.execute(
-            "UPDATE leads SET status=?, updated_at=? WHERE id=? AND in_pool=0",
+            "UPDATE leads SET status=?, payment_done=1, updated_at=? WHERE id=? AND in_pool=0",
             (new_status, now_str, lead_id)
         )
         _transition_stage(db, lead_id, new_pipeline_stage, session['username'])
