@@ -11,12 +11,17 @@ DATABASE = os.environ.get(
 
 
 def get_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA busy_timeout=5000")
-    conn.execute("PRAGMA cache_size=-4000")   # 4 MB page cache
-    return conn
+    try:
+        conn = sqlite3.connect(DATABASE)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
+        conn.execute("PRAGMA cache_size=-4000")   # 4 MB page cache
+        return conn
+    except sqlite3.Error as e:
+        import logging
+        logging.getLogger('database').error(f"DB connection failed: {e}")
+        raise
 
 
 def init_db():
@@ -716,22 +721,29 @@ def migrate_db():
             pass
 
     # ── FBO ID fix: 910900367506 is Karanveer Singh (admin) ──────────────────
-    # Any non-admin user who signed up with this ID was using a wrong/placeholder.
-    # Clear their FBO ID and mark them as admin's downline (upline = Karanveer Singh).
-    cursor.execute("""
-        UPDATE users
-        SET    fbo_id          = '',
-               upline_name     = CASE WHEN (upline_name IS NULL OR upline_name = '')
-                                      THEN 'Karanveer Singh' ELSE upline_name END,
-               upline_username = CASE WHEN (upline_username IS NULL OR upline_username = '')
-                                      THEN 'admin' ELSE upline_username END
-        WHERE  fbo_id = '910900367506'
-          AND  role   != 'admin'
-    """)
-    # Set the correct FBO ID on the admin account itself
+    # Step 1: Set admin's FBO ID to 910900367506
     cursor.execute("""
         UPDATE users SET fbo_id = '910900367506'
         WHERE role = 'admin' AND (fbo_id IS NULL OR fbo_id = '' OR fbo_id = '910900367506')
+    """)
+    # Step 2: Any non-admin user who has 910900367506 as their own FBO ID
+    # (wrong entry) — clear their FBO and set admin as their upline.
+    cursor.execute("""
+        UPDATE users
+        SET    fbo_id          = '',
+               upline_name     = COALESCE((SELECT username FROM users WHERE role='admin' LIMIT 1), 'admin'),
+               upline_username = COALESCE((SELECT username FROM users WHERE role='admin' LIMIT 1), 'admin')
+        WHERE  fbo_id = '910900367506'
+          AND  role   != 'admin'
+    """)
+    # Step 3: Fix existing rows where upline_name was stored as a display name
+    # like 'Karanveer Singh' instead of the actual username — update to admin username.
+    cursor.execute("""
+        UPDATE users
+        SET    upline_name     = COALESCE((SELECT username FROM users WHERE role='admin' LIMIT 1), 'admin'),
+               upline_username = COALESCE((SELECT username FROM users WHERE role='admin' LIMIT 1), 'admin')
+        WHERE  LOWER(upline_name) LIKE '%karanveer%'
+          AND  role != 'admin'
     """)
 
     conn.commit()
