@@ -5835,6 +5835,28 @@ _TRAINING_EXEMPT = (
 )
 
 @app.before_request
+def refresh_session_role():
+    """Auto-sync session role from DB on every request.
+    Ensures promotions (team→leader) take effect immediately
+    without requiring logout/login."""
+    if 'username' not in session:
+        return
+    if request.path.startswith('/static'):
+        return
+    try:
+        db = get_db()
+        row = db.execute(
+            "SELECT role FROM users WHERE username=? AND status='approved'",
+            (session['username'],)
+        ).fetchone()
+        db.close()
+        if row and row['role'] != session.get('role'):
+            session['role'] = row['role']
+    except Exception:
+        pass
+
+
+@app.before_request
 def training_gate():
     if any(request.path.startswith(p) for p in _TRAINING_EXEMPT):
         return
