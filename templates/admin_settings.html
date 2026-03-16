@@ -139,55 +139,27 @@
           </h6>
 
           <!-- Status banner -->
-          {% if settings.gemini_api_key_set %}
+          {% if settings.anthropic_api_key_set %}
           <div class="alert alert-success py-2 small border-0 mb-3 d-flex align-items-center gap-2">
             <i class="bi bi-check-circle-fill text-success"></i>
-            <div><strong>Google Gemini active</strong> — Maya kaam kar rahi hai ✓
-            <span class="badge bg-success ms-1">FREE</span></div>
-          </div>
-          {% elif settings.anthropic_api_key_set %}
-          <div class="alert alert-info py-2 small border-0 mb-3 d-flex align-items-center gap-2">
-            <i class="bi bi-check-circle-fill text-info"></i>
             <div><strong>Anthropic Claude active</strong> — Maya kaam kar rahi hai ✓</div>
           </div>
           {% else %}
           <div class="alert alert-warning py-2 small border-0 mb-3 d-flex align-items-center gap-2">
             <i class="bi bi-exclamation-triangle-fill text-warning"></i>
-            <div>Koi AI key set nahi — Maya inactive. Neeche ek key add karo.</div>
+            <div>Anthropic API key set nahi — Maya inactive. Neeche key add karo.</div>
           </div>
           {% endif %}
 
-          <!-- Gemini (FREE, recommended) -->
+          <!-- Anthropic -->
           <div class="mb-3">
-            <label class="form-label fw-semibold small">
-              Google Gemini API Key
-              <span class="badge bg-success ms-1" style="font-size:.65rem;">FREE</span>
-              <span class="badge bg-primary ms-1" style="font-size:.65rem;">Recommended</span>
-            </label>
-            <input type="password" name="gemini_api_key" class="form-control"
-                   placeholder="{% if settings.gemini_api_key_set %}Leave blank to keep existing key{% else %}AIzaSy...{% endif %}"
-                   autocomplete="off">
-            <div class="form-text">
-              <i class="bi bi-gift-fill text-success me-1"></i>
-              Free tier: 15 requests/min, 1500/day — enough for daily use!
-              Key lo: <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a>
-              → "Get API Key". Ya Render mein <code>GEMINI_API_KEY</code> set karo.
-            </div>
-          </div>
-
-          <!-- Anthropic (fallback, paid) -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold small">
-              Anthropic API Key
-              <span class="badge bg-secondary ms-1" style="font-size:.65rem;">Fallback</span>
-            </label>
+            <label class="form-label fw-semibold small">Anthropic API Key</label>
             <input type="password" name="anthropic_api_key" class="form-control"
                    placeholder="{% if settings.anthropic_api_key_set %}Leave blank to keep existing key{% else %}sk-ant-api03-...{% endif %}"
                    autocomplete="off">
             <div class="form-text">
-              Used only if Gemini key is not set.
-              Get from <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>
-              (requires billing). Ya Render mein <code>ANTHROPIC_API_KEY</code> set karo.
+              Get from <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.
+              Ya Render mein <code>ANTHROPIC_API_KEY</code> environment variable set karo.
             </div>
           </div>
 

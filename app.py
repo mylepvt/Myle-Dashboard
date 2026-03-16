@@ -3086,9 +3086,6 @@ def admin_settings():
             _set_setting(db, 'smtp_password', smtp_password)
         if anthropic_key:
             _set_setting(db, 'anthropic_api_key', anthropic_key)
-        gemini_key_input = request.form.get('gemini_api_key', '').strip()
-        if gemini_key_input:
-            _set_setting(db, 'gemini_api_key', gemini_key_input)
 
         # ── Batch Video Links (12 new settings) ────────────────────
         batch_video_keys = [
@@ -3118,7 +3115,6 @@ def admin_settings():
         'smtp_user':            _get_setting(db, 'smtp_user'),
         'smtp_from_name':       _get_setting(db, 'smtp_from_name', 'Myle Community'),
         'smtp_password_set':     bool(_get_setting(db, 'smtp_password')),
-        'gemini_api_key_set':    bool(_get_setting(db, 'gemini_api_key')   or os.environ.get('GEMINI_API_KEY')),
         'anthropic_api_key_set': bool(_get_setting(db, 'anthropic_api_key') or os.environ.get('ANTHROPIC_API_KEY')),
     }
 
@@ -6514,20 +6510,16 @@ def api_chat():
     if not message and not image_data:
         return {'error': 'Empty message.'}, 400
 
-    # ── Resolve provider & API key (Gemini first, then Anthropic) ──
-    db           = get_db()
-    gemini_key   = (_get_setting(db, 'gemini_api_key', '') or '').strip()   or os.environ.get('GEMINI_API_KEY', '').strip()
-    anthropic_key= (_get_setting(db, 'anthropic_api_key', '') or '').strip() or os.environ.get('ANTHROPIC_API_KEY', '').strip()
+    # ── Resolve Anthropic API key ───────────────────────────────────
+    db            = get_db()
+    anthropic_key = (_get_setting(db, 'anthropic_api_key', '') or '').strip() or os.environ.get('ANTHROPIC_API_KEY', '').strip()
     db.close()
 
-    use_gemini   = bool(gemini_key   and GEMINI_AVAILABLE)
-    use_anthropic= bool(anthropic_key and ANTHROPIC_AVAILABLE)
-
-    if not use_gemini and not use_anthropic:
-        return {'error': 'AI assistant configure nahi hua. Admin → Settings mein Gemini ya Anthropic API key add karo.'}, 503
+    if not anthropic_key or not ANTHROPIC_AVAILABLE:
+        return {'error': 'AI assistant configure nahi hua. Admin → Settings mein Anthropic API key add karo.'}, 503
 
     # ── Conversation history from session ──────────────────────────
-    history = list(session.get('maya_history', []))   # [{'role':'user'|'assistant','content':str}]
+    history = list(session.get('maya_history', []))
 
     # ── Decode image if provided ────────────────────────────────────
     b64_data   = None
@@ -6541,77 +6533,36 @@ def api_chat():
 
     text_for_ai = message or 'Is screenshot ko dekho aur specific, actionable advice do.'
 
-    # ── Call Gemini (primary) — try flash then flash-lite ────────────
-    reply       = None
-    last_err    = ''
-    is_rate_limit = False
+    # ── Call Anthropic ───────────────────────────────────────────────
+    reply    = None
+    last_err = ''
 
-    if use_gemini:
-        _gemini_lib.configure(api_key=gemini_key)
-        for gem_model in ('gemini-2.0-flash', 'gemini-2.0-flash-lite'):
-            try:
-                model = _gemini_lib.GenerativeModel(
-                    model_name        = gem_model,
-                    system_instruction= MAYA_SYSTEM_PROMPT
-                )
-                gem_history = []
-                for h in history:
-                    gem_history.append({
-                        'role'  : 'model' if h['role'] == 'assistant' else 'user',
-                        'parts' : [h['content']]
-                    })
-                chat  = model.start_chat(history=gem_history)
-                parts = []
-                if b64_data:
-                    import base64 as _b64
-                    img_bytes = _b64.b64decode(b64_data)
-                    img = _PIL_Image.open(_io_lib.BytesIO(img_bytes))
-                    parts.append(img)
-                parts.append(text_for_ai)
-                response  = chat.send_message(parts)
-                reply     = response.text
-                break  # success — stop trying other models
-            except Exception as e:
-                last_err = str(e)
-                is_rate_limit = ('429' in last_err or 'quota' in last_err.lower())
-                # If rate-limited, try next smaller model; otherwise bail
-                if is_rate_limit:
-                    continue
-                break  # non-rate-limit error — don't retry with another model
+    try:
+        content = []
+        if b64_data:
+            content.append({'type': 'image', 'source': {
+                'type': 'base64', 'media_type': media_type, 'data': b64_data}})
+        content.append({'type': 'text', 'text': text_for_ai})
 
-    # ── Anthropic fallback (if Gemini failed or not configured) ──────
-    if reply is None and use_anthropic:
-        try:
-            content = []
-            if b64_data:
-                content.append({'type': 'image', 'source': {
-                    'type': 'base64', 'media_type': media_type, 'data': b64_data}})
-            content.append({'type': 'text', 'text': text_for_ai})
+        ant_history = []
+        for h in history:
+            ant_history.append({'role': h['role'], 'content': h['content']})
+        ant_history.append({'role': 'user', 'content': content})
+        if len(ant_history) > 16:
+            ant_history = ant_history[-16:]
 
-            ant_history = []
-            for h in history:
-                ant_history.append({'role': h['role'], 'content': h['content']})
-            ant_history.append({'role': 'user', 'content': content})
-            if len(ant_history) > 16:
-                ant_history = ant_history[-16:]
+        client   = _anthropic_lib.Anthropic(api_key=anthropic_key)
+        response = client.messages.create(
+            model='claude-3-5-haiku-20241022', max_tokens=1024,
+            system=MAYA_SYSTEM_PROMPT, messages=ant_history
+        )
+        reply = response.content[0].text
+    except Exception as e:
+        last_err = str(e)
 
-            client   = _anthropic_lib.Anthropic(api_key=anthropic_key)
-            response = client.messages.create(
-                model='claude-3-5-haiku-20241022', max_tokens=1024,
-                system=MAYA_SYSTEM_PROMPT, messages=ant_history
-            )
-            reply = response.content[0].text
-        except Exception as e:
-            last_err = str(e)
-
-    # ── No provider succeeded ────────────────────────────────────────
+    # ── Failed ───────────────────────────────────────────────────────
     if reply is None:
-        if is_rate_limit:
-            return {'error': (
-                'Maya thodi busy hai 🙏 Free tier limit hit ho gayi hai. '
-                '1-2 minute baad dobara try karo!'
-            )}, 429
-        if '401' in last_err or '403' in last_err or 'API key' in last_err:
+        if '401' in last_err or '403' in last_err or 'api_key' in last_err.lower():
             return {'error': 'AI key invalid hai — Admin se contact karo.'}, 401
         return {'error': 'Maya abhi available nahi hai. Thodi der baad try karo.'}, 503
 
