@@ -1867,6 +1867,14 @@ def index():
 @safe_route
 def admin_dashboard():
     db      = get_db()
+
+    # Check seat hold expiry for all team/leader members
+    seat_hold_users = db.execute(
+        "SELECT username FROM users WHERE role IN ('team','leader') AND status='approved'"
+    ).fetchall()
+    for u in seat_hold_users:
+        _check_seat_hold_expiry(db, u['username'])
+
     metrics = _get_metrics(db)
 
     recent = db.execute(
@@ -2405,15 +2413,18 @@ def add_lead():
         if status not in STATUSES:
             status = 'New'
 
+        pipeline_stage = STATUS_TO_STAGE.get(status, 'enrollment')
         db.execute("""
             INSERT INTO leads
                 (name, phone, email, referred_by, assigned_to, source,
                  status, payment_done, payment_amount, revenue,
-                 follow_up_date, call_result, notes, city, in_pool, pool_price, claimed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, '')
+                 follow_up_date, call_result, notes, city, in_pool, pool_price, claimed_at,
+                 pipeline_stage, current_owner)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, '', ?, ?)
         """, (name, phone, email, referred_by, assigned_to, source,
               status, payment_done, payment_amount, revenue,
-              follow_up_date, call_result, notes, city))
+              follow_up_date, call_result, notes, city,
+              pipeline_stage, assigned_to))
         db.commit()
         db.close()
         flash(f'Lead "{name}" added successfully.', 'success')
@@ -4936,7 +4947,7 @@ def leaderboard():
             COALESCE(SUM(CASE WHEN l.status='Fully Converted'
                               THEN l.track_price ELSE 0 END), 0)                      AS final_rev
         FROM users u
-        LEFT JOIN leads l ON l.assigned_to=u.username AND l.in_pool=0
+        LEFT JOIN leads l ON l.assigned_to=u.username AND l.in_pool=0 AND l.deleted_at=''
         WHERE u.role='team' AND u.status='approved' {extra}
         GROUP BY u.username
         ORDER BY paid DESC, converted DESC, total DESC
@@ -4962,7 +4973,7 @@ def leaderboard():
                SUM(CASE WHEN l.status='Fully Converted'     THEN 1 ELSE 0 END)             AS fully_conv
         FROM tree t
         JOIN users u ON u.username = t.uname
-        LEFT JOIN leads l ON l.assigned_to = t.uname AND l.in_pool=0
+        LEFT JOIN leads l ON l.assigned_to = t.uname AND l.in_pool=0 AND l.deleted_at=''
         WHERE t.uname != :me
         GROUP BY t.uname, t.level
         ORDER BY t.level, paid DESC, converted DESC
@@ -7052,9 +7063,9 @@ def batch_toggle(lead_id):
     owner = row['assigned_to']
     if role != 'admin' and owner != session['username']:
         db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
-    # Day 2 batches can only be marked by admin or leader
-    if batch.startswith('d2_') and role == 'team':
-        db.close(); return {'ok': False, 'error': 'Day 2 batches are marked by admin only'}, 403
+    # Day 2 batches can only be marked by admin
+    if batch.startswith('d2_') and role != 'admin':
+        db.close(); return {'ok': False, 'error': 'Day 2 batches sirf admin mark kar sakta hai'}, 403
 
     # Toggle (or force-mark if force_mark=true, used by "already sent" button)
     force_mark = data.get('force_mark', False)
@@ -7309,8 +7320,12 @@ def update_call_status(lead_id):
                             delta_payments=delta_payments)
 
     # Auto-advance enrollment → day1 when "Payment Done" is set
+    # Requires payment_done=1 to be recorded first to prevent bypass
     stage_advanced = False
     if call_status == 'Payment Done':
+        if not lead['payment_done']:
+            db.close()
+            return {'ok': False, 'error': 'Pehle payment record karo (Payment Done = 1) phir yeh status set karo.'}, 400
         lead_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'enrollment'
         if lead_stage == 'enrollment':
             _transition_stage(db, lead_id, 'day1', username)
