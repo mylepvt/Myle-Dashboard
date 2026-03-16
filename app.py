@@ -6671,10 +6671,15 @@ def _get_today_score(db, username):
 @app.route('/working')
 @login_required
 def working():
-    db      = get_db()
-    role    = session.get('role')
+    db       = get_db()
     username = session['username']
-    today   = _today_ist().strftime('%Y-%m-%d')
+    today    = _today_ist().strftime('%Y-%m-%d')
+
+    # Always fetch fresh role from DB so promotions take effect without re-login
+    fresh_user = db.execute("SELECT role FROM users WHERE username=?", (username,)).fetchone()
+    role = fresh_user['role'] if fresh_user else session.get('role', 'team')
+    if role != session.get('role'):
+        session['role'] = role   # sync session silently
 
     # Check seat_hold expiry
     _check_seat_hold_expiry(db, username)
@@ -6803,11 +6808,22 @@ def working():
         ORDER BY updated_at DESC
     """, [username] + list(STAGE1_STATUSES)).fetchall()
 
-    day1_leads = db.execute("""
-        SELECT * FROM leads
-        WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 1'
-        ORDER BY updated_at DESC
-    """, (username,)).fetchall()
+    # Leaders see Day 1 leads for themselves + their downline
+    if role == 'leader':
+        _downline = _get_network_usernames(db, username)
+        _d1_users = [username] + list(_downline)
+        _phs = ','.join('?' * len(_d1_users))
+        day1_leads = db.execute(f"""
+            SELECT * FROM leads
+            WHERE assigned_to IN ({_phs}) AND in_pool=0 AND deleted_at='' AND status='Day 1'
+            ORDER BY updated_at DESC
+        """, _d1_users).fetchall()
+    else:
+        day1_leads = db.execute("""
+            SELECT * FROM leads
+            WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 1'
+            ORDER BY updated_at DESC
+        """, (username,)).fetchall()
 
     day2_leads = db.execute("""
         SELECT * FROM leads
@@ -6942,8 +6958,15 @@ def batch_toggle(lead_id):
 
     role  = session.get('role', 'team')
     owner = row['assigned_to']
-    if role != 'admin' and owner != session['username']:
+
+    # Leaders can toggle d1 batches for their own leads AND downline leads
+    if role == 'leader' and batch.startswith('d1_'):
+        downline = _get_network_usernames(db, session['username'])
+        if owner != session['username'] and owner not in downline:
+            db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
+    elif role != 'admin' and owner != session['username']:
         db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
+
     # Day 2 batches can only be marked by admin
     if batch.startswith('d2_') and role != 'admin':
         db.close(); return {'ok': False, 'error': 'Day 2 batches sirf admin mark kar sakta hai'}, 403
