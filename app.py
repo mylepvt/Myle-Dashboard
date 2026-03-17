@@ -2689,6 +2689,7 @@ def follow_up_queue():
     leads_list = db.execute(query, params).fetchall()
 
     now_date = _now_ist().strftime('%Y-%m-%d')
+    now_time = _now_ist().strftime('%H:%M')
     today_count    = sum(1 for l in leads_list
                          if l['follow_up_date'] and l['follow_up_date'][:10] == now_date)
     overdue_count  = sum(1 for l in leads_list
@@ -2700,6 +2701,7 @@ def follow_up_queue():
                            today_count=today_count,
                            overdue_count=overdue_count,
                            now_date=now_date,
+                           now_time=now_time,
                            statuses=STATUSES,
                            call_result_tags=CALL_RESULT_TAGS)
 
@@ -2730,17 +2732,52 @@ def mark_called(lead_id):
 @app.route('/leads/<int:lead_id>/follow-up-time', methods=['POST'])
 @login_required
 def set_follow_up_time(lead_id):
-    db   = get_db()
-    lead = db.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone()
+    """Set follow-up reminder time (HH:MM). Accepts key 'time' or 'reminder_time'. Persists and shows in Follow-up Queue."""
+    data = request.get_json(silent=True) or {}
+    reminder_time = (data.get('reminder_time') or data.get('time') or '').strip()
+
+    # Validate: allow empty to clear; if non-empty, expect HH:MM (optional strict check)
+    if reminder_time:
+        import re
+        if not re.match(r'^([01]?\d|2[0-3]):[0-5]\d$', reminder_time):
+            return {'ok': False, 'error': 'Use HH:MM format (e.g. 09:30)'}, 400
+
+    db = get_db()
+    lead = db.execute("SELECT * FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''", (lead_id,)).fetchone()
     if not lead:
         db.close()
-        return {'ok': False, 'error': 'not found'}, 404
-    if session.get('role') != 'admin' and lead['assigned_to'] != session['username']:
-        db.close()
-        return {'ok': False, 'error': 'forbidden'}, 403
-    data = request.get_json() or {}
-    t    = data.get('time', '')  # HH:MM format
-    db.execute("UPDATE leads SET follow_up_time=? WHERE id=?", (t, lead_id))
+        return {'ok': False, 'error': 'Not found'}, 404
+
+    role = session.get('role', 'team')
+    username = session['username']
+    if role == 'admin':
+        pass
+    elif role == 'leader':
+        downline = _get_network_usernames(db, username)
+        if lead['assigned_to'] != username and lead['assigned_to'] not in downline:
+            db.close()
+            return {'ok': False, 'error': 'You can only set reminder for your own or downline leads'}, 403
+    else:
+        if lead['assigned_to'] != username:
+            db.close()
+            return {'ok': False, 'error': 'Forbidden'}, 403
+
+    print("Reminder set:", lead_id, reminder_time)
+    now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
+    # If setting a time and lead has no follow_up_date, set to today so it appears in Follow-up Queue
+    lead_keys = lead.keys()
+    follow_up_date = (lead['follow_up_date'] if 'follow_up_date' in lead_keys else '') or ''
+    if reminder_time and not (follow_up_date and follow_up_date.strip()):
+        follow_up_date = _now_ist().strftime('%Y-%m-%d')
+        db.execute(
+            "UPDATE leads SET follow_up_time=?, follow_up_date=?, updated_at=? WHERE id=?",
+            (reminder_time, follow_up_date, now_str, lead_id)
+        )
+    else:
+        db.execute(
+            "UPDATE leads SET follow_up_time=?, updated_at=? WHERE id=?",
+            (reminder_time, now_str, lead_id)
+        )
     db.commit()
     db.close()
     return {'ok': True}

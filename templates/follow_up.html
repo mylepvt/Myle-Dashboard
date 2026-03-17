@@ -35,7 +35,8 @@
         {% if lead.follow_up_date %}
         <div class="small {% if is_overdue %}text-danger{% else %}text-muted{% endif %}" style="font-size:.72rem;">
           <i class="bi bi-calendar2 me-1"></i>{{ lead.follow_up_date[:10] }}
-          {% if is_overdue %}<span class="badge bg-danger ms-1" style="font-size:.55rem;">OVERDUE</span>{% endif %}
+          {% if lead.follow_up_time %}<span class="ms-1">{{ lead.follow_up_time }}</span>{% endif %}
+          {% if is_overdue %}<span class="badge bg-danger ms-1" style="font-size:.55rem;">OVERDUE</span>{% elif is_today and lead.follow_up_time and (lead.follow_up_time < now_time) %}<span class="badge bg-warning text-dark ms-1" style="font-size:.55rem;">OVERDUE</span>{% endif %}
         </div>
         {% endif %}
         {% if lead.last_contacted %}
@@ -119,21 +120,25 @@ document.querySelectorAll('.called-btn').forEach(btn => {
 });
 
 /* ── Reminder time picker ─────────────────────────────── */
+const _followUpCsrf = '{{ session.get("_csrf_token", "") }}';
 document.querySelectorAll('.reminder-time').forEach(inp => {
   inp.addEventListener('change', function() {
-    const id   = this.dataset.id;
-    const time = this.value;  /* HH:MM or '' */
+    const id = (this.dataset.id || '').trim();
+    const reminderTime = (this.value || '').trim();
+    if (!id) return;
 
     fetch('/leads/' + id + '/follow-up-time', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ time })
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _followUpCsrf },
+      body: JSON.stringify({ reminder_time: reminderTime, time: reminderTime })
     }).then(r => r.json()).then(d => {
       if (d.ok) {
-        showToast('Reminder set for ' + (time || 'cleared'), 'success');
-        if (time) _scheduleReminder(this);
+        showToast(reminderTime ? 'Reminder set for ' + reminderTime : 'Reminder cleared', 'success');
+        if (reminderTime) _scheduleReminder(this);
+      } else {
+        showToast(d.error || 'Could not set reminder', 'danger');
       }
-    });
+    }).catch(() => showToast('Network error', 'danger'));
   });
 });
 
