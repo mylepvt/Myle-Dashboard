@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Leads – Myle Community{% endblock %}
-{% block page_title %}{% if session.get('role') == 'admin' %}All LeadsMy Leads{% endblock %}
+{% block page_title %}{% if session.get('role') == 'admin' %}All Leads{% else %}My Leads{% endif %}{% endblock %}
 
 {% block content %}
 
@@ -10,12 +10,12 @@
   <div class="d-flex align-items-start justify-content-between gap-2 mb-1">
     <div>
       <div class="wl-name">{{ lead.name or ('Lead #' ~ lead.id) }}</div>
-      {% if lead.city %}<div class="wl-city"><i class="bi bi-geo-alt-fill me-1"></i>{{ lead.city }}</div>
+      {% if lead.city %}<div class="wl-city"><i class="bi bi-geo-alt-fill me-1"></i>{{ lead.city }}</div>{% endif %}
     </div>
     {% if day == 0 %}
     {# Active tab: show status badge #}
     <span class="wl-status-badge status-{{ lead.status|replace(' ','') }}" style="flex-shrink:0;">{{ lead.status }}</span>
-    
+    {% endif %}
   </div>
 
   <div class="d-flex align-items-center gap-2 mb-2">
@@ -34,22 +34,22 @@
     {% if day == 1 %}
       {% if lead.day1_done %}
         <span class="wl-done-badge done"><i class="bi bi-check-circle-fill me-1"></i>Day 1 Done</span>
-      
+      {% else %}
         <span class="wl-done-badge pending"><i class="bi bi-circle me-1"></i>Day 1 Pending</span>
-      
+      {% endif %}
     {% elif day == 2 %}
       {% if lead.day2_done %}
         <span class="wl-done-badge done"><i class="bi bi-check-circle-fill me-1"></i>Day 2 Done</span>
-      
+      {% else %}
         <span class="wl-done-badge pending"><i class="bi bi-circle me-1"></i>Day 2 Pending</span>
-      
+      {% endif %}
     {% elif day == 3 %}
       {% if lead.interview_done %}
         <span class="wl-done-badge done"><i class="bi bi-check-circle-fill me-1"></i>Interview Done</span>
-      
+      {% else %}
         <span class="wl-done-badge pending"><i class="bi bi-circle me-1"></i>Interview Pending</span>
-      
-    
+      {% endif %}
+    {% endif %}
 
     {# Batch selector buttons #}
     {% set batch_val = lead['day' ~ day ~ '_batch'] %}
@@ -59,7 +59,7 @@
       <button onclick="setBatch({{ lead.id }},{{ day }},'3')" class="wl-b {{ 'active' if batch_val=='3' else '' }}">B3</button>
     </div>
   </div>
-  
+  {% endif %}
 
   <div class="d-flex align-items-center gap-1 mt-2">
     {# Status inline select #}
@@ -68,7 +68,7 @@
               class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}"
               style="font-size:0.78rem;">
         {% for s in statuses %}
-          <option value="{{ s }}" {% if s == lead.status %}selected>{{ s }}</option>
+          <option value="{{ s }}" {% if s == lead.status %}selected{% endif %}>{{ s }}</option>
         {% endfor %}
       </select>
     </form>
@@ -80,27 +80,23 @@
   {# Call status — only on Active (enrollment) leads #}
   {% if day == 0 %}
   <div class="mt-1">
-    
-    <div class="cs-wrap" data-lead-id="{{ lead.id }}" data-current="{{ lead.call_status or '' }}">
-      <div class="cs-trigger" onclick="toggleCSMenu(this)">
-        <i class="bi bi-telephone-fill me-1" style="font-size:0.7rem;"></i>
-        <span class="cs-label">{{ lead.call_status or '— Call Status —' }}</span>
-        <i class="bi bi-chevron-down ms-auto" style="font-size:0.65rem;"></i>
-      </div>
-      <div class="cs-menu" style="display:none;">
-        {% for cs in call_status_values %}
-        <div class="cs-item {% if lead.call_status == cs %}cs-active{% endif %}"
-             onclick="selectCS(this, '{{ cs }}')">{{ cs }}</div>
-        {% endfor %}
-      </div>
-    </div>
-    
+    {% if user_role in ('team', 'admin') %}
+    <select class="form-select form-select-sm call-status-select"
+            style="font-size:0.72rem;padding:3px 6px;"
+            data-lead-id="{{ lead.id }}"
+            data-current="{{ lead.call_status or '' }}">
+      <option value="">— Call Status —</option>
+      {% for cs in call_status_values %}
+      <option value="{{ cs }}" {% if lead.call_status == cs %}selected{% endif %}>{{ cs }}</option>
+      {% endfor %}
+    </select>
+    {% else %}
     <span class="badge bg-secondary" style="font-size:0.68rem;">
       <i class="bi bi-telephone me-1"></i>{{ lead.call_status or 'Not Called Yet' }}
     </span>
-    
+    {% endif %}
   </div>
-  
+  {% endif %}
 
   {# Heat Score + Next Action #}
   {% set heat = lead.heat if lead.heat is defined else 0 %}
@@ -109,12 +105,12 @@
     <div class="d-flex justify-content-between mb-1">
       <span style="font-size:0.6rem;color:#9ca3af;font-weight:700;letter-spacing:0.04em;">HEAT</span>
       <span style="font-size:0.6rem;font-weight:700;
-        color:{% if heat >= 75 %}#dc2626{% elif heat >= 40 %}#d97706#9ca3af">
-        {% if heat >= 75 %}🔥{% elif heat >= 40 %}🌤❄ {{ heat }}
+        color:{% if heat >= 75 %}#dc2626{% elif heat >= 40 %}#d97706{% else %}#9ca3af{% endif %}">
+        {% if heat >= 75 %}🔥{% elif heat >= 40 %}🌤{% else %}❄{% endif %} {{ heat }}
       </span>
     </div>
     <div class="progress" style="height:4px;">
-      <div class="progress-bar {% if heat >= 75 %}bg-danger{% elif heat >= 40 %}bg-warningbg-secondary"
+      <div class="progress-bar {% if heat >= 75 %}bg-danger{% elif heat >= 40 %}bg-warning{% else %}bg-secondary{% endif %}"
            style="width:{{ heat }}%;border-radius:99px;transition:width 0.5s ease;"></div>
     </div>
   </div>
@@ -123,11 +119,11 @@
     {% if lead.next_action_type == 'urgent' %}🚨
     {% elif lead.next_action_type == 'today' %}⏰
     {% elif lead.next_action_type == 'cold' %}❄
-    📞
+    {% else %}📞{% endif %}
     {{ lead.next_action }}
   </div>
-  
-  
+  {% endif %}
+  {% endif %}
 </div>
 {% endmacro %}
 
@@ -144,9 +140,9 @@
     </div>
     {% if col_leads %}
       {% for lead in col_leads %}{{ wcard(lead, day) }}{% endfor %}
-    
+    {% else %}
       <div class="wl-empty-col"><i class="bi bi-inbox"></i><br>Empty</div>
-    
+    {% endif %}
   </div>
 </div>
 {% endmacro %}
@@ -168,7 +164,7 @@
         <select name="status" class="form-select form-select-sm" style="max-width:160px;border-color:rgba(0,0,0,0.1);">
           <option value="">All Statuses</option>
           {% for s in statuses %}
-            <option value="{{ s }}" {% if s == selected_status %}selected>{{ s }}</option>
+            <option value="{{ s }}" {% if s == selected_status %}selected{% endif %}>{{ s }}</option>
           {% endfor %}
         </select>
         <button type="submit" class="btn btn-primary btn-sm">
@@ -234,20 +230,20 @@
       <i class="bi bi-plus-lg me-1"></i>Quick Add
     </button>
   </div>
-  
+  {% else %}
 
   {# ── Inner Day tabs ─────────────────────────────────────── #}
   <ul class="nav nav-tabs mb-3" id="dayTabs" role="tablist">
     <li class="nav-item" role="presentation">
-      <button class="nav-link {% if day1_leads %}active fw-semibold" id="dtab-active"
+      <button class="nav-link {% if day1_leads %}active{% endif %} fw-semibold" id="dtab-active"
               data-bs-toggle="tab" data-bs-target="#dpane-active" type="button" role="tab"
-              {% if day1_leads %}>
+              {% if day1_leads %}{% endif %}>
         <i class="bi bi-activity me-1 text-primary"></i>Active
         <span class="badge bg-primary ms-1" style="font-size:.65rem;">{{ active_leads|length }}</span>
       </button>
     </li>
     <li class="nav-item" role="presentation">
-      <button class="nav-link {% if not day1_leads %} fw-semibold" id="dtab-d1"
+      <button class="nav-link {% if not day1_leads %}{% endif %} fw-semibold" id="dtab-d1"
               data-bs-toggle="tab" data-bs-target="#dpane-d1" type="button" role="tab">
         <i class="bi bi-1-circle-fill me-1" style="color:#0ea5e9;"></i>Day 1
         <span class="badge ms-1" style="background:#e0f2fe;color:#0369a1;font-size:.65rem;">{{ day1_leads|length }}</span>
@@ -279,12 +275,12 @@
         <div class="col-sm-6 col-lg-4">{{ wcard(lead, 0) }}</div>
         {% endfor %}
       </div>
-      
+      {% else %}
       <div class="text-center py-4 text-muted small">
         <i class="bi bi-check2-all" style="font-size:2rem;opacity:.3;"></i>
         <p class="mt-2 mb-0">No active leads — sab Day 1/2/3 mein hain!</p>
       </div>
-      
+      {% endif %}
     </div>
 
     {# ── Day 1 tab ───────────────────────────────────────── #}
@@ -308,13 +304,13 @@
         <div class="col-sm-6 col-lg-4">{{ wcard(lead, 1) }}</div>
         {% endfor %}
       </div>
-      
-      
+      {% endif %}
+      {% else %}
       <div class="text-center py-5 text-muted small">
         <i class="bi bi-1-circle" style="font-size:2.5rem;opacity:.3;"></i>
         <p class="mt-2 mb-0">Aaj koi lead Day 1 mein nahi</p>
       </div>
-      
+      {% endif %}
     </div>
 
     {# ── Day 2 tab ───────────────────────────────────────── #}
@@ -336,13 +332,13 @@
         <div class="col-sm-6 col-lg-4">{{ wcard(lead, 2) }}</div>
         {% endfor %}
       </div>
-      
-      
+      {% endif %}
+      {% else %}
       <div class="text-center py-5 text-muted small">
         <i class="bi bi-2-circle" style="font-size:2.5rem;opacity:.3;"></i>
         <p class="mt-2 mb-0">Aaj koi lead Day 2 mein nahi</p>
       </div>
-      
+      {% endif %}
     </div>
 
     {# ── Day 3 tab ───────────────────────────────────────── #}
@@ -364,17 +360,17 @@
         <div class="col-sm-6 col-lg-4">{{ wcard(lead, 3) }}</div>
         {% endfor %}
       </div>
-      
-      
+      {% endif %}
+      {% else %}
       <div class="text-center py-5 text-muted small">
         <i class="bi bi-3-circle" style="font-size:2.5rem;opacity:.3;"></i>
         <p class="mt-2 mb-0">Aaj koi lead Day 3 mein nahi</p>
       </div>
-      
+      {% endif %}
     </div>
 
   </div>{# /inner tab-content #}
-  {# /today_leads check #}
+  {% endif %}{# /today_leads check #}
 </div>{# /pane-working #}
 
 
@@ -388,7 +384,7 @@
     <i class="bi bi-clock-history" style="font-size:3rem;opacity:.3;"></i>
     <p class="mt-3 mb-0">Koi purani lead nahi</p>
   </div>
-  
+  {% else %}
 
   {# ── Mobile cards ─────────────────────────────────────── #}
   <div class="d-md-none">
@@ -412,7 +408,7 @@
               <div class="fw-semibold" style="font-size:0.875rem;">{{ lead.name or ('Lead #' ~ lead.id) }}</div>
               {% if lead.city %}
               <div class="text-muted" style="font-size:0.72rem;"><i class="bi bi-geo-alt-fill me-1"></i>{{ lead.city }}</div>
-              
+              {% endif %}
             </div>
           </div>
           <div class="d-flex flex-column align-items-end gap-1">
@@ -455,7 +451,7 @@
               <th>Name</th>
               <th>Phone</th>
               <th>Referred</th>
-              {% if session.get('role') == 'admin' %}<th>Assigned</th>
+              {% if session.get('role') == 'admin' %}<th>Assigned</th>{% endif %}
               <th>Status</th>
               <th class="text-center">D1</th>
               <th class="text-center">D2</th>
@@ -476,8 +472,8 @@
               <td class="text-muted label-sm">{{ lead.id }}</td>
               <td>
                 <div class="fw-semibold" style="font-size:0.875rem;letter-spacing:-0.01em;">{{ lead.name or ('Lead #' ~ lead.id) }}</div>
-                {% if lead.city %}<div class="text-muted" style="font-size:0.72rem;"><i class="bi bi-geo-alt-fill me-1"></i>{{ lead.city }}</div>
-                {% if lead.email %}<div class="text-muted" style="font-size:0.72rem;">{{ lead.email }}</div>
+                {% if lead.city %}<div class="text-muted" style="font-size:0.72rem;"><i class="bi bi-geo-alt-fill me-1"></i>{{ lead.city }}</div>{% endif %}
+                {% if lead.email %}<div class="text-muted" style="font-size:0.72rem;">{{ lead.email }}</div>{% endif %}
               </td>
               <td>
                 <div class="d-flex align-items-center gap-1">
@@ -509,36 +505,36 @@
                   <i class="bi bi-person-fill me-1"></i>{{ lead.assigned_to or '—' }}
                 </span>
               </td>
-              
+              {% endif %}
               <td>
                 <form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="d-inline">
                   <select name="status"
                           class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}"
                           data-lead-id="{{ lead.id }}" style="min-width:120px;font-size:0.78rem;">
                     {% for s in statuses %}
-                      <option value="{{ s }}" {% if s == lead.status %}selected>{{ s }}</option>
+                      <option value="{{ s }}" {% if s == lead.status %}selected{% endif %}>{{ s }}</option>
                     {% endfor %}
                   </select>
                 </form>
               </td>
               <td class="text-center">
                 {% if lead.day1_done %}<i class="bi bi-check-circle-fill text-success" style="font-size:1.1rem;"></i>
-                <i class="bi bi-circle text-muted" style="font-size:1.1rem;"></i>
+                {% else %}<i class="bi bi-circle text-muted" style="font-size:1.1rem;"></i>{% endif %}
               </td>
               <td class="text-center">
                 {% if lead.day2_done %}<i class="bi bi-check-circle-fill text-success" style="font-size:1.1rem;"></i>
-                <i class="bi bi-circle text-muted" style="font-size:1.1rem;"></i>
+                {% else %}<i class="bi bi-circle text-muted" style="font-size:1.1rem;"></i>{% endif %}
               </td>
               <td class="text-center">
                 {% if lead.interview_done %}<i class="bi bi-check-circle-fill text-success" style="font-size:1.1rem;"></i>
-                <i class="bi bi-circle text-muted" style="font-size:1.1rem;"></i>
+                {% else %}<i class="bi bi-circle text-muted" style="font-size:1.1rem;"></i>{% endif %}
               </td>
               <td class="text-center">
                 {% if lead.payment_done %}
                   <span class="badge bg-success" style="font-size:0.7rem;">Paid</span>
-                
+                {% else %}
                   <span class="badge" style="background:#fee2e2;color:#dc2626;font-size:0.7rem;">No</span>
-                
+                {% endif %}
               </td>
               <td class="text-muted" style="font-size:0.78rem;">{{ lead.created_at[:10] }}</td>
               <td>
@@ -552,7 +548,7 @@
                     <i class="bi bi-trash-fill"></i>
                   </button>
                 </form>
-                
+                {% endif %}
               </td>
             </tr>
             {% endfor %}
@@ -562,7 +558,7 @@
     </div>
   </div>
 
-  {# /hist_leads check #}
+  {% endif %}{# /hist_leads check #}
 </div>{# /pane-history #}
 
 </div>{# /outer tab-content #}
@@ -590,7 +586,7 @@
     <button type="button" class="btn btn-sm btn-danger fw-semibold" onclick="submitBulk('delete')">
       <i class="bi bi-trash-fill me-1"></i>Delete
     </button>
-    
+    {% endif %}
   </form>
   <button type="button" class="btn btn-sm ms-auto" onclick="clearBulk()"
           style="background:rgba(255,255,255,0.15);color:#fff;border:none;">
@@ -642,7 +638,7 @@
                 <label class="form-label fw-semibold small">Assign To (username)</label>
                 <input type="text" name="assigned_to" class="form-control" placeholder="Leave blank = yourself">
               </div>
-              
+              {% endif %}
               <button type="submit" class="btn btn-success w-100 fw-semibold mb-2">
                 <i class="bi bi-upload me-2"></i>Import CSV
               </button>
@@ -665,7 +661,7 @@
                 <label class="form-label fw-semibold small">Assign To (username)</label>
                 <input type="text" name="assigned_to" class="form-control" placeholder="Leave blank = yourself">
               </div>
-              
+              {% endif %}
               <button type="submit" class="btn btn-danger w-100 fw-semibold mb-2">
                 <i class="bi bi-upload me-2"></i>Import PDF
               </button>
@@ -730,7 +726,7 @@
                 {% endfor %}
               </select>
             </div>
-            
+            {% endif %}
           </div>
         </div>
         <div class="modal-footer border-0 pt-0">
@@ -867,106 +863,56 @@ function setBatch(leadId, day, batchVal) {
   .catch(() => showToast('Network error', 'danger'));
 }
 
-/* ── Call status — Custom dropdown (ALL Android/iOS) ─────── */
+/* ── Call status update — Android + iOS compatible ────────── */
 const _leadsPageCsrf = '{{ session.get("_csrf_token", "") }}';
 
-function toggleCSMenu(trigger) {
-  document.querySelectorAll('.cs-menu').forEach(function(m) {
-    if (m !== trigger.nextElementSibling) m.style.display = 'none';
-  });
-  var menu = trigger.nextElementSibling;
-  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
-}
-
-document.addEventListener('click', function(e) {
-  if (!e.target.closest || !e.target.closest('.cs-wrap')) {
-    document.querySelectorAll('.cs-menu').forEach(function(m) {
-      m.style.display = 'none';
+(function initCallStatusDropdowns() {
+  function attachListeners() {
+    document.querySelectorAll('.call-status-select').forEach(function(sel) {
+      sel.removeEventListener('change', onCallStatusChange);
+      sel.addEventListener('change', onCallStatusChange);
     });
   }
-});
-
-function selectCS(item, value) {
-  var wrap   = item.closest('.cs-wrap');
-  var leadId = wrap.dataset.leadId;
-  var oldVal = wrap.dataset.current || '';
-  var menu   = wrap.querySelector('.cs-menu');
-  var label  = wrap.querySelector('.cs-label');
-  var trigger = wrap.querySelector('.cs-trigger');
-
-  menu.style.display = 'none';
-  if (!value || value === oldVal) return;
-
-  label.textContent = value;
-  wrap.dataset.current = value;
-  wrap.querySelectorAll('.cs-item').forEach(function(i) {
-    i.classList.toggle('cs-active', i.textContent.trim() === value);
-  });
-
-  trigger.style.opacity = '0.6';
-  trigger.style.pointerEvents = 'none';
-
-  fetch('/leads/' + leadId + '/call-status', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': _leadsPageCsrf},
-    body: JSON.stringify({ call_status: value })
-  })
-  .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-  .then(function(d) {
-    trigger.style.opacity = '1';
-    trigger.style.pointerEvents = 'auto';
-    if (d.ok) {
-      showToast('Call status updated ✅', 'success');
-      if (d.stage_advanced) {
-        showToast('₹196 confirmed — lead moved to Day 1 🎯', 'info');
-        setTimeout(function() { location.reload(); }, 1500);
+  function onCallStatusChange(e) {
+    var sel = e.target;
+    var leadId = sel.dataset.leadId;
+    var newVal = sel.value;
+    var oldVal = sel.dataset.current || '';
+    if (!newVal || newVal === oldVal) return;
+    sel.disabled = true;
+    fetch('/leads/' + leadId + '/call-status', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRF-Token': _leadsPageCsrf},
+      body: JSON.stringify({ call_status: newVal })
+    })
+    .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(d) {
+      sel.disabled = false;
+      if (d.ok) {
+        sel.dataset.current = newVal;
+        showToast('Call status updated ✅', 'success');
+        if (d.stage_advanced) {
+          showToast('₹196 confirmed — lead moved to Day 1 🎯', 'info');
+          setTimeout(function() { location.reload(); }, 1500);
+        }
+      } else {
+        sel.value = oldVal;
+        showToast(d.error || 'Could not update', 'danger');
       }
-    } else {
-      label.textContent = oldVal || '— Call Status —';
-      wrap.dataset.current = oldVal;
-      showToast(d.error || 'Could not update', 'danger');
-    }
-  })
-  .catch(function() {
-    trigger.style.opacity = '1';
-    trigger.style.pointerEvents = 'auto';
-    label.textContent = oldVal || '— Call Status —';
-    wrap.dataset.current = oldVal;
-    showToast('Network error — try again', 'danger');
-  });
-}
+    })
+    .catch(function(err) {
+      sel.disabled = false;
+      sel.value = oldVal;
+      showToast('Network error — try again', 'danger');
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachListeners);
+  } else { attachListeners(); }
+})();
 </script>
 
 <style>
-/* ── Custom Call Status Dropdown ──────────────────────────── */
-.cs-wrap { position: relative; margin-top: 4px; }
-.cs-trigger {
-  display: flex; align-items: center; gap: 4px;
-  background: #f3f4f6; border: 1.5px solid #d1d5db;
-  border-radius: 8px; padding: 5px 10px;
-  font-size: 0.72rem; cursor: pointer;
-  user-select: none; -webkit-user-select: none;
-  color: #374151; font-weight: 500;
-}
-.cs-trigger:active { background: #e5e7eb; }
-.cs-menu {
-  position: absolute; left: 0; right: 0; top: 100%;
-  background: #fff; border: 1.5px solid #d1d5db;
-  border-radius: 10px; z-index: 999;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-  overflow: hidden; margin-top: 2px;
-}
-.cs-item {
-  padding: 10px 14px; font-size: 0.8rem;
-  color: #374151; cursor: pointer;
-  border-bottom: 1px solid #f3f4f6;
-}
-.cs-item:last-child { border-bottom: none; }
-.cs-item:active { background: #eef2ff; }
-.cs-item.cs-active {
-  background: #eef2ff; color: #4f46e5; font-weight: 600;
-}
-
 /* ══ Working section card styles ══════════════════════════ */
 .wl-card {
   background: #fff;
