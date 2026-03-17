@@ -126,6 +126,11 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 # Only send session cookie over HTTPS in production (when SECRET_KEY env var is set)
 app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('SECRET_KEY'))
 
+# Persistent upload root: set UPLOAD_ROOT to a persistent path (e.g. /data on Render) so
+# PDF/audio uploads survive restarts; default is project directory (ephemeral on Render).
+def _upload_root():
+    return os.environ.get('UPLOAD_ROOT') or os.path.abspath(os.path.dirname(__file__))
+
 STATUSES = ['New Lead', 'New', 'Contacted', 'Invited', 'Video Sent', 'Video Watched',
             'Paid ₹196', 'Mindset Lock',
             'Day 1', 'Day 2', 'Interview',
@@ -6330,8 +6335,8 @@ def training_upload_certificate():
         flash('File too large. Maximum size is 5 MB.', 'danger')
         return redirect(url_for('training_home'))
 
-    # Save file
-    upload_dir = os.path.join(os.path.dirname(__file__), 'uploads', 'training_certs')
+    # Save file to persistent upload root (not /tmp)
+    upload_dir = os.path.join(_upload_root(), 'uploads', 'training_certs')
     os.makedirs(upload_dir, exist_ok=True)
     filename = f"{session['username']}_cert.{ext}"
     f.save(os.path.join(upload_dir, filename))
@@ -6397,7 +6402,7 @@ def admin_training():
 @login_required
 def training_media(filename):
     """Serve uploaded training podcast audio / PDF files."""
-    media_dir = os.path.join(os.path.dirname(__file__), 'uploads', 'training')
+    media_dir = os.path.join(_upload_root(), 'uploads', 'training')
     return send_from_directory(media_dir, filename)
 
 
@@ -6422,7 +6427,7 @@ def admin_training_save_video():
     if ext_podcast_url:
         podcast_url = ext_podcast_url
 
-    media_dir = os.path.join(os.path.dirname(__file__), 'uploads', 'training')
+    media_dir = os.path.join(_upload_root(), 'uploads', 'training')
     audio_dir = os.path.join(media_dir, 'audio')
     pdf_dir   = os.path.join(media_dir, 'pdf')
     os.makedirs(audio_dir, exist_ok=True)
@@ -6694,7 +6699,7 @@ def admin_training_upload_signature():
         flash('Sirf PNG ya JPG accept hai.', 'danger')
         return redirect(url_for('admin_training') + '#sigTab')
 
-    upload_dir = os.path.join(os.path.dirname(__file__), 'uploads', 'admin')
+    upload_dir = os.path.join(_upload_root(), 'uploads', 'admin')
     os.makedirs(upload_dir, exist_ok=True)
     filename = f'admin_signature.{ext}'
     f.save(os.path.join(upload_dir, filename))
@@ -6713,7 +6718,7 @@ def training_signature_preview():
     db = get_db()
     sig_file = _get_setting(db, 'admin_signature_file', '')
     db.close()
-    upload_dir = os.path.join(os.path.dirname(__file__), 'uploads', 'admin')
+    upload_dir = os.path.join(_upload_root(), 'uploads', 'admin')
     if sig_file and os.path.exists(os.path.join(upload_dir, sig_file)):
         return send_from_directory(upload_dir, sig_file)
     # Fallback to static default signature
