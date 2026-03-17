@@ -106,6 +106,67 @@ app.logger.handlers.clear()
 app.logger.addHandler(_stream_handler)
 app.logger.setLevel(_log_level)
 
+# #region agent log
+def _agent_log(hypothesis_id, location, message, data=None, run_id="pre-fix"):
+    """Send NDJSON debug line for session 31fa06. Avoid secrets/PII."""
+    try:
+        import json as _json
+        import time as _time
+        import urllib.request as _urlreq
+        payload = {
+            "sessionId": "31fa06",
+            "runId": run_id,
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "message": message,
+            "data": data or {},
+            "timestamp": int(_time.time() * 1000),
+        }
+        # 1) Best-effort local ingest (works when app runs on same machine as debug server)
+        try:
+            _req = _urlreq.Request(
+                "http://127.0.0.1:7580/ingest/8c20c5c3-d4fe-4238-8ce5-4d4b6328e630",
+                data=_json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+                headers={"Content-Type": "application/json", "X-Debug-Session-Id": "31fa06"},
+                method="POST",
+            )
+            _urlreq.urlopen(_req, timeout=0.25)
+        except Exception:
+            pass
+
+        # 2) Always write a local file too (works on remote servers/VPS/Render)
+        try:
+            _line = _json.dumps(payload, ensure_ascii=False) + "\n"
+            # Prefer /tmp when available
+            for _p in (
+                "/tmp/debug-31fa06.log",
+                os.path.join(os.path.dirname(__file__), ".cursor", "debug-31fa06.log"),
+                os.path.join(os.path.dirname(__file__), "debug-31fa06.log"),
+            ):
+                try:
+                    _d = os.path.dirname(_p)
+                    if _d:
+                        os.makedirs(_d, exist_ok=True)
+                    with open(_p, "a", encoding="utf-8") as _f:
+                        _f.write(_line)
+                    break
+                except Exception:
+                    continue
+        except Exception:
+            pass
+    except Exception:
+        pass
+# #endregion
+
+# #region agent log
+_agent_log(
+    "BOOT",
+    "app.py:import",
+    "agent_log.boot",
+    {"pid": os.getpid()},
+)
+# #endregion
+
 # ── Secret key & cookie security ─────────────────────────────
 _env_secret = os.environ.get('SECRET_KEY')
 if _env_secret:
@@ -1350,6 +1411,23 @@ def _transition_stage(db, lead_id, new_stage, triggered_by):
     new_status = _stage_to_status.get(new_stage)
     now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
 
+    # #region agent log
+    _agent_log(
+        "T",
+        "app.py:_transition_stage",
+        "transition.apply",
+        {
+            "lead_id": int(lead_id),
+            "from_stage": current_stage,
+            "to_stage": new_stage,
+            "from_owner": current_owner,
+            "to_owner": new_owner,
+            "computed_status": new_status,
+            "triggered_by": triggered_by,
+        },
+    )
+    # #endregion
+
     if new_status is not None:
         db.execute(
             "UPDATE leads SET pipeline_stage=?, current_owner=?, status=?, updated_at=? WHERE id=?",
@@ -1370,6 +1448,14 @@ def _transition_stage(db, lead_id, new_stage, triggered_by):
         _trigger_training_unlock(db, lead)
 
     db.commit()
+    # #region agent log
+    _agent_log(
+        "T",
+        "app.py:_transition_stage",
+        "transition.committed",
+        {"lead_id": int(lead_id), "to_stage": new_stage, "to_owner": new_owner, "computed_status": new_status},
+    )
+    # #endregion
     return new_stage, new_owner
 
 
@@ -2574,32 +2660,92 @@ def edit_lead(lead_id):
         new_pipeline_stage = STATUS_TO_STAGE.get(status, 'enrollment')
         lead_pipeline_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'enrollment'
 
-        db.execute("""
-            UPDATE leads
-            SET name=?, phone=?, email=?, referred_by=?, assigned_to=?, status=?,
-                payment_done=?, payment_amount=?,
-                day1_done=?, day2_done=?, interview_done=?,
-                follow_up_date=?, call_result=?, notes=?, city=?,
-                track_selected=?, track_price=?, seat_hold_amount=?, pending_amount=?,
-                pipeline_stage=?,
-                updated_at=?
-            WHERE id=?
-        """, (name, phone, email, referred_by, assigned_to, status,
-              payment_done, payment_amount,
-              day1_done, day2_done, interview_done,
-              follow_up_date, call_result, notes, city,
-              track_selected_val, track_price_val, seat_hold_amount_val, pending_amount_val,
-              new_pipeline_stage,
-              _now_ist().strftime('%Y-%m-%d %H:%M:%S'),
-              lead_id))
-        db.commit()
+        # #region agent log
+        _agent_log(
+            "E",
+            "app.py:edit_lead",
+            "edit_lead.stage_calc",
+            {
+                "lead_id": int(lead_id),
+                "status": status,
+                "old_stage": lead_pipeline_stage,
+                "new_stage": new_pipeline_stage,
+                "old_owner": lead['current_owner'] if 'current_owner' in lead.keys() else None,
+            },
+        )
+        # #endregion
+
+        _updated_at = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
+        if new_pipeline_stage != lead_pipeline_stage:
+            # Avoid double-writing pipeline_stage/current_owner. Let _transition_stage own it.
+            db.execute("""
+                UPDATE leads
+                SET name=?, phone=?, email=?, referred_by=?, assigned_to=?, status=?,
+                    payment_done=?, payment_amount=?,
+                    day1_done=?, day2_done=?, interview_done=?,
+                    follow_up_date=?, call_result=?, notes=?, city=?,
+                    track_selected=?, track_price=?, seat_hold_amount=?, pending_amount=?,
+                    updated_at=?
+                WHERE id=?
+            """, (name, phone, email, referred_by, assigned_to, status,
+                  payment_done, payment_amount,
+                  day1_done, day2_done, interview_done,
+                  follow_up_date, call_result, notes, city,
+                  track_selected_val, track_price_val, seat_hold_amount_val, pending_amount_val,
+                  _updated_at,
+                  lead_id))
+        else:
+            db.execute("""
+                UPDATE leads
+                SET name=?, phone=?, email=?, referred_by=?, assigned_to=?, status=?,
+                    payment_done=?, payment_amount=?,
+                    day1_done=?, day2_done=?, interview_done=?,
+                    follow_up_date=?, call_result=?, notes=?, city=?,
+                    track_selected=?, track_price=?, seat_hold_amount=?, pending_amount=?,
+                    pipeline_stage=?,
+                    updated_at=?
+                WHERE id=?
+            """, (name, phone, email, referred_by, assigned_to, status,
+                  payment_done, payment_amount,
+                  day1_done, day2_done, interview_done,
+                  follow_up_date, call_result, notes, city,
+                  track_selected_val, track_price_val, seat_hold_amount_val, pending_amount_val,
+                  new_pipeline_stage,
+                  _updated_at,
+                  lead_id))
+            db.commit()
 
         # If stage changed, use _transition_stage to set owner + log history
         if new_pipeline_stage != lead_pipeline_stage:
             try:
                 _transition_stage(db, lead_id, new_pipeline_stage, session['username'])
+                # Preserve the explicit status chosen in the edit form (some statuses
+                # like "Track Selected" don't match the stage default mapping).
+                db.execute("UPDATE leads SET status=?, updated_at=? WHERE id=?",
+                           (status, _updated_at, lead_id))
+                db.commit()
             except Exception:
                 pass
+            # #region agent log
+            try:
+                _post = db.execute(
+                    "SELECT pipeline_stage, current_owner, status FROM leads WHERE id=?",
+                    (lead_id,),
+                ).fetchone()
+                _agent_log(
+                    "E",
+                    "app.py:edit_lead",
+                    "edit_lead.post_transition",
+                    {
+                        "lead_id": int(lead_id),
+                        "stage": _post["pipeline_stage"] if _post else None,
+                        "owner": _post["current_owner"] if _post else None,
+                        "status": _post["status"] if _post else None,
+                    },
+                )
+            except Exception:
+                pass
+            # #endregion
 
         try:
             _log_activity(db, session['username'], 'lead_update',
@@ -6978,11 +7124,22 @@ def working():
             ORDER BY updated_at DESC
         """, (username,)).fetchall()
 
-    day2_leads = db.execute("""
-        SELECT * FROM leads
-        WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 2'
-        ORDER BY updated_at DESC
-    """, (username,)).fetchall()
+    # Leaders see Day 2 leads for themselves + their downline (same as Day 1)
+    if role == 'leader':
+        _downline2 = _get_network_usernames(db, username)
+        _d2_users = [username] + list(_downline2)
+        _phs2 = ','.join('?' * len(_d2_users))
+        day2_leads = db.execute(f"""
+            SELECT * FROM leads
+            WHERE assigned_to IN ({_phs2}) AND in_pool=0 AND deleted_at='' AND status='Day 2'
+            ORDER BY updated_at DESC
+        """, _d2_users).fetchall()
+    else:
+        day2_leads = db.execute("""
+            SELECT * FROM leads
+            WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 2'
+            ORDER BY updated_at DESC
+        """, (username,)).fetchall()
 
     day3_leads = db.execute("""
         SELECT * FROM leads
@@ -7197,6 +7354,20 @@ def quick_advance(lead_id):
     new_status = None
     score_delta = 0
 
+    # #region agent log
+    _agent_log(
+        "Q",
+        "app.py:quick_advance",
+        "quick_advance.start",
+        {
+            "lead_id": int(lead_id),
+            "current_status": current,
+            "current_stage": row['pipeline_stage'] if 'pipeline_stage' in row.keys() else None,
+            "current_owner": row['current_owner'] if 'current_owner' in row.keys() else None,
+        },
+    )
+    # #endregion
+
     # Stage advancement map
     if current == 'Mindset Lock':
         new_status = 'Day 1'
@@ -7229,28 +7400,56 @@ def quick_advance(lead_id):
         "UPDATE leads SET status=?, updated_at=? WHERE id=?",
         (new_status, now_str, lead_id)
     )
-# status → stage mapping
-if new_status == 'Day 1':
-    new_stage = 'day1'
-elif new_status == 'Day 2':
-    new_stage = 'day2'
-elif new_status == 'Interview':
-    new_stage = 'day3'
-elif new_status == 'Seat Hold Confirmed':
-    new_stage = 'payment'
-elif new_status == 'Fully Converted':
-    new_stage = 'converted'
-else:
-    new_stage = None
+    # status → stage mapping
+    if new_status == 'Day 1':
+        new_stage = 'day1'
+    elif new_status == 'Day 2':
+        new_stage = 'day2'
+    elif new_status == 'Interview':
+        new_stage = 'day3'
+    elif new_status == 'Seat Hold Confirmed':
+        new_stage = 'seat_hold'
+    elif new_status == 'Fully Converted':
+        new_stage = 'closing'
+    else:
+        new_stage = None
 
-if new_stage:
-    _transition_stage(db, lead_id, new_stage, session['username'])
+    if new_stage:
+        # #region agent log
+        _agent_log(
+            "Q",
+            "app.py:quick_advance",
+            "quick_advance.transition_call",
+            {"lead_id": int(lead_id), "new_status": new_status, "new_stage": new_stage},
+        )
+        # #endregion
+        _transition_stage(db, lead_id, new_stage, session['username'])
 
-    # overwrite issue fix
-    db.execute(
-        "UPDATE leads SET status=? WHERE id=?",
-        (new_status, lead_id)
-    )
+        # overwrite issue fix
+        db.execute(
+            "UPDATE leads SET status=? WHERE id=?",
+            (new_status, lead_id)
+        )
+        # #region agent log
+        try:
+            _post = db.execute(
+                "SELECT status, pipeline_stage, current_owner FROM leads WHERE id=?",
+                (lead_id,),
+            ).fetchone()
+            _agent_log(
+                "Q",
+                "app.py:quick_advance",
+                "quick_advance.post_transition",
+                {
+                    "lead_id": int(lead_id),
+                    "status": _post["status"] if _post else None,
+                    "stage": _post["pipeline_stage"] if _post and "pipeline_stage" in _post.keys() else None,
+                    "owner": _post["current_owner"] if _post and "current_owner" in _post.keys() else None,
+                },
+            )
+        except Exception:
+            pass
+        # #endregion
     _log_lead_event(db, lead_id, session['username'], f'Status → {new_status} (quick advance)')
     _log_activity(db, session['username'], 'quick_advance',
                   f'{row["name"]} → {new_status}')
@@ -7323,9 +7522,49 @@ def stage_advance(lead_id):
 
     if action == 'interview_done':
         now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
+        # #region agent log
+        _agent_log(
+            "S",
+            "app.py:stage_advance",
+            "stage_advance.interview_done.pre_commit",
+            {"lead_id": int(lead_id), "action": action},
+        )
+        # #endregion
         db.execute("UPDATE leads SET interview_done=1, status='Track Selected', updated_at=? WHERE id=?",
                    (now_str, lead_id))
+        # For interview_done, we intentionally DO NOT call _transition_stage:
+        # - avoids double-commit
+        # - prevents overwriting status back to 'Interview' for stage 'day3'
+        new_stage_result = lead['pipeline_stage'] if 'pipeline_stage' in lead_keys else 'day3'
+        new_owner = lead['current_owner'] if 'current_owner' in lead_keys else ''
         db.commit()
+        # #region agent log
+        _agent_log(
+            "S",
+            "app.py:stage_advance",
+            "stage_advance.interview_done.committed",
+            {"lead_id": int(lead_id), "action": action, "stage": new_stage_result},
+        )
+        # #endregion
+        _log_activity(db, username, 'stage_advance', f'Lead #{lead_id} {action} to {new_stage_result}')
+        db.close()
+        stage_labels = {
+            'enrollment': 'Enrollment',
+            'day1': 'Day 1',
+            'day2': 'Day 2',
+            'day3': 'Day 3 / Interview',
+            'seat_hold': 'Seat Hold',
+            'closing': 'Closing / Fully Converted',
+            'training': 'Training',
+            'complete': 'Converted',
+            'lost': 'Lost',
+        }
+        return {
+            'ok': True,
+            'new_stage': new_stage_result,
+            'new_owner': new_owner,
+            'message': f'Stage updated to {stage_labels.get(new_stage_result, new_stage_result)}',
+        }
 
     new_stage_result, new_owner = _transition_stage(db, lead_id, new_stage, username)
     _log_activity(db, username, 'stage_advance', f'Lead #{lead_id} {action} to {new_stage_result}')
@@ -7402,9 +7641,30 @@ def update_call_status(lead_id):
     # Requires payment_done=1 to be recorded first to prevent bypass
     stage_advanced = False
     if call_status == 'Payment Done':
+        # #region agent log
+        _agent_log(
+            "P",
+            "app.py:update_call_status",
+            "call_status.payment_done.check",
+            {
+                "lead_id": int(lead_id),
+                "lead_payment_done": int(lead['payment_done']) if 'payment_done' in lead.keys() else None,
+                "lead_stage": lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else None,
+            },
+        )
+        # #endregion
+        # If user marks "Payment Done" from call status, record it here.
+        # This removes the extra manual step and keeps the flow consistent.
         if not lead['payment_done']:
-            db.close()
-            return {'ok': False, 'error': 'Pehle payment record karo (Payment Done = 1) phir yeh status set karo.'}, 400
+            try:
+                db.execute(
+                    "UPDATE leads SET payment_done=1, payment_amount=?, updated_at=? WHERE id=?",
+                    (PAYMENT_AMOUNT, now_str, lead_id),
+                )
+                lead = dict(lead)
+                lead['payment_done'] = 1
+            except Exception:
+                pass
         lead_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'enrollment'
         if lead_stage == 'enrollment':
             _transition_stage(db, lead_id, 'day1', username)
