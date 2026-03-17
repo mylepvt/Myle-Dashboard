@@ -7229,6 +7229,28 @@ def quick_advance(lead_id):
         "UPDATE leads SET status=?, updated_at=? WHERE id=?",
         (new_status, now_str, lead_id)
     )
+# status → stage mapping
+if new_status == 'Day 1':
+    new_stage = 'day1'
+elif new_status == 'Day 2':
+    new_stage = 'day2'
+elif new_status == 'Interview':
+    new_stage = 'day3'
+elif new_status == 'Seat Hold Confirmed':
+    new_stage = 'payment'
+elif new_status == 'Fully Converted':
+    new_stage = 'converted'
+else:
+    new_stage = None
+
+if new_stage:
+    _transition_stage(db, lead_id, new_stage, session['username'])
+
+    # overwrite issue fix
+    db.execute(
+        "UPDATE leads SET status=? WHERE id=?",
+        (new_status, lead_id)
+    )
     _log_lead_event(db, lead_id, session['username'], f'Status → {new_status} (quick advance)')
     _log_activity(db, session['username'], 'quick_advance',
                   f'{row["name"]} → {new_status}')
