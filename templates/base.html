@@ -601,6 +601,10 @@
         showToast('Status → ' + status, 'success');
         if (data.stage_changed) {
           showToast('Stage advanced → ' + data.new_stage + ' 🎯', 'info');
+        }
+        if (window.location.pathname.indexOf('/leads') !== -1) {
+          setTimeout(() => location.reload(), 800);
+        } else if (data.stage_changed) {
           setTimeout(() => location.reload(), 1400);
         }
         if (data.new_badges && data.new_badges.length) {

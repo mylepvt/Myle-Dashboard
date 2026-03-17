@@ -1591,11 +1591,11 @@ def register():
         t_status    = 'pending' if is_new else 'not_required'
 
         db.execute(
-            "INSERT INTO users (username, password, role, fbo_id, upline_name, phone, email, status, "
+            "INSERT INTO users (username, password, role, fbo_id, upline_name, upline_username, phone, email, status, "
             "training_required, training_status, joining_date) "
-            "VALUES (?, ?, 'team', ?, ?, ?, ?, 'pending', ?, ?, ?)",
+            "VALUES (?, ?, 'team', ?, ?, ?, ?, ?, 'pending', ?, ?, ?)",
             (username, generate_password_hash(password, method='pbkdf2:sha256'),
-             fbo_id, upline_name, phone, email,
+             fbo_id, upline_name, upline_name, phone, email,
              is_new, t_status, joining_dt)
         )
         db.commit()
@@ -2331,6 +2331,12 @@ def _leads_inner():
     active_leads = [l for l in today_leads
                     if l.get('status') not in ('Day 1', 'Day 2', 'Interview')]
 
+    # Split hist_leads by status so after status change lead appears in current stage
+    hist_active_leads = [l for l in hist_leads if l.get('status') not in ('Day 1', 'Day 2', 'Interview')]
+    hist_day1_leads   = [l for l in hist_leads if l.get('status') == 'Day 1']
+    hist_day2_leads   = [l for l in hist_leads if l.get('status') == 'Day 2']
+    hist_day3_leads   = [l for l in hist_leads if l.get('status') == 'Interview']
+
     return render_template('leads.html',
                            # legacy key kept for any other templates that reference it
                            leads=hist_leads,
@@ -2340,6 +2346,10 @@ def _leads_inner():
                            day2_leads=day2_leads,
                            day3_leads=day3_leads,
                            active_leads=active_leads,
+                           hist_active_leads=hist_active_leads,
+                           hist_day1_leads=hist_day1_leads,
+                           hist_day2_leads=hist_day2_leads,
+                           hist_day3_leads=hist_day3_leads,
                            statuses=STATUSES,
                            call_result_tags=CALL_RESULT_TAGS,
                            call_status_values=CALL_STATUS_VALUES,

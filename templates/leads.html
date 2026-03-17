@@ -375,7 +375,7 @@
 
 
 <!-- ══════════════════════════════════════════════════════════
-     HISTORY PANE
+     HISTORY PANE (grouped by current stage so status change moves lead here)
      ══════════════════════════════════════════════════════════ -->
 <div class="tab-pane fade" id="pane-history" role="tabpanel">
 
@@ -386,7 +386,40 @@
   </div>
   {% else %}
 
-  {# ── Mobile cards ─────────────────────────────────────── #}
+  {# ── History inner tabs: Active | Day 1 | Day 2 | Day 3 ─── #}
+  <ul class="nav nav-tabs mb-3" id="histDayTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link {% if hist_active_leads %}active{% endif %} fw-semibold" id="htab-active"
+              data-bs-toggle="tab" data-bs-target="#hpane-active" type="button" role="tab">
+        <i class="bi bi-activity me-1 text-primary"></i>Active
+        <span class="badge bg-primary ms-1" style="font-size:.65rem;">{{ hist_active_leads|length }}</span>
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link {% if not hist_active_leads and hist_day1_leads %}active{% endif %} fw-semibold"
+              id="htab-d1" data-bs-toggle="tab" data-bs-target="#hpane-d1" type="button" role="tab">
+        <i class="bi bi-1-circle-fill me-1" style="color:#0ea5e9;"></i>Day 1
+        <span class="badge ms-1" style="background:#e0f2fe;color:#0369a1;font-size:.65rem;">{{ hist_day1_leads|length }}</span>
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link {% if not hist_active_leads and not hist_day1_leads and hist_day2_leads %}active{% endif %} fw-semibold" id="htab-d2" data-bs-toggle="tab" data-bs-target="#hpane-d2" type="button" role="tab">
+        <i class="bi bi-2-circle-fill me-1" style="color:#8b5cf6;"></i>Day 2
+        <span class="badge ms-1" style="background:#ede9fe;color:#6d28d9;font-size:.65rem;">{{ hist_day2_leads|length }}</span>
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link {% if not hist_active_leads and not hist_day1_leads and not hist_day2_leads and hist_day3_leads %}active{% endif %} fw-semibold" id="htab-d3" data-bs-toggle="tab" data-bs-target="#hpane-d3" type="button" role="tab">
+        <i class="bi bi-3-circle-fill me-1" style="color:#f59e0b;"></i>Day 3
+        <span class="badge ms-1" style="background:#fef3c7;color:#92400e;font-size:.65rem;">{{ hist_day3_leads|length }}</span>
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content" id="histTabContent">
+
+  {# ── History Active ───────────────────────────────────── #}
+  <div class="tab-pane fade {% if hist_active_leads %}show active{% endif %}" id="hpane-active" role="tabpanel">
   <div class="d-md-none">
     <div class="d-flex align-items-center gap-2 mb-2 px-1">
       <div class="form-check mb-0">
@@ -395,7 +428,7 @@
         <label class="form-check-label small text-muted fw-semibold" for="selectAllMobile">Select all</label>
       </div>
     </div>
-    {% for lead in hist_leads %}
+    {% for lead in hist_active_leads %}
     <div class="card border-0 shadow-sm mb-2 lead-mobile-card" style="border-left:3px solid #6366f1 !important;">
       <div class="card-body p-3 pb-2">
         <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
@@ -462,7 +495,7 @@
             </tr>
           </thead>
           <tbody>
-            {% for lead in hist_leads %}
+            {% for lead in hist_active_leads %}
             <tr>
               <td style="padding-left:16px;">
                 <input class="form-check-input lead-check lead-check-desktop" type="checkbox"
@@ -557,6 +590,90 @@
       </div>
     </div>
   </div>
+  </div>{# /hpane-active #}
+
+  {# ── History Day 1 ───────────────────────────────────── #}
+  <div class="tab-pane fade {% if not hist_active_leads and hist_day1_leads %}show active{% endif %}" id="hpane-d1" role="tabpanel">
+  <div class="d-md-none">
+    {% for lead in hist_day1_leads %}
+    <div class="card border-0 shadow-sm mb-2 lead-mobile-card" style="border-left:3px solid #0ea5e9 !important;">
+      <div class="card-body p-3 pb-2">
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+          <div class="d-flex align-items-start gap-2">
+            <div class="form-check mt-1 mb-0">
+              <input class="form-check-input lead-check lead-check-mobile" type="checkbox" value="{{ lead.id }}" style="accent-color:#6366f1;">
+            </div>
+            <div>
+              <div class="fw-semibold" style="font-size:0.875rem;">{{ lead.name or ('Lead #' ~ lead.id) }}</div>
+              {% if lead.city %}<div class="text-muted" style="font-size:0.72rem;"><i class="bi bi-geo-alt-fill me-1"></i>{{ lead.city }}</div>{% endif %}
+            </div>
+          </div>
+          <span class="badge rounded-pill status-{{ lead.status|replace(' ','') }}" style="font-size:0.7rem;">{{ lead.status }}</span>
+        </div>
+        <div class="d-flex align-items-center gap-2 mt-2">
+          <a href="tel:{{ lead.phone }}" class="btn btn-success btn-sm px-2 py-1" style="font-size:0.78rem;"><i class="bi bi-telephone-fill"></i></a>
+          <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener" class="btn btn-sm px-2 py-1" style="background:#25D366;color:#fff;font-size:0.78rem;"><i class="bi bi-whatsapp"></i></a>
+          <a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-sm btn-outline-primary ms-auto px-2 py-1" style="font-size:0.78rem;"><i class="bi bi-pencil-fill"></i></a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="card border-0 shadow-sm d-none d-md-block">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead><tr><th style="width:36px;padding-left:16px;"><input class="form-check-input lead-check" type="checkbox" style="accent-color:#6366f1;"></th><th class="text-muted">#</th><th>Name</th><th>Phone</th><th>Referred</th>{% if session.get('role') == 'admin' %}<th>Assigned</th>{% endif %}<th>Status</th><th class="text-center">D1</th><th class="text-center">D2</th><th class="text-center">IV</th><th class="text-center">₹196</th><th>Added</th><th>Actions</th></tr></thead>
+          <tbody>
+            {% for lead in hist_day1_leads %}
+            <tr>
+              <td style="padding-left:16px;"><input class="form-check-input lead-check lead-check-desktop" type="checkbox" value="{{ lead.id }}" style="accent-color:#6366f1;"></td>
+              <td class="text-muted label-sm">{{ lead.id }}</td>
+              <td><div class="fw-semibold" style="font-size:0.875rem;">{{ lead.name or ('Lead #' ~ lead.id) }}</div>{% if lead.city %}<div class="text-muted" style="font-size:0.72rem;">{{ lead.city }}</div>{% endif %}</td>
+              <td><span class="small">{{ lead.phone }}</span> <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-success px-1 py-0"><i class="bi bi-telephone-fill"></i></a> <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener" class="btn btn-xs px-1 py-0" style="background:#25D366;color:#fff;"><i class="bi bi-whatsapp"></i></a></td>
+              <td class="text-muted small">{{ lead.referred_by or '—' }}</td>
+              {% if session.get('role') == 'admin' %}<td><span class="badge rounded-pill px-2 py-1" style="background:#eef2ff;color:#4f46e5;font-size:0.72rem;">{{ lead.assigned_to or '—' }}</span></td>{% endif %}
+              <td><form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="d-inline"><select name="status" class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}" data-lead-id="{{ lead.id }}" style="min-width:120px;font-size:0.78rem;">{% for s in statuses %}<option value="{{ s }}" {% if s == lead.status %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></form></td>
+              <td class="text-center">{% if lead.day1_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td>
+              <td class="text-center">{% if lead.day2_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td>
+              <td class="text-center">{% if lead.interview_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td>
+              <td class="text-center">{% if lead.payment_done %}<span class="badge bg-success" style="font-size:0.7rem;">Paid</span>{% else %}<span class="badge" style="background:#fee2e2;color:#dc2626;font-size:0.7rem;">No</span>{% endif %}</td>
+              <td class="text-muted" style="font-size:0.78rem;">{{ lead.created_at[:10] }}</td>
+              <td><a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-xs btn-outline-primary me-1"><i class="bi bi-pencil-fill"></i></a>{% if session.get('role') == 'admin' %}<form method="post" action="{{ url_for('delete_lead', lead_id=lead.id) }}" class="d-inline" onsubmit="return confirm('Delete {{ lead.name }}?')"><button type="submit" class="btn btn-xs btn-outline-danger" data-noloading><i class="bi bi-trash-fill"></i></button></form>{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  </div>{# /hpane-d1 #}
+
+  {# ── History Day 2 ───────────────────────────────────── #}
+  <div class="tab-pane fade {% if not hist_active_leads and not hist_day1_leads and hist_day2_leads %}show active{% endif %}" id="hpane-d2" role="tabpanel">
+  <div class="d-md-none">{% for lead in hist_day2_leads %}
+    <div class="card border-0 shadow-sm mb-2 lead-mobile-card" style="border-left:3px solid #8b5cf6 !important;"><div class="card-body p-3 pb-2"><div class="d-flex justify-content-between align-items-start gap-2 mb-1"><div class="fw-semibold" style="font-size:0.875rem;">{{ lead.name or ('Lead #' ~ lead.id) }}</div><span class="badge rounded-pill status-{{ lead.status|replace(' ','') }}" style="font-size:0.7rem;">{{ lead.status }}</span></div><div class="d-flex align-items-center gap-2 mt-2"><a href="tel:{{ lead.phone }}" class="btn btn-success btn-sm px-2 py-1"><i class="bi bi-telephone-fill"></i></a><a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener" class="btn btn-sm px-2 py-1" style="background:#25D366;color:#fff;"><i class="bi bi-whatsapp"></i></a><a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-sm btn-outline-primary ms-auto"><i class="bi bi-pencil-fill"></i></a></div></div></div>
+    {% endfor %}</div>
+  <div class="card border-0 shadow-sm d-none d-md-block"><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th style="width:36px;padding-left:16px;"><input class="form-check-input lead-check" type="checkbox" style="accent-color:#6366f1;"></th><th class="text-muted">#</th><th>Name</th><th>Phone</th><th>Referred</th>{% if session.get('role') == 'admin' %}<th>Assigned</th>{% endif %}<th>Status</th><th class="text-center">D1</th><th class="text-center">D2</th><th class="text-center">IV</th><th class="text-center">₹196</th><th>Added</th><th>Actions</th></tr></thead><tbody>
+    {% for lead in hist_day2_leads %}
+    <tr><td style="padding-left:16px;"><input class="form-check-input lead-check lead-check-desktop" type="checkbox" value="{{ lead.id }}" style="accent-color:#6366f1;"></td><td class="text-muted label-sm">{{ lead.id }}</td><td><div class="fw-semibold" style="font-size:0.875rem;">{{ lead.name or ('Lead #' ~ lead.id) }}</div></td><td><span class="small">{{ lead.phone }}</span> <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-success px-1 py-0"><i class="bi bi-telephone-fill"></i></a> <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener" class="btn btn-xs px-1 py-0" style="background:#25D366;color:#fff;"><i class="bi bi-whatsapp"></i></a></td><td class="text-muted small">{{ lead.referred_by or '—' }}</td>{% if session.get('role') == 'admin' %}<td><span class="badge rounded-pill px-2 py-1" style="background:#eef2ff;color:#4f46e5;font-size:0.72rem;">{{ lead.assigned_to or '—' }}</span></td>{% endif %}<td><form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="d-inline"><select name="status" class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}" data-lead-id="{{ lead.id }}" style="min-width:120px;font-size:0.78rem;">{% for s in statuses %}<option value="{{ s }}" {% if s == lead.status %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></form></td><td class="text-center">{% if lead.day1_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.day2_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.interview_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.payment_done %}<span class="badge bg-success" style="font-size:0.7rem;">Paid</span>{% else %}<span class="badge" style="background:#fee2e2;color:#dc2626;font-size:0.7rem;">No</span>{% endif %}</td><td class="text-muted" style="font-size:0.78rem;">{{ lead.created_at[:10] }}</td><td><a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-xs btn-outline-primary me-1"><i class="bi bi-pencil-fill"></i></a>{% if session.get('role') == 'admin' %}<form method="post" action="{{ url_for('delete_lead', lead_id=lead.id) }}" class="d-inline" onsubmit="return confirm('Delete?')"><button type="submit" class="btn btn-xs btn-outline-danger" data-noloading><i class="bi bi-trash-fill"></i></button></form>{% endif %}</td></tr>
+    {% endfor %}
+  </tbody></table></div></div></div>
+  </div>{# /hpane-d2 #}
+
+  {# ── History Day 3 ───────────────────────────────────── #}
+  <div class="tab-pane fade {% if not hist_active_leads and not hist_day1_leads and not hist_day2_leads %}show active{% endif %}" id="hpane-d3" role="tabpanel">
+  <div class="d-md-none">{% for lead in hist_day3_leads %}
+    <div class="card border-0 shadow-sm mb-2 lead-mobile-card" style="border-left:3px solid #f59e0b !important;"><div class="card-body p-3 pb-2"><div class="d-flex justify-content-between align-items-start gap-2 mb-1"><div class="fw-semibold" style="font-size:0.875rem;">{{ lead.name or ('Lead #' ~ lead.id) }}</div><span class="badge rounded-pill status-{{ lead.status|replace(' ','') }}" style="font-size:0.7rem;">{{ lead.status }}</span></div><div class="d-flex align-items-center gap-2 mt-2"><a href="tel:{{ lead.phone }}" class="btn btn-success btn-sm px-2 py-1"><i class="bi bi-telephone-fill"></i></a><a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener" class="btn btn-sm px-2 py-1" style="background:#25D366;color:#fff;"><i class="bi bi-whatsapp"></i></a><a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-sm btn-outline-primary ms-auto"><i class="bi bi-pencil-fill"></i></a></div></div></div>
+    {% endfor %}</div>
+  <div class="card border-0 shadow-sm d-none d-md-block"><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th style="width:36px;padding-left:16px;"><input class="form-check-input lead-check" type="checkbox" style="accent-color:#6366f1;"></th><th class="text-muted">#</th><th>Name</th><th>Phone</th><th>Referred</th>{% if session.get('role') == 'admin' %}<th>Assigned</th>{% endif %}<th>Status</th><th class="text-center">D1</th><th class="text-center">D2</th><th class="text-center">IV</th><th class="text-center">₹196</th><th>Added</th><th>Actions</th></tr></thead><tbody>
+    {% for lead in hist_day3_leads %}
+    <tr><td style="padding-left:16px;"><input class="form-check-input lead-check lead-check-desktop" type="checkbox" value="{{ lead.id }}" style="accent-color:#6366f1;"></td><td class="text-muted label-sm">{{ lead.id }}</td><td><div class="fw-semibold" style="font-size:0.875rem;">{{ lead.name or ('Lead #' ~ lead.id) }}</div></td><td><span class="small">{{ lead.phone }}</span> <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-success px-1 py-0"><i class="bi bi-telephone-fill"></i></a> <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener" class="btn btn-xs px-1 py-0" style="background:#25D366;color:#fff;"><i class="bi bi-whatsapp"></i></a></td><td class="text-muted small">{{ lead.referred_by or '—' }}</td>{% if session.get('role') == 'admin' %}<td><span class="badge rounded-pill px-2 py-1" style="background:#eef2ff;color:#4f46e5;font-size:0.72rem;">{{ lead.assigned_to or '—' }}</span></td>{% endif %}<td><form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="d-inline"><select name="status" class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}" data-lead-id="{{ lead.id }}" style="min-width:120px;font-size:0.78rem;">{% for s in statuses %}<option value="{{ s }}" {% if s == lead.status %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></form></td><td class="text-center">{% if lead.day1_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.day2_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.interview_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.payment_done %}<span class="badge bg-success" style="font-size:0.7rem;">Paid</span>{% else %}<span class="badge" style="background:#fee2e2;color:#dc2626;font-size:0.7rem;">No</span>{% endif %}</td><td class="text-muted" style="font-size:0.78rem;">{{ lead.created_at[:10] }}</td><td><a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-xs btn-outline-primary me-1"><i class="bi bi-pencil-fill"></i></a>{% if session.get('role') == 'admin' %}<form method="post" action="{{ url_for('delete_lead', lead_id=lead.id) }}" class="d-inline" onsubmit="return confirm('Delete?')"><button type="submit" class="btn btn-xs btn-outline-danger" data-noloading><i class="bi bi-trash-fill"></i></button></form>{% endif %}</td></tr>
+    {% endfor %}
+  </tbody></table></div></div></div>
+  </div>{# /hpane-d3 #}
+
+  </div>{# /histTabContent #}
 
   {% endif %}{# /hist_leads check #}
 </div>{# /pane-history #}
