@@ -2299,9 +2299,16 @@ def _leads_inner():
         f"NOT {today_cond}", [today, today]
     )
 
+    # Limit rows for fast page load; pagination can be added later via ?page=
+    _today_limit = 150
+    _hist_limit  = 300
     try:
-        today_leads_raw = db.execute(today_q + " ORDER BY created_at DESC", today_p).fetchall()
-        hist_leads_raw  = db.execute(hist_q  + " ORDER BY created_at DESC", hist_p).fetchall()
+        today_leads_raw = db.execute(
+            today_q + " ORDER BY created_at DESC LIMIT " + str(_today_limit), today_p
+        ).fetchall()
+        hist_leads_raw  = db.execute(
+            hist_q  + " ORDER BY created_at DESC LIMIT " + str(_hist_limit), hist_p
+        ).fetchall()
     except Exception as e:
         app.logger.error(f"leads() query failed: {e}")
         today_leads_raw, hist_leads_raw = [], []
@@ -7532,11 +7539,19 @@ def update_call_status(lead_id):
             _transition_stage(db, lead_id, 'day1', username)
             stage_advanced = True
 
-    new_badges = _check_and_award_badges(db, username)
     db.commit()
+    # Defer badge check so API returns immediately (no 3s wait for user)
+    def _defer_badges():
+        try:
+            _db = get_db()
+            _check_and_award_badges(_db, username)
+            _db.commit()
+            _db.close()
+        except Exception:
+            pass
+    threading.Thread(target=_defer_badges, daemon=True).start()
     db.close()
-    return {'ok': True, 'call_status': call_status, 'stage_advanced': stage_advanced,
-            'new_badges': [BADGE_META.get(b, ('','',''))[1] for b in new_badges]}
+    return {'ok': True, 'call_status': call_status, 'stage_advanced': stage_advanced}
 
 
 @app.route('/admin/members/<username>/promote-leader', methods=['POST'])

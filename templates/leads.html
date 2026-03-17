@@ -867,14 +867,9 @@ function setBatch(leadId, day, batchVal) {
 const _leadsPageCsrf = '{{ session.get("_csrf_token", "") }}';
 
 (function initCallStatusDropdowns() {
-  function attachListeners() {
-    document.querySelectorAll('.call-status-select').forEach(function(sel) {
-      sel.removeEventListener('change', onCallStatusChange);
-      sel.addEventListener('change', onCallStatusChange);
-    });
-  }
   function onCallStatusChange(e) {
     var sel = e.target;
+    if (!sel || !sel.classList || !sel.classList.contains('call-status-select')) return;
     var leadId = (sel.dataset.leadId || '').trim();
     var newVal = (sel.value || '').trim();
     var oldVal = (sel.dataset.current || '').trim();
@@ -906,9 +901,7 @@ const _leadsPageCsrf = '{{ session.get("_csrf_token", "") }}';
       showToast('Network error — try again', 'danger');
     });
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', attachListeners);
-  } else { attachListeners(); }
+  document.addEventListener('change', onCallStatusChange, true);
 })();
 </script>
 
