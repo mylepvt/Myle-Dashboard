@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Leads – Myle Community{% endif %}
-{% block page_title %}{% if session.get('role') == 'admin' %}All LeadsMy Leads{% endif %}
+{% block title %}Leads – Myle Community{% endblock %}
+{% block page_title %}{% if session.get('role') == 'admin' %}All LeadsMy Leads{% endblock %}
 
 {% block content %}
 
@@ -744,7 +744,7 @@
   </div>
 </div>
 
-{% endif %}
+{% endblock %}
 
 {% block scripts %}
 <script>
@@ -1062,4 +1062,4 @@ function selectCS(item, value) {
   background: linear-gradient(135deg,#4f46e5,#7c3aed); color: #fff;
 }
 </style>
-{% endif %}
+{% endblock %}
