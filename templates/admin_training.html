@@ -41,6 +41,15 @@
          Videos Tab
          ══════════════════════════════════════════════ -->
     <div class="tab-pane fade show active" id="videosTab">
+      {% if in_production and not upload_root_set %}
+      <div class="alert alert-warning d-flex align-items-start gap-2 mb-3" role="alert">
+        <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+        <div>
+          <strong>Audio/PDF uploads abhi persist nahi honge.</strong> Server restart ya redeploy ke baad files gayab ho jati hain.
+          <br>Isko fix karne ke liye Render par <strong>Persistent Disk</strong> add karo, use mount karo (e.g. <code>/data</code>), aur Environment Variable set karo: <code>UPLOAD_ROOT=/data</code>. Phir redeploy karo.
+        </div>
+      </div>
+      {% endif %}
       <div class="row g-3">
         {% for d in days %}
         {% set vid = videos.get(d) %}

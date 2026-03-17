@@ -131,6 +131,20 @@ app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('SECRET_KEY'))
 def _upload_root():
     return os.environ.get('UPLOAD_ROOT') or os.path.abspath(os.path.dirname(__file__))
 
+
+_upload_root_warned = False
+
+
+def _warn_upload_root_once():
+    global _upload_root_warned
+    if _upload_root_warned:
+        return
+    if os.environ.get('SECRET_KEY') and not os.environ.get('UPLOAD_ROOT'):
+        _upload_root_warned = True
+        import sys
+        print('[UPLOAD] Production par UPLOAD_ROOT set nahi hai — training PDF/audio restart ke baad gayab ho jayenge. '
+              'Render par Persistent Disk mount karo (e.g. /data) aur env UPLOAD_ROOT=/data set karo.', file=sys.stderr)
+
 STATUSES = ['New Lead', 'New', 'Contacted', 'Invited', 'Video Sent', 'Video Watched',
             'Paid ₹196', 'Mindset Lock',
             'Day 1', 'Day 2', 'Interview',
@@ -6378,6 +6392,7 @@ def training_upload_certificate():
 @app.route('/admin/training')
 @admin_required
 def admin_training():
+    _warn_upload_root_once()
     db = get_db()
     videos = {v['day_number']: v for v in
               db.execute("SELECT * FROM training_videos ORDER BY day_number").fetchall()}
@@ -6405,6 +6420,10 @@ def admin_training():
     sig_file = _get_setting(db, 'admin_signature_file', '')
     db.close()
 
+    # Warn if PDF/audio uploads may not persist (e.g. on Render without UPLOAD_ROOT)
+    upload_root_set = bool(os.environ.get('UPLOAD_ROOT'))
+    in_production = bool(os.environ.get('SECRET_KEY'))
+
     return render_template('admin_training.html',
                            videos=videos,
                            members=members,
@@ -6412,7 +6431,9 @@ def admin_training():
                            days=range(1, 8),
                            questions=questions,
                            bonus_videos=bonus_videos,
-                           sig_file=sig_file)
+                           sig_file=sig_file,
+                           upload_root_set=upload_root_set,
+                           in_production=in_production)
 
 
 @app.route('/training/media/<path:filename>')
