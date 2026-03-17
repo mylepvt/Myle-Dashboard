@@ -80,7 +80,7 @@
   {# Call status — only on Active (enrollment) leads #}
   {% if day == 0 %}
   <div class="mt-1">
-    {% if user_role in ('team', 'admin') %}
+    {% if user_role in ('team', 'admin', 'leader') %}
     <select class="form-select form-select-sm call-status-select"
             style="font-size:0.72rem;padding:3px 6px;"
             data-lead-id="{{ lead.id }}"
@@ -875,10 +875,10 @@ const _leadsPageCsrf = '{{ session.get("_csrf_token", "") }}';
   }
   function onCallStatusChange(e) {
     var sel = e.target;
-    var leadId = sel.dataset.leadId;
-    var newVal = sel.value;
-    var oldVal = sel.dataset.current || '';
-    if (!newVal || newVal === oldVal) return;
+    var leadId = (sel.dataset.leadId || '').trim();
+    var newVal = (sel.value || '').trim();
+    var oldVal = (sel.dataset.current || '').trim();
+    if (!leadId || !newVal || newVal === oldVal) return;
     sel.disabled = true;
     fetch('/leads/' + leadId + '/call-status', {
       method: 'POST',

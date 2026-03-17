@@ -168,6 +168,8 @@ CALL_STATUS_VALUES = [
     'Video Sent',
     'Video Watched',
     'Payment Done',
+    'Already forever',
+    'Retarget',
 ]
 
 TRACKS = {
@@ -7413,12 +7415,12 @@ def stage_advance(lead_id):
 @app.route('/leads/<int:lead_id>/call-status', methods=['POST'])
 @login_required
 def update_call_status(lead_id):
-    """Update call_status — only for the assigned team member."""
+    """Update call_status. Team/leader can update own or downline leads; admin can update any."""
     data = request.get_json(silent=True) or {}
     call_status = (data.get('call_status') or '').strip()
 
-    if call_status not in CALL_STATUS_VALUES:
-        return {'ok': False, 'error': 'Invalid call_status'}, 400
+    if not call_status or call_status not in CALL_STATUS_VALUES:
+        return {'ok': False, 'error': 'Invalid or missing call_status'}, 400
 
     db = get_db()
     lead = db.execute("SELECT * FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''", (lead_id,)).fetchone()
@@ -7429,13 +7431,20 @@ def update_call_status(lead_id):
     role = session.get('role', 'team')
     username = session['username']
 
-    if role == 'leader':
-        db.close()
-        return {'ok': False, 'error': 'Leaders can only view call status'}, 403
-    if role != 'admin' and lead['assigned_to'] != username:
-        db.close()
-        return {'ok': False, 'error': 'Only the assigned member can update call status'}, 403
+    # Admin: any lead. Team: only assigned_to self. Leader: self or downline.
+    if role == 'admin':
+        pass
+    elif role == 'leader':
+        downline = _get_network_usernames(db, username)
+        if lead['assigned_to'] != username and lead['assigned_to'] not in downline:
+            db.close()
+            return {'ok': False, 'error': 'You can only update call status for your own or downline leads'}, 403
+    else:
+        if lead['assigned_to'] != username:
+            db.close()
+            return {'ok': False, 'error': 'Only the assigned member can update call status'}, 403
 
+    print("Updating call_status:", lead_id, call_status)
     now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
     db.execute("UPDATE leads SET call_status=?, updated_at=? WHERE id=?",
                (call_status, now_str, lead_id))
