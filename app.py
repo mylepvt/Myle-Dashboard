@@ -2763,7 +2763,6 @@ def set_follow_up_time(lead_id):
             db.close()
             return {'ok': False, 'error': 'Forbidden'}, 403
 
-    print("Reminder set:", lead_id, reminder_time)
     now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
     # If setting a time and lead has no follow_up_date, set to today so it appears in Follow-up Queue
     lead_keys = lead.keys()
@@ -7482,7 +7481,6 @@ def update_call_status(lead_id):
             db.close()
             return {'ok': False, 'error': 'Only the assigned member can update call status'}, 403
 
-    print("Updating call_status:", lead_id, call_status)
     now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
     db.execute("UPDATE leads SET call_status=?, updated_at=? WHERE id=?",
                (call_status, now_str, lead_id))
