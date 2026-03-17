@@ -2089,7 +2089,8 @@ def team_dashboard():
         ).fetchall()
         funnel_leads[_mk] = [r['name'] for r in _rows]
 
-    # Follow-up queue count
+    # Follow-up queue count (IST date so no timezone mismatch)
+    now_date_ist = _now_ist().strftime('%Y-%m-%d')
     fu_placeholders = ','.join('?' * len(FOLLOWUP_TAGS))
     followup_count = db.execute(f"""
         SELECT COUNT(*) FROM leads
@@ -2097,10 +2098,10 @@ def team_dashboard():
           AND assigned_to=?
           AND status NOT IN ('Converted','Fully Converted','Lost')
           AND (
-            (follow_up_date != '' AND DATE(follow_up_date) <= DATE('now','localtime'))
+            (follow_up_date != '' AND DATE(follow_up_date) <= ?)
             OR call_result IN ({fu_placeholders})
           )
-    """, [username] + list(FOLLOWUP_TAGS)).fetchone()[0]
+    """, [username, now_date_ist] + list(FOLLOWUP_TAGS)).fetchone()[0]
 
     # Pipeline full lead objects
     _s1_ph = ','.join('?' * len(STAGE1_STATUSES))
@@ -2666,30 +2667,30 @@ def edit_lead(lead_id):
 def follow_up_queue():
     db   = get_db()
     role = session.get('role')
+    now_date = _now_ist().strftime('%Y-%m-%d')   # IST so user/server timezone match
+    now_time = _now_ist().strftime('%H:%M')
     fu_placeholders = ','.join('?' * len(FOLLOWUP_TAGS))
     query = f"""
         SELECT * FROM leads
         WHERE in_pool=0 AND deleted_at=''
           AND status NOT IN ('Converted','Fully Converted','Lost')
           AND (
-            (follow_up_date != '' AND DATE(follow_up_date) <= DATE('now','localtime'))
+            (follow_up_date != '' AND DATE(follow_up_date) <= ?)
             OR call_result IN ({fu_placeholders})
           )
     """
-    params = list(FOLLOWUP_TAGS)
+    params = [now_date] + list(FOLLOWUP_TAGS)
     if role != 'admin':
         query += " AND assigned_to=?"
         params.append(session['username'])
     query += """
         ORDER BY
-          CASE WHEN follow_up_date != '' AND DATE(follow_up_date) = DATE('now','localtime') THEN 0 ELSE 1 END,
+          CASE WHEN follow_up_date != '' AND DATE(follow_up_date) = ? THEN 0 ELSE 1 END,
           follow_up_date ASC,
           last_contacted ASC
     """
+    params.append(now_date)
     leads_list = db.execute(query, params).fetchall()
-
-    now_date = _now_ist().strftime('%Y-%m-%d')
-    now_time = _now_ist().strftime('%H:%M')
     today_count    = sum(1 for l in leads_list
                          if l['follow_up_date'] and l['follow_up_date'][:10] == now_date)
     overdue_count  = sum(1 for l in leads_list

@@ -46,7 +46,7 @@
         </div>
         {% endif %}
 
-        <!-- Reminder time picker -->
+        <!-- Reminder time picker (IST — server timezone so no user/server mismatch) -->
         <div class="d-flex align-items-center gap-1 mt-1">
           <i class="bi bi-alarm text-primary" style="font-size:.75rem;"></i>
           <input type="time" class="form-control form-control-sm reminder-time py-0"
@@ -55,7 +55,7 @@
                  data-date="{{ lead.follow_up_date[:10] if lead.follow_up_date else now_date }}"
                  value="{{ lead.follow_up_time or '' }}"
                  style="width:110px;font-size:.72rem;height:24px;">
-          <span class="text-muted" style="font-size:.65rem;">Reminder</span>
+          <span class="text-muted" style="font-size:.65rem;">Reminder (IST)</span>
         </div>
       </div>
       <!-- Actions -->
