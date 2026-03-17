@@ -7192,17 +7192,20 @@ def batch_toggle(lead_id):
     role  = session.get('role', 'team')
     owner = row['assigned_to']
 
-    # Leaders can toggle d1 batches for their own leads AND downline leads
-    if role == 'leader' and batch.startswith('d1_'):
-        downline = _get_network_usernames(db, session['username'])
-        if owner != session['username'] and owner not in downline:
+    # Day 1 batches: only leader or admin can mark (team cannot send Day 1 task from dashboard)
+    if batch.startswith('d1_'):
+        if role not in ('leader', 'admin'):
+            db.close(); return {'ok': False, 'error': 'Day 1 batches sirf leader/admin bhej sakte hain'}, 403
+        if role == 'leader':
+            downline = _get_network_usernames(db, session['username'])
+            if owner != session['username'] and owner not in downline:
+                db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
+    else:
+        # Day 2 batches can only be marked by admin
+        if batch.startswith('d2_') and role != 'admin':
+            db.close(); return {'ok': False, 'error': 'Day 2 batches sirf admin mark kar sakta hai'}, 403
+        if role != 'admin' and owner != session['username']:
             db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
-    elif role != 'admin' and owner != session['username']:
-        db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
-
-    # Day 2 batches can only be marked by admin
-    if batch.startswith('d2_') and role != 'admin':
-        db.close(); return {'ok': False, 'error': 'Day 2 batches sirf admin mark kar sakta hai'}, 403
 
     # Toggle (or force-mark if force_mark=true, used by "already sent" button)
     force_mark = data.get('force_mark', False)
