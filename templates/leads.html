@@ -81,8 +81,10 @@
   {% if day == 0 %}
   <div class="mt-1">
     {% if user_role in ('team', 'admin') %}
-    <select class="form-select form-select-sm" style="font-size:0.72rem;padding:3px 6px;"
-            onchange="updateCallStatus({{ lead.id }}, this.value, this)">
+    <select class="form-select form-select-sm call-status-select"
+            style="font-size:0.72rem;padding:3px 6px;"
+            data-lead-id="{{ lead.id }}"
+            data-current="{{ lead.call_status or '' }}">
       <option value="">— Call Status —</option>
       {% for cs in call_status_values %}
       <option value="{{ cs }}" {% if lead.call_status == cs %}selected{% endif %}>{{ cs }}</option>
@@ -861,30 +863,53 @@ function setBatch(leadId, day, batchVal) {
   .catch(() => showToast('Network error', 'danger'));
 }
 
-/* ── Call status update (AJAX) ───────────────────────────── */
+/* ── Call status update — Android + iOS compatible ────────── */
 const _leadsPageCsrf = '{{ session.get("_csrf_token", "") }}';
-function updateCallStatus(leadId, newStatus, selectEl) {
-  if (!newStatus) return;
-  fetch(`/leads/${leadId}/call-status`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _leadsPageCsrf },
-    body: JSON.stringify({ call_status: newStatus }),
-  })
-  .then(r => r.json())
-  .then(d => {
-    if (d.ok) {
-      showToast('Call status updated ✅', 'success');
-      if (d.stage_advanced) {
-        showToast('₹196 confirmed — lead moved to Day 1 🎯', 'info');
-        setTimeout(() => location.reload(), 1500);
+
+(function initCallStatusDropdowns() {
+  function attachListeners() {
+    document.querySelectorAll('.call-status-select').forEach(function(sel) {
+      sel.removeEventListener('change', onCallStatusChange);
+      sel.addEventListener('change', onCallStatusChange);
+    });
+  }
+  function onCallStatusChange(e) {
+    var sel = e.target;
+    var leadId = sel.dataset.leadId;
+    var newVal = sel.value;
+    var oldVal = sel.dataset.current || '';
+    if (!newVal || newVal === oldVal) return;
+    sel.disabled = true;
+    fetch('/leads/' + leadId + '/call-status', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRF-Token': _leadsPageCsrf},
+      body: JSON.stringify({ call_status: newVal })
+    })
+    .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(d) {
+      sel.disabled = false;
+      if (d.ok) {
+        sel.dataset.current = newVal;
+        showToast('Call status updated ✅', 'success');
+        if (d.stage_advanced) {
+          showToast('₹196 confirmed — lead moved to Day 1 🎯', 'info');
+          setTimeout(function() { location.reload(); }, 1500);
+        }
+      } else {
+        sel.value = oldVal;
+        showToast(d.error || 'Could not update', 'danger');
       }
-    } else {
-      showToast(d.error || 'Could not update call status', 'danger');
-      if (selectEl) selectEl.value = '';
-    }
-  })
-  .catch(() => showToast('Network error', 'danger'));
-}
+    })
+    .catch(function(err) {
+      sel.disabled = false;
+      sel.value = oldVal;
+      showToast('Network error — try again', 'danger');
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachListeners);
+  } else { attachListeners(); }
+})();
 </script>
 
 <style>
