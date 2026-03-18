@@ -509,15 +509,15 @@ DRILL_REPORT_METRICS = {
 
 
 def _get_metrics(db, username=None):
-    """All dashboard KPIs. Excludes pool leads (in_pool=1)."""
+    """All dashboard KPIs. Excludes pool and soft-deleted leads."""
     if username:
-        where_clause = "WHERE assigned_to = ? AND in_pool = 0"
+        where_clause = "WHERE assigned_to = ? AND in_pool = 0 AND deleted_at = ''"
         params = (username,)
-        base = "assigned_to = ? AND in_pool = 0"
+        base = "assigned_to = ? AND in_pool = 0 AND deleted_at = ''"
     else:
-        where_clause = "WHERE in_pool = 0"
+        where_clause = "WHERE in_pool = 0 AND deleted_at = ''"
         params = ()
-        base = "in_pool = 0"
+        base = "in_pool = 0 AND deleted_at = ''"
 
     row = db.execute(f"""
         SELECT
@@ -2630,7 +2630,7 @@ def team_dashboard():
         (username, *STAGE1_STATUSES)
     ).fetchall()
     day1_leads_db = db.execute(
-        "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status IN ('Day 1','Paid ₹196') ORDER BY updated_at ASC",
+        "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 1' ORDER BY updated_at ASC",
         (username,)
     ).fetchall()
     day2_leads_db = db.execute(
@@ -2730,8 +2730,8 @@ def team_dashboard():
             counts = db.execute(f"""
                 SELECT
                     SUM(CASE WHEN status IN ({stage_ph}) THEN 1 ELSE 0 END) as stage1,
-                    SUM(CASE WHEN status IN ('Day 1','Paid ₹196') THEN 1 ELSE 0 END) as day1,
-                    SUM(CASE WHEN status='Day 2'   THEN 1 ELSE 0 END) as day2,
+                    SUM(CASE WHEN status='Day 1' THEN 1 ELSE 0 END) as day1,
+                    SUM(CASE WHEN status='Day 2' THEN 1 ELSE 0 END) as day2,
                     SUM(CASE WHEN status IN ('Interview','Track Selected')
                         THEN 1 ELSE 0 END) as day3,
                     SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) as pending,
@@ -7723,11 +7723,11 @@ def working():
 
         # Day 1/2 batch completion rate
         d1_total = db.execute(
-            "SELECT COUNT(*) " + _admin_base + "AND status IN ('Day 1','Paid ₹196')",
+            "SELECT COUNT(*) " + _admin_base + "AND status='Day 1'",
             _admin_params
         ).fetchone()[0] or 0
         d1_done  = db.execute(
-            "SELECT COUNT(*) " + _admin_base + "AND status IN ('Day 1','Paid ₹196') AND d1_morning=1 AND d1_afternoon=1 AND d1_evening=1",
+            "SELECT COUNT(*) " + _admin_base + "AND status='Day 1' AND d1_morning=1 AND d1_afternoon=1 AND d1_evening=1",
             _admin_params
         ).fetchone()[0] or 0
         d2_total = db.execute(
