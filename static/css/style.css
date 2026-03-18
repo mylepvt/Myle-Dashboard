@@ -224,7 +224,7 @@ body {
   min-height: 100dvh;
   height: 100vh;
   height: 100dvh;
-  overflow: hidden;
+  overflow-x: hidden; /* was: overflow:hidden — that clips position:fixed children on older Chrome/Android */
   display: flex;
   width: 100%;
 }

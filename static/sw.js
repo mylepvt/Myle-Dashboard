@@ -31,9 +31,9 @@ self.addEventListener('fetch', e => {
   /* Only handle same-origin requests */
   if (url.origin !== location.origin) return;
 
-  /* CSS → always network, no caching */
+  /* CSS → always bypass HTTP cache entirely, fetch fresh from server */
   if (url.pathname.endsWith('.css')) {
-    e.respondWith(fetch(e.request));
+    e.respondWith(fetch(e.request, { cache: 'no-store' }));
     return;
   }
 
