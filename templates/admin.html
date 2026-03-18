@@ -167,7 +167,7 @@
       </div>
       {% for m in team_board %}
       {% set rank_colors = {0: 'background:#fbbf24;color:#92400e;', 1: 'background:#d1d5db;color:#374151;', 2: 'background:#f59e0b;color:#78350f;'} %}
-      <div class="lb-row {% if m.score >= 50 %}bg-success bg-opacity-10{% elif m.score == 0 and not m.has_report %}bg-danger bg-opacity-10{% endif %}">
+      <div class="lb-row {% if m.score >= 50 %}bg-success bg-opacity-10{% elif m.score == 0 and not m.report_done %}bg-danger bg-opacity-10{% endif %}">
         <div class="lb-rank" style="{{ rank_colors.get(loop.index0, 'background:var(--bg-muted,#f3f4f6);color:var(--label-3,#6b7280);') }}">
           {{ loop.index }}
         </div>
@@ -183,19 +183,19 @@
         <div class="lb-cell">
           {% if m.streak > 1 %}<span style="color:#d97706;">{{ m.streak }}d</span>{% else %}—{% endif %}
         </div>
-        <div class="lb-cell {% if m.s1 == 0 %}dim{% endif %}">{{ m.s1 or '—' }}</div>
-        <div class="lb-cell {% if m.d1 == 0 %}dim{% endif %}">{{ m.d1 or '—' }}</div>
-        <div class="lb-cell {% if m.d2 == 0 %}dim{% endif %}">{{ m.d2 or '—' }}</div>
-        <div class="lb-cell {% if m.d3 == 0 %}dim{% endif %}">{{ m.d3 or '—' }}</div>
-        <div class="lb-cell {% if m.sh == 0 %}dim{% endif %}" style="{% if m.sh > 0 %}color:#7c3aed;{% endif %}">{{ m.sh or '—' }}</div>
-        <div class="lb-cell {% if m.conv == 0 %}dim{% endif %}" style="{% if m.conv > 0 %}color:#16a34a;font-weight:700;{% endif %}">{{ m.conv or '—' }}</div>
+        <div class="lb-cell {% if m.stage1 == 0 %}dim{% endif %}">{{ m.stage1 or '—' }}</div>
+        <div class="lb-cell {% if m.day1 == 0 %}dim{% endif %}">{{ m.day1 or '—' }}</div>
+        <div class="lb-cell {% if m.day2 == 0 %}dim{% endif %}">{{ m.day2 or '—' }}</div>
+        <div class="lb-cell {% if m.day3 == 0 %}dim{% endif %}">{{ m.day3 or '—' }}</div>
+        <div class="lb-cell {% if m.pending == 0 %}dim{% endif %}" style="{% if m.pending > 0 %}color:#7c3aed;{% endif %}">{{ m.pending or '—' }}</div>
+        <div class="lb-cell {% if m.converted == 0 %}dim{% endif %}" style="{% if m.converted > 0 %}color:#16a34a;font-weight:700;{% endif %}">{{ m.converted or '—' }}</div>
         <div class="lb-cell" style="min-width:42px;">
           {% if m.batch_pct >= 0 %}
             <span class="{% if m.batch_pct >= 80 %}text-success{% elif m.batch_pct >= 40 %}text-warning{% else %}text-danger{% endif %}" style="font-size:.68rem;font-weight:600;">{{ m.batch_pct }}%</span>
           {% else %}—{% endif %}
         </div>
         <div class="lb-cell" style="min-width:32px;">
-          {% if m.has_report %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %}
+          {% if m.report_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %}
         </div>
       </div>
       {% else %}

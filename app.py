@@ -2411,12 +2411,12 @@ def admin_dashboard():
         score_pts, streak = _get_today_score(db, uname)
         counts = db.execute(f"""
             SELECT
-                SUM(CASE WHEN status IN ({_s1_ph}) THEN 1 ELSE 0 END) AS s1,
-                SUM(CASE WHEN status='Day 1' THEN 1 ELSE 0 END) AS d1,
-                SUM(CASE WHEN status='Day 2' THEN 1 ELSE 0 END) AS d2,
-                SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS d3,
-                SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS sh,
-                SUM(CASE WHEN status IN ('Fully Converted','Converted') THEN 1 ELSE 0 END) AS conv,
+                SUM(CASE WHEN status IN ({_s1_ph}) THEN 1 ELSE 0 END) AS stage1,
+                SUM(CASE WHEN status='Day 1' THEN 1 ELSE 0 END) AS day1,
+                SUM(CASE WHEN status='Day 2' THEN 1 ELSE 0 END) AS day2,
+                SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3,
+                SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS pending,
+                SUM(CASE WHEN status IN ('Fully Converted','Converted') THEN 1 ELSE 0 END) AS converted,
                 COUNT(*) AS total
             FROM leads WHERE assigned_to=? AND {_base_w}
         """, (*STAGE1_STATUSES, uname)).fetchone()
@@ -2432,12 +2432,12 @@ def admin_dashboard():
         team_board.append({
             'username': uname, 'fbo_id': m['fbo_id'] or '',
             'score': score_pts, 'streak': streak,
-            's1': counts['s1'] or 0, 'd1': counts['d1'] or 0,
-            'd2': counts['d2'] or 0, 'd3': counts['d3'] or 0,
-            'sh': counts['sh'] or 0, 'conv': counts['conv'] or 0,
+            'stage1': counts['stage1'] or 0, 'day1': counts['day1'] or 0,
+            'day2': counts['day2'] or 0, 'day3': counts['day3'] or 0,
+            'pending': counts['pending'] or 0, 'converted': counts['converted'] or 0,
             'total': counts['total'] or 0,
             'batch_pct': batch_pct,
-            'has_report': uname in submitted_set,
+            'report_done': uname in submitted_set,
         })
     team_board.sort(key=lambda x: x['score'], reverse=True)
 
@@ -2761,7 +2761,7 @@ def team_dashboard():
                 'day3':        counts['day3']   or 0,
                 'pending':     counts['pending'] or 0,
                 'converted':   counts['converted'] or 0,
-                'today_pts':   today_pts,
+                'score':       today_pts,
                 'report_done': report_done,
             })
             if not report_done:
@@ -7709,7 +7709,7 @@ def working():
                 'day3':   row['day3']   or 0,
                 'pending': row['pending'] or 0,
                 'converted': row['converted'] or 0,
-                'today_score': score_pts,
+                'score': score_pts,
                 'fbo_id': m['fbo_id'] or '',
             }
 

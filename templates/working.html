@@ -105,7 +105,7 @@
         </thead>
         <tbody>
           {% for uname, data in team_pipeline.items() %}
-          {% set score = data.today_score %}
+          {% set score = data.score %}
           <tr class="{% if score >= 50 %}table-success{% elif score >= 10 %}table-warning{% else %}{% endif %}">
             <td class="fw-semibold">{{ uname }}</td>
             <td class="text-muted small" style="font-size:0.72rem;">
