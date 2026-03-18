@@ -1394,6 +1394,304 @@ def _transition_stage(db, lead_id, new_stage, triggered_by):
     return new_stage, new_owner
 
 
+def _sync_enroll_share_to_lead(db, token, username):
+    """
+    Called when a share link is generated.
+    Auto-updates lead status, call_status, daily_scores.
+    Safe to call multiple times — checks synced_to_lead flag.
+    """
+    try:
+        link = db.execute(
+            "SELECT * FROM enroll_share_links WHERE token=?", (token,)
+        ).fetchone()
+    except Exception:
+        return
+    if not link:
+        return
+    if link.get('synced_to_lead'):
+        return
+
+    lead_id = link.get('lead_id')
+    if not lead_id:
+        _upsert_daily_score(db, username, 10, delta_videos=1)
+        try:
+            db.execute(
+                "UPDATE enroll_share_links SET synced_to_lead=1 WHERE token=?",
+                (token,)
+            )
+        except Exception:
+            pass
+        return
+
+    lead = db.execute(
+        "SELECT * FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''",
+        (lead_id,)
+    ).fetchone()
+    if not lead:
+        return
+
+    now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
+    FORWARD_ORDER = [
+        'New Lead', 'New', 'Contacted', 'Invited',
+        'Video Sent', 'Video Watched', 'Paid ₹196', 'Mindset Lock',
+        'Day 1', 'Day 2', 'Interview', 'Track Selected',
+        'Seat Hold Confirmed', 'Fully Converted', 'Training', 'Converted', 'Lost', 'Retarget'
+    ]
+    current_status = (lead.get('status') or 'New')
+    current_idx = FORWARD_ORDER.index(current_status) if current_status in FORWARD_ORDER else 0
+    video_sent_idx = FORWARD_ORDER.index('Video Sent') if 'Video Sent' in FORWARD_ORDER else 4
+
+    if current_idx < video_sent_idx:
+        db.execute(
+            "UPDATE leads SET status='Video Sent', call_status='Video Sent', "
+            "last_contacted=?, contact_count=COALESCE(contact_count,0)+1, updated_at=? "
+            "WHERE id=?",
+            (now_str, now_str, lead_id)
+        )
+    else:
+        current_call = (lead.get('call_status') or '')
+        call_forward = ['Not Called Yet', 'Called - No Answer', 'Called - Not Interested',
+                        'Called - Follow Up', 'Called - Interested',
+                        'Video Sent', 'Video Watched', 'Payment Done']
+        if current_call not in call_forward[5:]:
+            db.execute(
+                "UPDATE leads SET call_status='Video Sent', updated_at=? WHERE id=?",
+                (now_str, lead_id)
+            )
+
+    content_id = link.get('content_id')
+    video_name = 'Video'
+    if content_id:
+        try:
+            content = db.execute(
+                "SELECT curiosity_title, title FROM enroll_content WHERE id=?",
+                (content_id,)
+            ).fetchone()
+            if content:
+                video_name = (content.get('curiosity_title') or content.get('title') or video_name)
+        except Exception:
+            pass
+    _log_lead_event(db, lead_id, username, f'Video shared via Enroll To: "{video_name}"')
+
+    _upsert_daily_score(db, username, 10, delta_videos=1)
+    try:
+        db.execute(
+            "UPDATE enroll_share_links SET synced_to_lead=1, lead_status_before=? WHERE token=?",
+            (current_status, token)
+        )
+    except Exception:
+        pass
+
+
+def _sync_watch_event_to_lead(db, token):
+    """
+    Called when prospect opens watch page for the FIRST TIME (view_count 0→1).
+    Auto-updates lead to Video Watched + notifies team member.
+    """
+    try:
+        link = db.execute(
+            "SELECT * FROM enroll_share_links WHERE token=?", (token,)
+        ).fetchone()
+    except Exception:
+        return
+    if not link or link.get('watch_synced') or not link.get('lead_id'):
+        return
+
+    lead_id = link['lead_id']
+    lead = db.execute(
+        "SELECT * FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''",
+        (lead_id,)
+    ).fetchone()
+    if not lead:
+        return
+
+    now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
+    shared_by = link.get('shared_by') or ''
+
+    FORWARD_ORDER = [
+        'New Lead', 'New', 'Contacted', 'Invited',
+        'Video Sent', 'Video Watched', 'Paid ₹196', 'Mindset Lock',
+        'Day 1', 'Day 2', 'Interview', 'Track Selected',
+        'Seat Hold Confirmed', 'Fully Converted', 'Training', 'Converted', 'Lost', 'Retarget'
+    ]
+    current_status = (lead.get('status') or 'New')
+    current_idx = FORWARD_ORDER.index(current_status) if current_status in FORWARD_ORDER else 0
+    watched_idx = FORWARD_ORDER.index('Video Watched') if 'Video Watched' in FORWARD_ORDER else 5
+
+    if current_idx < watched_idx:
+        db.execute(
+            "UPDATE leads SET status='Video Watched', call_status='Video Watched', "
+            "updated_at=? WHERE id=?",
+            (now_str, lead_id)
+        )
+    elif current_idx == watched_idx - 1:
+        db.execute(
+            "UPDATE leads SET call_status='Video Watched', updated_at=? WHERE id=?",
+            (now_str, lead_id)
+        )
+
+    content_id = link.get('content_id')
+    video_name = 'Video'
+    if content_id:
+        try:
+            content = db.execute(
+                "SELECT curiosity_title FROM enroll_content WHERE id=?",
+                (content_id,)
+            ).fetchone()
+            if content:
+                video_name = (content.get('curiosity_title') or 'Video')
+        except Exception:
+            pass
+    _log_lead_event(db, lead_id, shared_by,
+                   f'Prospect watched video: "{video_name}" — Call karo abhi!')
+
+    _upsert_daily_score(db, shared_by, 5)
+
+    try:
+        _push_to_users(db, shared_by,
+                       f'{lead.get("name") or "Lead"} ne video dekha!',
+                       'Abhi call karo — interest peak pe hai!',
+                       '/working')
+    except Exception:
+        pass
+
+    try:
+        db.execute(
+            "UPDATE enroll_share_links SET watch_synced=1 WHERE token=?", (token,)
+        )
+    except Exception:
+        pass
+
+
+def _get_actual_daily_counts(db, username):
+    """
+    Returns system-verified counts for today.
+    Tamper-proof — written by system via daily_scores.
+    """
+    today = _today_ist().strftime('%Y-%m-%d')
+    try:
+        row = db.execute(
+            "SELECT * FROM daily_scores WHERE username=? AND score_date=?",
+            (username, today)
+        ).fetchone()
+    except Exception:
+        return {
+            'videos_sent': 0,
+            'calls_made': 0,
+            'payments_collected': 0,
+            'enroll_links_sent': 0,
+            'prospect_views': 0,
+        }
+    if not row:
+        return {
+            'videos_sent': 0,
+            'calls_made': 0,
+            'payments_collected': 0,
+            'enroll_links_sent': 0,
+            'prospect_views': 0,
+        }
+    return {
+        'videos_sent': row.get('videos_sent') or 0,
+        'calls_made': row.get('calls_made') or 0,
+        'payments_collected': row.get('payments_collected') or 0,
+        'enroll_links_sent': row.get('enroll_links_sent') or 0,
+        'prospect_views': row.get('prospect_views') or 0,
+    }
+
+
+@app.route('/enroll/generate-link', methods=['POST'])
+@login_required
+def enroll_generate_link():
+    """Create a share link for a lead + content; sync to lead pipeline and daily_scores."""
+    data = request.get_json(silent=True) or request.form
+    lead_id = data.get('lead_id')
+    content_id = data.get('content_id')
+    if lead_id is not None:
+        try:
+            lead_id = int(lead_id)
+        except (TypeError, ValueError):
+            lead_id = None
+    if content_id is not None:
+        try:
+            content_id = int(content_id)
+        except (TypeError, ValueError):
+            content_id = None
+
+    username = session['username']
+    token = secrets.token_urlsafe(16)
+    db = get_db()
+    try:
+        db.execute("""
+            INSERT INTO enroll_share_links (token, lead_id, content_id, shared_by, view_count)
+            VALUES (?, ?, ?, ?, 0)
+        """, (token, lead_id, content_id, username))
+        db.commit()
+    except Exception as e:
+        db.close()
+        return jsonify({'ok': False, 'error': 'Failed to create link'}), 400
+
+    _sync_enroll_share_to_lead(db, token, username)
+    today = _today_ist().strftime('%Y-%m-%d')
+    try:
+        db.execute("""
+            UPDATE daily_scores SET enroll_links_sent = COALESCE(enroll_links_sent, 0) + 1
+            WHERE username=? AND score_date=?
+        """, (username, today))
+    except Exception:
+        pass
+    db.commit()
+    db.close()
+
+    watch_url = url_for('watch_video', token=token, _external=True)
+    return jsonify({'ok': True, 'token': token, 'watch_url': watch_url})
+
+
+@app.route('/watch/<token>')
+def watch_video(token):
+    """Public watch page; first view syncs to lead (Video Watched) and notifies sharer."""
+    db = get_db()
+    link = db.execute(
+        "SELECT * FROM enroll_share_links WHERE token=?", (token,)
+    ).fetchone()
+    if not link:
+        db.close()
+        return render_template('watch_video.html', error='Link not found or expired'), 404
+
+    is_first_view = (link['view_count'] == 0)
+    db.execute(
+        "UPDATE enroll_share_links SET view_count = view_count + 1 WHERE token=?",
+        (token,)
+    )
+    db.commit()
+
+    if is_first_view:
+        _sync_watch_event_to_lead(db, token)
+        today = _today_ist().strftime('%Y-%m-%d')
+        shared_by = link['shared_by'] or ''
+        if shared_by:
+            try:
+                db.execute("""
+                    UPDATE daily_scores SET prospect_views = COALESCE(prospect_views, 0) + 1
+                    WHERE username=? AND score_date=?
+                """, (shared_by, today))
+            except Exception:
+                pass
+        db.commit()
+
+    content = None
+    if link.get('content_id'):
+        try:
+            content = db.execute(
+                "SELECT curiosity_title, title FROM enroll_content WHERE id=?",
+                (link['content_id'],)
+            ).fetchone()
+        except Exception:
+            pass
+    db.close()
+    title = (content['curiosity_title'] or content['title']) if content else 'Video'
+    return render_template('watch_video.html', token=token, title=title, error=None)
+
+
 def _trigger_training_unlock(db, lead):
     """When a lead reaches the training stage, unlock the assigned user training."""
     import re as _re2
@@ -3118,6 +3416,8 @@ def report_submit():
         (username, today)
     ).fetchone()
 
+    actual_counts = _get_actual_daily_counts(db, username)
+
     if request.method == 'POST':
         report_date      = request.form.get('report_date', today)
         upline_name      = request.form.get('upline_name', '').strip()
@@ -3135,18 +3435,38 @@ def report_submit():
             flash('Please enter valid numbers.', 'danger')
             db.close()
             return render_template('report_form.html', existing=existing, today=today,
-                                   username=username)
+                                   username=username, actual_counts=actual_counts)
 
         leads_educated = request.form.get('leads_educated', '')
         remarks        = request.form.get('remarks', '').strip()
 
+        inflation_errors = []
+        max_videos = (actual_counts['videos_sent'] + actual_counts['enroll_links_sent'] + 5)
+        if pdf_covered > max_videos:
+            inflation_errors.append(
+                f"Videos/PDFs: System ne aaj {actual_counts['videos_sent']} videos track ki hain. "
+                f"Isse zyada enter nahi kar sakte."
+            )
+        if total_calling > (actual_counts['calls_made'] + 10):
+            inflation_errors.append(
+                f"Calls: System ne aaj {actual_counts['calls_made']} calls track ki hain. "
+                f"Isse zyada enter nahi kar sakte."
+            )
+        if inflation_errors:
+            for err in inflation_errors:
+                flash(err, 'danger')
+            db.close()
+            return render_template('report_form.html', existing=existing, today=today,
+                                   username=username, actual_counts=actual_counts)
+
+        now_ts = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
         db.execute("""
             INSERT INTO daily_reports
                 (username, upline_name, report_date, total_calling, pdf_covered,
                  calls_picked, wrong_numbers, enrollments_done, pending_enroll,
                  underage, leads_educated, plan_2cc, seat_holdings, remarks,
-                 submitted_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 submitted_at, videos_sent_actual, calls_made_actual, payments_actual, system_verified)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             ON CONFLICT(username, report_date) DO UPDATE SET
                 upline_name=excluded.upline_name,
                 total_calling=excluded.total_calling,
@@ -3160,12 +3480,17 @@ def report_submit():
                 plan_2cc=excluded.plan_2cc,
                 seat_holdings=excluded.seat_holdings,
                 remarks=excluded.remarks,
-                submitted_at=?
+                submitted_at=excluded.submitted_at,
+                videos_sent_actual=excluded.videos_sent_actual,
+                calls_made_actual=excluded.calls_made_actual,
+                payments_actual=excluded.payments_actual,
+                system_verified=1
         """, (username, upline_name, report_date, total_calling, pdf_covered,
               calls_picked, wrong_numbers, enrollments_done, pending_enroll,
               underage, leads_educated, plan_2cc, seat_holdings, remarks,
-              _now_ist().strftime('%Y-%m-%d %H:%M:%S'), _now_ist().strftime('%Y-%m-%d %H:%M:%S')))
-        _upsert_daily_score(db, username, 20)  # 20 pts for daily report
+              now_ts,
+              actual_counts['videos_sent'], actual_counts['calls_made'], actual_counts['payments_collected']))
+        _upsert_daily_score(db, username, 20)
         new_badges = _check_and_award_badges(db, username)
         db.commit()
         _log_activity(db, username, 'report_submit', f"Date: {today}")
@@ -3175,7 +3500,7 @@ def report_submit():
 
     db.close()
     return render_template('report_form.html', existing=existing, today=today,
-                           username=username)
+                           username=username, actual_counts=actual_counts)
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500

@@ -29,6 +29,35 @@
   </div>
 </div>
 
+{% if actual_counts is defined and actual_counts %}
+<div class="card border-0 mb-3" style="background: linear-gradient(135deg, #f0f4ff, #e8f5e9); border-radius:12px;">
+  <div class="card-body py-3">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <i class="bi bi-shield-check-fill text-success"></i>
+      <span class="fw-bold" style="font-size:0.85rem;">System Verified — Aaj Ka Real Count</span>
+      <span class="badge bg-success ms-auto" style="font-size:0.7rem;">Auto-Tracked</span>
+    </div>
+    <div class="row g-2">
+      <div class="col-4 text-center">
+        <div class="fw-bold text-primary" style="font-size:1.3rem;">{{ actual_counts.calls_made }}</div>
+        <div style="font-size:0.65rem; color:#6b7280;">Calls Made</div>
+      </div>
+      <div class="col-4 text-center">
+        <div class="fw-bold text-info" style="font-size:1.3rem;">{{ actual_counts.videos_sent }}</div>
+        <div style="font-size:0.65rem; color:#6b7280;">Videos Sent</div>
+      </div>
+      <div class="col-4 text-center">
+        <div class="fw-bold text-success" style="font-size:1.3rem;">{{ actual_counts.prospect_views }}</div>
+        <div style="font-size:0.65rem; color:#6b7280;">Prospect Views</div>
+      </div>
+    </div>
+    <div class="mt-2" style="font-size:0.7rem; color:#6b7280; text-align:center;">
+      Yeh numbers system ne track kiye hain — inse zyada enter karna allowed nahi hai
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <form method="post">
 
   <!-- ── Section 1: Basic Info ── -->
@@ -65,12 +94,19 @@
             <span class="text-muted fw-normal">(Personal + Team)</span>
           </label>
           <input type="number" name="total_calling" class="form-control" min="0"
-                 value="{{ existing.total_calling if existing else 0 }}" required>
+                 value="{{ actual_counts.calls_made if actual_counts is defined and actual_counts else (existing.total_calling if existing else 0) }}" required>
+          {% if actual_counts is defined and actual_counts %}
+          <small class="text-muted"><i class="bi bi-info-circle me-1"></i>System se auto-filled — real actions se count</small>
+          {% endif %}
         </div>
         <div class="col-6 col-sm-4">
           <label class="form-label fw-semibold small">PDF Covered <span class="text-danger">*</span></label>
           <input type="number" name="pdf_covered" class="form-control" min="0"
-                 value="{{ existing.pdf_covered if existing else 0 }}" required>
+                 value="{{ actual_counts.videos_sent if actual_counts is defined and actual_counts else (existing.pdf_covered if existing else 0) }}"
+                 max="{{ ((actual_counts.videos_sent|default(0)) + (actual_counts.enroll_links_sent|default(0)) + 5) if actual_counts is defined and actual_counts else 9999 }}" required>
+          {% if actual_counts is defined and actual_counts %}
+          <small class="text-muted"><i class="bi bi-info-circle me-1"></i>System se auto-filled — real actions se count</small>
+          {% endif %}
         </div>
         <div class="col-6 col-sm-4">
           <label class="form-label fw-semibold small">Calls Picked <span class="text-danger">*</span></label>

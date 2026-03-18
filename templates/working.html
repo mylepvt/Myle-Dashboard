@@ -275,6 +275,15 @@
           <i class="bi bi-telephone me-1"></i>{{ lead.call_status or 'Not Called Yet' }}
         </span>
       </div>
+      {% if lead.call_status == 'Video Watched' %}
+      <div style="background:#dcfce7; border-radius:6px; padding:4px 8px; font-size:0.68rem; font-weight:600; color:#16a34a; margin-top:4px;">
+        👀 Prospect ne video dekha — call karo!
+      </div>
+      {% elif lead.call_status == 'Video Sent' %}
+      <div style="background:#dbeafe; border-radius:6px; padding:4px 8px; font-size:0.68rem; color:#1d4ed8; margin-top:4px;">
+        📤 Video bheji gayi — response ka wait
+      </div>
+      {% endif %}
       <!-- Heat + Next Action -->
       {% if lead.heat is defined %}
       <div class="heat-bar-wrap">

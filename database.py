@@ -666,6 +666,70 @@ def migrate_db():
     except Exception:
         pass
 
+    # Pipeline sync: new columns on daily_scores
+    for col, definition in [
+        ("enroll_links_sent", "INTEGER NOT NULL DEFAULT 0"),
+        ("prospect_views", "INTEGER NOT NULL DEFAULT 0"),
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE daily_scores ADD COLUMN {col} {definition}")
+        except Exception:
+            pass
+
+    # Pipeline sync: new columns on daily_reports (actual system counts + verified flag)
+    for col, definition in [
+        ("videos_sent_actual", "INTEGER NOT NULL DEFAULT -1"),
+        ("calls_made_actual", "INTEGER NOT NULL DEFAULT -1"),
+        ("payments_actual", "INTEGER NOT NULL DEFAULT -1"),
+        ("system_verified", "INTEGER NOT NULL DEFAULT 0"),
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE daily_reports ADD COLUMN {col} {definition}")
+        except Exception:
+            pass
+
+    # --- enroll_content table (for Enroll To share — video titles) ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS enroll_content (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                curiosity_title TEXT NOT NULL DEFAULT '',
+                title          TEXT NOT NULL DEFAULT '',
+                created_at     TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+        """)
+    except Exception:
+        pass
+
+    # --- enroll_share_links table (Enroll To share link → lead sync) ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS enroll_share_links (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                token      TEXT NOT NULL UNIQUE,
+                lead_id    INTEGER,
+                content_id INTEGER,
+                shared_by  TEXT NOT NULL DEFAULT '',
+                view_count INTEGER NOT NULL DEFAULT 0,
+                lead_status_before TEXT NOT NULL DEFAULT '',
+                synced_to_lead INTEGER NOT NULL DEFAULT 0,
+                watch_synced INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+        """)
+    except Exception:
+        pass
+
+    for col, definition in [
+        ("lead_status_before", "TEXT NOT NULL DEFAULT ''"),
+        ("synced_to_lead", "INTEGER NOT NULL DEFAULT 0"),
+        ("watch_synced", "INTEGER NOT NULL DEFAULT 0"),
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE enroll_share_links ADD COLUMN {col} {definition}")
+        except Exception:
+            pass
+
     # --- bonus_videos table ---
     try:
         cursor.execute("""

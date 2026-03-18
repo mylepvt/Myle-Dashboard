@@ -251,7 +251,14 @@
           <div class="fw-bold">{{ r.username }}</div>
           <div class="text-muted small">Upline: {{ r.upline_name or '—' }}</div>
         </div>
-        <span class="badge bg-secondary">{{ r.report_date }}</span>
+        <div class="d-flex flex-column align-items-end gap-1">
+          <span class="badge bg-secondary">{{ r.report_date }}</span>
+          {% if r.system_verified is defined and r.system_verified %}
+          <span class="badge bg-success" style="font-size:0.65rem;"><i class="bi bi-shield-check"></i> Verified</span>
+          {% else %}
+          <span class="badge bg-warning text-dark" style="font-size:0.65rem;"><i class="bi bi-question-circle"></i> Manual</span>
+          {% endif %}
+        </div>
       </div>
       <div class="row g-2 text-center mb-2">
         <div class="col-4">
@@ -338,6 +345,7 @@
             <th class="text-center">2CC</th>
             <th class="text-center">Seats</th>
             <th>Remarks</th>
+            <th class="text-center">Verified</th>
             <th>Submitted</th>
           </tr>
         </thead>
@@ -370,11 +378,25 @@
               <span title="{{ r.remarks }}">{{ r.remarks[:50] }}{% if r.remarks|length > 50 %}…{% endif %}</span>
               {% else %}—{% endif %}
             </td>
-            <td class="text-muted small text-nowrap">{{ r.submitted_at[:16] }}</td>
+            <td class="text-center">
+              {% if r.system_verified is defined and r.system_verified %}
+              <span class="badge bg-success" title="System tracked actuals match">
+                <i class="bi bi-shield-check"></i> Verified
+                {% if r.videos_sent_actual is defined and r.videos_sent_actual >= 0 %}
+                <small>({{ r.videos_sent_actual }} actual)</small>
+                {% endif %}
+              </span>
+              {% else %}
+              <span class="badge bg-warning text-dark" title="Old report — no system tracking">
+                <i class="bi bi-question-circle"></i> Manual
+              </span>
+              {% endif %}
+            </td>
+            <td class="text-muted small text-nowrap">{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
           </tr>
           {% else %}
           <tr>
-            <td colspan="15" class="text-center text-muted py-5">No reports found.</td>
+            <td colspan="16" class="text-center text-muted py-5">No reports found.</td>
           </tr>
           {% endfor %}
         </tbody>
