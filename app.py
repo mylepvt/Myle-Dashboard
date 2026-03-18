@@ -7622,7 +7622,7 @@ def working():
                     SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS pending,
                     SUM(CASE WHEN status IN ('Fully Converted','Converted') THEN 1 ELSE 0 END) AS converted
                 FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
-            """, (uname,)).fetchone()
+            """, (*STAGE1_STATUSES, uname)).fetchone()
             score_pts, streak = _get_today_score(db, uname)
             team_pipeline[uname] = {
                 'stage1': row['stage1'] or 0,
