@@ -196,35 +196,7 @@
   </div>
 
 </form>
-<script>
-(function() {
-  var f = document.getElementById('reportForm');
-  if (!f) return;
-  f.addEventListener('submit', function() {
-    try {
-      var valid = f.checkValidity();
-      // #region agent log report_form submit validity
-      fetch('http://127.0.0.1:7580/ingest/8c20c5c3-d4fe-4238-8ce5-4d4b6328e630', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Debug-Session-Id': '31fa06'
-        },
-        body: JSON.stringify({
-          sessionId: '31fa06',
-          runId: 'pre-debug',
-          hypothesisId: 'H5_client_submit',
-          location: 'templates/report_form.html:submit',
-          message: 'report_form_submit_attempt',
-          data: { valid: valid },
-          timestamp: Date.now()
-        })
-      }).catch(() => {});
-      // #endregion
-    } catch (e) {}
-  }, { capture: true });
-})();
-</script>
+
 </div>
 </div>
 {% endblock %}

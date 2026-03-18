@@ -1242,6 +1242,13 @@ BADGE_META = {
 
 def _check_and_award_badges(db, username):
     """Check badge conditions and award new ones. Returns list of new badge keys."""
+    try:
+        return _check_and_award_badges_inner(db, username)
+    except Exception:
+        return []
+
+
+def _check_and_award_badges_inner(db, username):
     new_badges = []
     today  = _today_ist().strftime('%Y-%m-%d')
     mon    = (_today_ist() - datetime.timedelta(days=_today_ist().weekday())).strftime('%Y-%m-%d')
@@ -1421,10 +1428,10 @@ def _sync_enroll_share_to_lead(db, token, username):
         return
     if not link:
         return
-    if link.get('synced_to_lead'):
+    if link['synced_to_lead']:
         return
 
-    lead_id = link.get('lead_id')
+    lead_id = link['lead_id']
     if not lead_id:
         _upsert_daily_score(db, username, 10, delta_videos=1)
         try:
@@ -1450,7 +1457,7 @@ def _sync_enroll_share_to_lead(db, token, username):
         'Day 1', 'Day 2', 'Interview', 'Track Selected',
         'Seat Hold Confirmed', 'Fully Converted', 'Training', 'Converted', 'Lost', 'Retarget'
     ]
-    current_status = (lead.get('status') or 'New')
+    current_status = (lead['status'] or 'New')
     current_idx = FORWARD_ORDER.index(current_status) if current_status in FORWARD_ORDER else 0
     video_sent_idx = FORWARD_ORDER.index('Video Sent') if 'Video Sent' in FORWARD_ORDER else 4
 
@@ -1462,7 +1469,7 @@ def _sync_enroll_share_to_lead(db, token, username):
             (now_str, now_str, lead_id)
         )
     else:
-        current_call = (lead.get('call_status') or '')
+        current_call = (lead['call_status'] or '')
         call_forward = ['Not Called Yet', 'Called - No Answer', 'Called - Not Interested',
                         'Called - Follow Up', 'Called - Interested',
                         'Video Sent', 'Video Watched', 'Payment Done']
@@ -1472,7 +1479,7 @@ def _sync_enroll_share_to_lead(db, token, username):
                 (now_str, lead_id)
             )
 
-    content_id = link.get('content_id')
+    content_id = link['content_id']
     video_name = 'Video'
     if content_id:
         try:
@@ -1481,7 +1488,7 @@ def _sync_enroll_share_to_lead(db, token, username):
                 (content_id,)
             ).fetchone()
             if content:
-                video_name = (content.get('curiosity_title') or content.get('title') or video_name)
+                video_name = (content['curiosity_title'] or content['title'] or video_name)
         except Exception:
             pass
     _log_lead_event(db, lead_id, username, f'Video shared via Enroll To: "{video_name}"')
@@ -1507,7 +1514,7 @@ def _sync_watch_event_to_lead(db, token):
         ).fetchone()
     except Exception:
         return
-    if not link or link.get('watch_synced') or not link.get('lead_id'):
+    if not link or link['watch_synced'] or not link['lead_id']:
         return
 
     lead_id = link['lead_id']
@@ -1519,7 +1526,7 @@ def _sync_watch_event_to_lead(db, token):
         return
 
     now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
-    shared_by = link.get('shared_by') or ''
+    shared_by = link['shared_by'] or ''
 
     FORWARD_ORDER = [
         'New Lead', 'New', 'Contacted', 'Invited',
@@ -1527,7 +1534,7 @@ def _sync_watch_event_to_lead(db, token):
         'Day 1', 'Day 2', 'Interview', 'Track Selected',
         'Seat Hold Confirmed', 'Fully Converted', 'Training', 'Converted', 'Lost', 'Retarget'
     ]
-    current_status = (lead.get('status') or 'New')
+    current_status = (lead['status'] or 'New')
     current_idx = FORWARD_ORDER.index(current_status) if current_status in FORWARD_ORDER else 0
     watched_idx = FORWARD_ORDER.index('Video Watched') if 'Video Watched' in FORWARD_ORDER else 5
 
@@ -1538,7 +1545,7 @@ def _sync_watch_event_to_lead(db, token):
             (now_str, lead_id)
         )
 
-    content_id = link.get('content_id')
+    content_id = link['content_id']
     video_name = 'Video'
     if content_id:
         try:
@@ -1547,7 +1554,7 @@ def _sync_watch_event_to_lead(db, token):
                 (content_id,)
             ).fetchone()
             if content:
-                video_name = (content.get('curiosity_title') or 'Video')
+                video_name = (content['curiosity_title'] or 'Video')
         except Exception:
             pass
     _log_lead_event(db, lead_id, shared_by,
@@ -1557,7 +1564,7 @@ def _sync_watch_event_to_lead(db, token):
 
     try:
         _push_to_users(db, shared_by,
-                       f'{lead.get("name") or "Lead"} watched the video!',
+                       f'{lead["name"] or "Lead"} watched the video!',
                        'Call now — interest is at its peak!',
                        '/working')
     except Exception:
@@ -1598,12 +1605,13 @@ def _get_actual_daily_counts(db, username):
             'enroll_links_sent': 0,
             'prospect_views': 0,
         }
+    d = dict(row)
     return {
-        'videos_sent': row.get('videos_sent') or 0,
-        'calls_made': row.get('calls_made') or 0,
-        'payments_collected': row.get('payments_collected') or 0,
-        'enroll_links_sent': row.get('enroll_links_sent') or 0,
-        'prospect_views': row.get('prospect_views') or 0,
+        'videos_sent': d.get('videos_sent', 0) or 0,
+        'calls_made': d.get('calls_made', 0) or 0,
+        'payments_collected': d.get('payments_collected', 0) or 0,
+        'enroll_links_sent': d.get('enroll_links_sent', 0) or 0,
+        'prospect_views': d.get('prospect_views', 0) or 0,
     }
 
 
@@ -1712,15 +1720,15 @@ def _mark_batch_done_for_lead(db, lead_id, slot):
     db.execute(f"UPDATE leads SET {slot}=?, updated_at=? WHERE id=?", (1, now_str, lead_id))
     day_prefix = slot[:2]
     if day_prefix == 'd1':
-        m = 1 if slot == 'd1_morning' else (row.get('d1_morning') or 0)
-        a = 1 if slot == 'd1_afternoon' else (row.get('d1_afternoon') or 0)
-        e = 1 if slot == 'd1_evening' else (row.get('d1_evening') or 0)
+        m = 1 if slot == 'd1_morning' else (row['d1_morning'] or 0)
+        a = 1 if slot == 'd1_afternoon' else (row['d1_afternoon'] or 0)
+        e = 1 if slot == 'd1_evening' else (row['d1_evening'] or 0)
         all_done = bool(m and a and e)
         db.execute("UPDATE leads SET day1_done=? WHERE id=?", (1 if all_done else 0, lead_id))
     else:
-        m = 1 if slot == 'd2_morning' else (row.get('d2_morning') or 0)
-        a = 1 if slot == 'd2_afternoon' else (row.get('d2_afternoon') or 0)
-        e = 1 if slot == 'd2_evening' else (row.get('d2_evening') or 0)
+        m = 1 if slot == 'd2_morning' else (row['d2_morning'] or 0)
+        a = 1 if slot == 'd2_afternoon' else (row['d2_afternoon'] or 0)
+        e = 1 if slot == 'd2_evening' else (row['d2_evening'] or 0)
         all_done = bool(m and a and e)
         db.execute("UPDATE leads SET day2_done=? WHERE id=?", (1 if all_done else 0, lead_id))
     _upsert_daily_score(db, owner, 15, delta_batches=1)
@@ -1776,7 +1784,7 @@ def watch_video(token):
         db.commit()
 
     content = None
-    if link.get('content_id'):
+    if link['content_id']:
         try:
             content = db.execute(
                 "SELECT curiosity_title, title FROM enroll_content WHERE id=?",
@@ -3594,46 +3602,6 @@ def report_submit():
     username = session['username']
     today    = _today_ist().isoformat()
     db       = get_db()
-    def _debug_post(_payload):
-        try:
-            # Also emit to server console logs so we can read in Render logs.
-            try:
-                app.logger.info('debug-31fa06 ' + json.dumps(_payload, ensure_ascii=False))
-            except Exception:
-                pass
-            import urllib.request as _u
-            req = _u.Request(
-                'http://127.0.0.1:7580/ingest/8c20c5c3-d4fe-4238-8ce5-4d4b6328e630',
-                data=json.dumps(_payload).encode('utf-8'),
-                headers={'Content-Type': 'application/json'},
-                method='POST'
-            )
-            _u.urlopen(req, timeout=1.5)
-        except Exception:
-            pass
-    # #region agent log report_submit entry
-    try:
-        _payload = {
-            'sessionId': '31fa06',
-            'runId': 'pre-debug',
-            'hypothesisId': 'H1_server_route_hit',
-            'location': 'app.py:report_submit',
-            'message': 'report_submit_enter',
-            'data': {
-                'method': request.method,
-                'username': username,
-                'today': today,
-            },
-            'timestamp': int(datetime.datetime.now().timestamp() * 1000),
-        }
-        try:
-            app.logger.info('debug-31fa06 ' + json.dumps(_payload, ensure_ascii=False))
-        except Exception:
-            pass
-        _debug_post(_payload)
-    except Exception:
-        pass
-    # #endregion
 
     existing = db.execute(
         "SELECT * FROM daily_reports WHERE username=? AND report_date=?",
@@ -3643,31 +3611,6 @@ def report_submit():
     actual_counts = _get_actual_daily_counts(db, username)
 
     if request.method == 'POST':
-        # #region agent log report_submit POST received
-        try:
-            _payload = {
-                'sessionId': '31fa06',
-                'runId': 'pre-debug',
-                'hypothesisId': 'H2_post_received',
-                'location': 'app.py:report_submit',
-                'message': 'report_submit_post_enter',
-                'data': {
-                    'report_date': request.form.get('report_date', today),
-                    'upline_name_present': bool((request.form.get('upline_name') or '').strip()),
-                    # Only raw values; server will parse/validate next.
-                    'total_calling_raw': request.form.get('total_calling'),
-                    'pdf_covered_raw': request.form.get('pdf_covered'),
-                },
-                'timestamp': int(datetime.datetime.now().timestamp() * 1000),
-            }
-            try:
-                app.logger.info('debug-31fa06 ' + json.dumps(_payload, ensure_ascii=False))
-            except Exception:
-                pass
-            _debug_post(_payload)
-        except Exception:
-            pass
-        # #endregion
         report_date      = request.form.get('report_date', today)
         upline_name      = request.form.get('upline_name', '').strip()
         try:
@@ -3702,28 +3645,6 @@ def report_submit():
                 f"You cannot enter more than that."
             )
         if inflation_errors:
-            # #region agent log report_submit inflation validation failed
-            try:
-                _payload = {
-                    'sessionId': '31fa06',
-                    'runId': 'pre-debug',
-                    'hypothesisId': 'H3_inflation_rejected',
-                    'location': 'app.py:report_submit',
-                    'message': 'report_submit_inflation_rejected',
-                    'data': {
-                        'errors_count': len(inflation_errors),
-                        'first_error': inflation_errors[0] if inflation_errors else '',
-                    },
-                    'timestamp': int(datetime.datetime.now().timestamp() * 1000),
-                }
-                try:
-                    app.logger.info('debug-31fa06 ' + json.dumps(_payload, ensure_ascii=False))
-                except Exception:
-                    pass
-                _debug_post(_payload)
-            except Exception:
-                pass
-            # #endregion
             for err in inflation_errors:
                 flash(err, 'danger')
             db.close()
@@ -3766,28 +3687,6 @@ def report_submit():
         db.commit()
         _log_activity(db, username, 'report_submit', f"Date: {today}")
         db.close()
-        # #region agent log report_submit success redirect
-        try:
-            _payload = {
-                'sessionId': '31fa06',
-                'runId': 'pre-debug',
-                'hypothesisId': 'H4_insert_success_redirect',
-                'location': 'app.py:report_submit',
-                'message': 'report_submit_success',
-                'data': {
-                    'report_date': report_date,
-                    'username': username,
-                },
-                'timestamp': int(datetime.datetime.now().timestamp() * 1000),
-            }
-            try:
-                app.logger.info('debug-31fa06 ' + json.dumps(_payload, ensure_ascii=False))
-            except Exception:
-                pass
-            _debug_post(_payload)
-        except Exception:
-            pass
-        # #endregion
         flash('Daily report submitted successfully!', 'success')
         return redirect(url_for('team_dashboard'))
 
