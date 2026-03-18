@@ -34,7 +34,7 @@
 <!-- Stage overview cards -->
 <div class="row g-3 mb-4">
   {% set stage_items = [
-    ('Stage 1', stage_counts.stage1 or 0, 'bi-funnel', 'primary'),
+    ('Ready for Day 1', stage_counts.stage1 or 0, 'bi-check-circle', 'success'),
     ('Day 1',   stage_counts.day1   or 0, 'bi-1-circle', 'info'),
     ('Day 2',   stage_counts.day2   or 0, 'bi-2-circle', 'warning'),
     ('Day 3',   stage_counts.day3   or 0, 'bi-3-circle', 'danger'),
@@ -94,7 +94,7 @@
             <th>Member</th>
             <th class="text-muted" style="font-size:0.7rem;">FBO ID</th>
             <th class="text-center">Today Score</th>
-            <th class="text-center">Stage 1</th>
+            <th class="text-center">Ready for Day 1</th>
             <th class="text-center">Day 1</th>
             <th class="text-center">Day 2</th>
             <th class="text-center">Day 3</th>
@@ -224,7 +224,7 @@
 
   <div class="wk-kanban-tabs mb-3">
     <button class="wk-tab active" data-col="own-stage1">
-      Enrollment <span class="badge bg-primary ms-1">{{ own_stage1|length }}</span>
+      Ready for Day 1 <span class="badge bg-success ms-1">{{ own_stage1|length }}</span>
     </button>
     <button class="wk-tab" data-col="own-day1">
       Day 1 <span class="badge bg-info ms-1">{{ own_day1|length }}</span>
@@ -239,11 +239,11 @@
 
   <div class="wk-kanban-grid">
 
-    {# Own Stage 1 — full control #}
+    {# Own Stage 1 — Ready for Day 1 (Paid ₹196 / Mindset Lock) #}
     <div class="wk-kanban-col" id="zone-own-stage1" data-col="own-stage1">
       <div class="wk-col-header">
-        <span class="wk-col-title"><i class="bi bi-funnel me-2 text-primary"></i>My Enrollment</span>
-        <span class="badge bg-primary">{{ own_stage1|length }}</span>
+        <span class="wk-col-title"><i class="bi bi-check-circle me-2 text-success"></i>Ready for Day 1</span>
+        <span class="badge bg-success">{{ own_stage1|length }}</span>
       </div>
       {% if own_stage1 %}{% for lead in own_stage1 %}
       <div class="wk-lead-card" id="lead-{{ lead.id }}">
@@ -278,6 +278,9 @@
         <div class="d-flex gap-2">
           <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
           <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+          <button class="btn btn-sm btn-success wk-btn ms-auto" onclick="pushToDay1({{ lead.id }}, this)" title="Day 1 mein bhejo">
+            <i class="bi bi-arrow-right me-1"></i>Day 1
+          </button>
         </div>
       </div>
       {% endfor %}{% else %}
@@ -435,7 +438,7 @@
   {# Team sub-tabs #}
   <div class="wk-kanban-tabs mb-3">
     <button class="wk-tab active" data-col="team-stage1">
-      Enrollment <span class="badge bg-primary ms-1">{{ team_stage1|length }}</span>
+      Ready for Day 1 <span class="badge bg-success ms-1">{{ team_stage1|length }}</span>
     </button>
     <button class="wk-tab" data-col="team-day1">
       Day 1 <span class="badge bg-info ms-1">{{ team_day1|length }}</span>
@@ -450,11 +453,11 @@
 
   <div class="wk-kanban-grid">
 
-    {# Team Stage 1 #}
+    {# Team Stage 1 — Ready for Day 1 (Paid ₹196 / Mindset Lock) #}
     <div class="wk-kanban-col" id="zone-team-stage1" data-col="team-stage1">
       <div class="wk-col-header">
-        <span class="wk-col-title"><i class="bi bi-funnel me-2 text-primary"></i>Team Enrollment</span>
-        <span class="badge bg-primary">{{ team_stage1|length }}</span>
+        <span class="wk-col-title"><i class="bi bi-check-circle me-2 text-success"></i>Ready for Day 1</span>
+        <span class="badge bg-success">{{ team_stage1|length }}</span>
       </div>
       {% if team_stage1 %}{% for lead in team_stage1 %}
       <div class="wk-lead-card" id="lead-{{ lead.id }}" data-member="{{ lead.assigned_to }}">
@@ -485,6 +488,9 @@
         <div class="d-flex gap-2">
           <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
           <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+          <button class="btn btn-sm btn-success wk-btn ms-auto" onclick="pushToDay1({{ lead.id }}, this)" title="Day 1 mein bhejo">
+            <i class="bi bi-arrow-right me-1"></i>Day 1
+          </button>
         </div>
       </div>
       {% endfor %}{% else %}
@@ -679,7 +685,7 @@
 
 <!-- Zone 2: Kanban Pipeline (desktop) / Tabs (mobile) -->
 <div class="wk-kanban-tabs mb-3">
-  <button class="wk-tab active" data-col="stage1">Stage 1 <span class="badge bg-primary ms-1">{{ stage1_leads|length }}</span></button>
+  <button class="wk-tab active" data-col="stage1">Ready for Day 1 <span class="badge bg-success ms-1">{{ stage1_leads|length }}</span></button>
   <button class="wk-tab" data-col="day1">Day 1 <span class="badge bg-info ms-1">{{ day1_leads|length }}</span></button>
   <button class="wk-tab" data-col="day2">Day 2 <span class="badge bg-warning text-dark ms-1">{{ day2_leads|length }}</span></button>
   <button class="wk-tab" data-col="day3">Day 3 <span class="badge bg-danger ms-1">{{ day3_leads|length }}</span></button>
@@ -687,20 +693,20 @@
 
 <div class="wk-kanban-grid">
 
-  {# ── Stage 1 Column ──────────────────────────────────────── #}
+  {# ── Stage 1 Column (Ready for Day 1) ───────────────────────── #}
   <div class="wk-kanban-col" id="zone-stage1" data-col="stage1">
     <div class="wk-col-header">
-      <span class="wk-col-title"><i class="bi bi-funnel me-2 text-primary"></i>Stage 1</span>
-      <span class="badge bg-primary">{{ stage1_leads|length }}</span>
+      <span class="wk-col-title"><i class="bi bi-check-circle me-2 text-success"></i>Ready for Day 1</span>
+      <span class="badge bg-success">{{ stage1_leads|length }}</span>
     </div>
     {% if enrollment_video_url %}
     <div class="wk-lead-card mb-2" style="background:#f5f3ff;">
-      <a href="{{ enrollment_video_url }}" target="_blank" rel="noopener" class="d-flex align-items-center gap-2 text-decoration-none" style="color:#6366f1;">
+      <a href="{{ enrollment_video_url }}" class="video-in-app d-flex align-items-center gap-2 text-decoration-none" style="color:#6366f1;">
         <i class="bi bi-play-circle-fill fs-5 flex-shrink-0"></i>
         <span class="fw-semibold small">{{ enrollment_video_title|default('Enrollment Video') }}</span>
-        <i class="bi bi-box-arrow-up-right ms-auto small"></i>
+        <i class="bi bi-play-btn ms-auto small"></i>
       </a>
-      <div class="small text-muted mt-1">Share with leads before payment</div>
+      <div class="small text-muted mt-1">Share with leads; plays in-app</div>
     </div>
     {% endif %}
     {% if stage1_leads %}
@@ -774,13 +780,11 @@
            class="btn btn-sm btn-outline-success wk-btn" title="WhatsApp">
           <i class="bi bi-whatsapp"></i>
         </a>
-        {% if user_role == 'admin' %}
-        <button class="btn btn-sm btn-primary wk-btn ms-auto"
-                onclick="stageAdvance({{ lead.id }}, 'enroll_complete', this)"
-                title="Force advance to Day 1 (Admin)">
-          <i class="bi bi-arrow-right"></i>
+        <button class="btn btn-sm btn-success wk-btn ms-auto"
+                onclick="pushToDay1({{ lead.id }}, this)"
+                title="Day 1 mein bhejo">
+          <i class="bi bi-arrow-right me-1"></i>Day 1
         </button>
-        {% endif %}
       </div>
     </div>
     {% endfor %}
@@ -1447,17 +1451,28 @@ function openBatchPopup(leadId, batchKey, phone, leadName, btnEl) {
   const linksDiv = document.getElementById('popupVideoLinks');
 
   if (hasLinks) {
+    linksDiv.dataset.v1 = videos.v1 || '';
+    linksDiv.dataset.v2 = videos.v2 || '';
     linksDiv.innerHTML = `
       <div style="font-size:0.75rem;font-weight:700;color:#6b7280;margin-bottom:8px;">
-        WhatsApp message mein yeh jayega:
+        Watch in-app (no YouTube suggestions) or copy link for WhatsApp:
       </div>
-      ${videos.v1 ? `<div style="font-size:0.8rem;margin-bottom:4px;word-break:break-all;">
-        📹 Video 1: <span style="color:#6366f1">${videos.v1}</span>
+      ${videos.v1 ? `<div style="font-size:0.8rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <button type="button" class="btn btn-sm btn-primary py-1 btn-watch-batch" data-video-key="v1"><i class="bi bi-play-fill me-1"></i>Watch 1</button>
+        <span style="word-break:break-all;color:#6366f1;">${videos.v1}</span>
       </div>` : ''}
-      ${videos.v2 ? `<div style="font-size:0.8rem;word-break:break-all;">
-        📹 Video 2: <span style="color:#6366f1">${videos.v2}</span>
+      ${videos.v2 ? `<div style="font-size:0.8rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <button type="button" class="btn btn-sm btn-primary py-1 btn-watch-batch" data-video-key="v2"><i class="bi bi-play-fill me-1"></i>Watch 2</button>
+        <span style="word-break:break-all;color:#6366f1;">${videos.v2}</span>
       </div>` : ''}
     `;
+    linksDiv.querySelectorAll('.btn-watch-batch').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var key = this.getAttribute('data-video-key');
+        var url = linksDiv.dataset[key];
+        if (url && window.openVideoInApp) window.openVideoInApp(url, 'Video ' + (key === 'v1' ? '1' : '2'));
+      });
+    });
     document.getElementById('popupSendBtn').style.display = 'flex';
   } else {
     linksDiv.innerHTML = `
@@ -1593,6 +1608,45 @@ function stageAdvance(leadId, action, btnEl) {
   .catch(() => {
     showToast('Network error', 'danger');
     if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = origHTML; }
+  });
+}
+
+// ── Push to Day 1 (Ready for Day 1 column) ───────────────────────
+function pushToDay1(leadId, btnEl) {
+  const origHTML = btnEl.innerHTML;
+  btnEl.disabled = true;
+  btnEl.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+  fetch(`/leads/${leadId}/status`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRF-Token': _csrf,
+    },
+    body: new URLSearchParams({ status: 'Day 1' })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      showToast('Lead Day 1 mein shift ho gaya! 🎉', 'success');
+      const card = document.getElementById('lead-' + leadId);
+      if (card) {
+        card.style.transition = 'opacity 0.3s, transform 0.3s';
+        card.style.opacity = '0';
+        card.style.transform = 'translateX(30px)';
+        setTimeout(() => card.remove(), 320);
+      }
+    } else {
+      showToast(d.error || 'Error. Try again.', 'danger');
+      btnEl.disabled = false;
+      btnEl.innerHTML = origHTML;
+    }
+  })
+  .catch(() => {
+    showToast('Network error', 'danger');
+    btnEl.disabled = false;
+    btnEl.innerHTML = origHTML;
   });
 }
 

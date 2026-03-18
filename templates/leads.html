@@ -62,14 +62,32 @@
   {% endif %}
 
   <div class="d-flex align-items-center gap-1 mt-2">
-    {# Status inline select #}
+    {# Status inline select — simplified grouped #}
     <form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="flex-grow-1">
       <select name="status" data-lead-id="{{ lead.id }}"
               class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}"
               style="font-size:0.78rem;">
-        {% for s in statuses %}
-          <option value="{{ s }}" {% if s == lead.status %}selected{% endif %}>{{ s }}</option>
-        {% endfor %}
+        <optgroup label="── Enrollment ──">
+          <option value="Contacted"     {% if lead.status == 'Contacted'     %}selected{% endif %}>Contacted</option>
+          <option value="Video Sent"   {% if lead.status == 'Video Sent'   %}selected{% endif %}>Video Sent</option>
+          <option value="Video Watched"{% if lead.status == 'Video Watched' %}selected{% endif %}>Video Watched</option>
+          <option value="Paid ₹196"    {% if lead.status == 'Paid ₹196'    %}selected{% endif %}>Paid ₹196 ✅</option>
+        </optgroup>
+        <optgroup label="── Pipeline ──">
+          <option value="Day 1"             {% if lead.status == 'Day 1'             %}selected{% endif %}>Day 1</option>
+          <option value="Day 2"             {% if lead.status == 'Day 2'             %}selected{% endif %}>Day 2</option>
+          <option value="Interview"         {% if lead.status == 'Interview'         %}selected{% endif %}>Interview</option>
+          <option value="Track Selected"    {% if lead.status == 'Track Selected'    %}selected{% endif %}>Track Selected</option>
+          <option value="Seat Hold Confirmed" {% if lead.status == 'Seat Hold Confirmed' %}selected{% endif %}>Seat Hold</option>
+          <option value="Fully Converted"   {% if lead.status == 'Fully Converted'   %}selected{% endif %}>Fully Converted ✅</option>
+        </optgroup>
+        <optgroup label="── Other ──">
+          <option value="Lost"     {% if lead.status == 'Lost'     %}selected{% endif %}>Lost</option>
+          <option value="Retarget" {% if lead.status == 'Retarget' %}selected{% endif %}>Retarget</option>
+        </optgroup>
+        {% if lead.status and lead.status in ('New Lead','New','Invited','Mindset Lock','Training','Converted') %}
+        <option value="{{ lead.status }}" selected>{{ lead.status }}</option>
+        {% endif %}
       </select>
     </form>
     <a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-xs btn-outline-primary px-2">
@@ -572,9 +590,27 @@
                   <select name="status"
                           class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}"
                           data-lead-id="{{ lead.id }}" style="min-width:120px;font-size:0.78rem;">
-                    {% for s in statuses %}
-                      <option value="{{ s }}" {% if s == lead.status %}selected{% endif %}>{{ s }}</option>
-                    {% endfor %}
+                    <optgroup label="── Enrollment ──">
+                      <option value="Contacted"     {% if lead.status == 'Contacted'     %}selected{% endif %}>Contacted</option>
+                      <option value="Video Sent"   {% if lead.status == 'Video Sent'   %}selected{% endif %}>Video Sent</option>
+                      <option value="Video Watched"{% if lead.status == 'Video Watched' %}selected{% endif %}>Video Watched</option>
+                      <option value="Paid ₹196"    {% if lead.status == 'Paid ₹196'    %}selected{% endif %}>Paid ₹196 ✅</option>
+                    </optgroup>
+                    <optgroup label="── Pipeline ──">
+                      <option value="Day 1"             {% if lead.status == 'Day 1'             %}selected{% endif %}>Day 1</option>
+                      <option value="Day 2"             {% if lead.status == 'Day 2'             %}selected{% endif %}>Day 2</option>
+                      <option value="Interview"         {% if lead.status == 'Interview'         %}selected{% endif %}>Interview</option>
+                      <option value="Track Selected"    {% if lead.status == 'Track Selected'    %}selected{% endif %}>Track Selected</option>
+                      <option value="Seat Hold Confirmed" {% if lead.status == 'Seat Hold Confirmed' %}selected{% endif %}>Seat Hold</option>
+                      <option value="Fully Converted"   {% if lead.status == 'Fully Converted'   %}selected{% endif %}>Fully Converted ✅</option>
+                    </optgroup>
+                    <optgroup label="── Other ──">
+                      <option value="Lost"     {% if lead.status == 'Lost'     %}selected{% endif %}>Lost</option>
+                      <option value="Retarget" {% if lead.status == 'Retarget' %}selected{% endif %}>Retarget</option>
+                    </optgroup>
+                    {% if lead.status and lead.status in ('New Lead','New','Invited','Mindset Lock','Training','Converted') %}
+                    <option value="{{ lead.status }}" selected>{{ lead.status }}</option>
+                    {% endif %}
                   </select>
                 </form>
               </td>
@@ -665,9 +701,27 @@
                 <form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="d-inline">
                   <select name="status" class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}"
                           data-lead-id="{{ lead.id }}" style="min-width:120px;font-size:0.78rem;">
-                    {% for s in statuses %}
-                    <option value="{{ s }}" {% if s == lead.status %}selected{% endif %}>{{ s }}</option>
-                    {% endfor %}
+                    <optgroup label="── Enrollment ──">
+                      <option value="Contacted"     {% if lead.status == 'Contacted'     %}selected{% endif %}>Contacted</option>
+                      <option value="Video Sent"   {% if lead.status == 'Video Sent'   %}selected{% endif %}>Video Sent</option>
+                      <option value="Video Watched"{% if lead.status == 'Video Watched' %}selected{% endif %}>Video Watched</option>
+                      <option value="Paid ₹196"    {% if lead.status == 'Paid ₹196'    %}selected{% endif %}>Paid ₹196 ✅</option>
+                    </optgroup>
+                    <optgroup label="── Pipeline ──">
+                      <option value="Day 1"             {% if lead.status == 'Day 1'             %}selected{% endif %}>Day 1</option>
+                      <option value="Day 2"             {% if lead.status == 'Day 2'             %}selected{% endif %}>Day 2</option>
+                      <option value="Interview"         {% if lead.status == 'Interview'         %}selected{% endif %}>Interview</option>
+                      <option value="Track Selected"    {% if lead.status == 'Track Selected'    %}selected{% endif %}>Track Selected</option>
+                      <option value="Seat Hold Confirmed" {% if lead.status == 'Seat Hold Confirmed' %}selected{% endif %}>Seat Hold</option>
+                      <option value="Fully Converted"   {% if lead.status == 'Fully Converted'   %}selected{% endif %}>Fully Converted ✅</option>
+                    </optgroup>
+                    <optgroup label="── Other ──">
+                      <option value="Lost"     {% if lead.status == 'Lost'     %}selected{% endif %}>Lost</option>
+                      <option value="Retarget" {% if lead.status == 'Retarget' %}selected{% endif %}>Retarget</option>
+                    </optgroup>
+                    {% if lead.status and lead.status in ('New Lead','New','Invited','Mindset Lock','Training','Converted') %}
+                    <option value="{{ lead.status }}" selected>{{ lead.status }}</option>
+                    {% endif %}
                   </select>
                 </form>
                 {# Pipeline stage indicator — shows which stage and with whom #}
@@ -712,7 +766,7 @@
     {% endfor %}</div>
   <div class="card border-0 shadow-sm d-none d-md-block"><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th style="width:36px;padding-left:16px;"><input class="form-check-input lead-check" type="checkbox" style="accent-color:#6366f1;"></th><th class="text-muted">#</th><th>Name</th><th>Phone</th><th>Referred</th>{% if session.get('role') == 'admin' %}<th>Assigned</th>{% endif %}<th>Status</th><th class="text-center">D1</th><th class="text-center">D2</th><th class="text-center">IV</th><th class="text-center">₹196</th><th>Added</th><th>Actions</th></tr></thead><tbody>
     {% for lead in hist_day2_leads %}
-    <tr><td style="padding-left:16px;"><input class="form-check-input lead-check lead-check-desktop" type="checkbox" value="{{ lead.id }}" style="accent-color:#6366f1;"></td><td class="text-muted label-sm">{{ lead.id }}</td><td><div class="fw-semibold" style="font-size:0.875rem;">{{ lead.name or ('Lead #' ~ lead.id) }}</div></td><td><span class="small">{{ lead.phone }}</span> <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-success px-1 py-0"><i class="bi bi-telephone-fill"></i></a> <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener" class="btn btn-xs px-1 py-0" style="background:#25D366;color:#fff;"><i class="bi bi-whatsapp"></i></a></td><td class="text-muted small">{{ lead.referred_by or '—' }}</td>{% if session.get('role') == 'admin' %}<td><span class="badge rounded-pill px-2 py-1" style="background:#eef2ff;color:#4f46e5;font-size:0.72rem;">{{ lead.assigned_to or '—' }}</span></td>{% endif %}<td><form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="d-inline"><select name="status" class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}" data-lead-id="{{ lead.id }}" style="min-width:120px;font-size:0.78rem;">{% for s in statuses %}<option value="{{ s }}" {% if s == lead.status %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></form></td><td class="text-center">{% if lead.day1_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.day2_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.interview_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.payment_done %}<span class="badge bg-success" style="font-size:0.7rem;">Paid</span>{% else %}<span class="badge" style="background:#fee2e2;color:#dc2626;font-size:0.7rem;">No</span>{% endif %}</td><td class="text-muted" style="font-size:0.78rem;">{{ lead.created_at[:10] }}</td><td><a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-xs btn-outline-primary me-1"><i class="bi bi-pencil-fill"></i></a>{% if session.get('role') == 'admin' %}<form method="post" action="{{ url_for('delete_lead', lead_id=lead.id) }}" class="d-inline" onsubmit="return confirm('Delete?')"><button type="submit" class="btn btn-xs btn-outline-danger" data-noloading><i class="bi bi-trash-fill"></i></button></form>{% endif %}</td></tr>
+    <tr><td style="padding-left:16px;"><input class="form-check-input lead-check lead-check-desktop" type="checkbox" value="{{ lead.id }}" style="accent-color:#6366f1;"></td><td class="text-muted label-sm">{{ lead.id }}</td><td><div class="fw-semibold" style="font-size:0.875rem;">{{ lead.name or ('Lead #' ~ lead.id) }}</div></td><td><span class="small">{{ lead.phone }}</span> <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-success px-1 py-0"><i class="bi bi-telephone-fill"></i></a> <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener" class="btn btn-xs px-1 py-0" style="background:#25D366;color:#fff;"><i class="bi bi-whatsapp"></i></a></td><td class="text-muted small">{{ lead.referred_by or '—' }}</td>{% if session.get('role') == 'admin' %}<td><span class="badge rounded-pill px-2 py-1" style="background:#eef2ff;color:#4f46e5;font-size:0.72rem;">{{ lead.assigned_to or '—' }}</span></td>{% endif %}<td><form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="d-inline"><select name="status" class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}" data-lead-id="{{ lead.id }}" style="min-width:120px;font-size:0.78rem;"><optgroup label="── Enrollment ──"><option value="Contacted" {% if lead.status == 'Contacted' %}selected{% endif %}>Contacted</option><option value="Video Sent" {% if lead.status == 'Video Sent' %}selected{% endif %}>Video Sent</option><option value="Video Watched" {% if lead.status == 'Video Watched' %}selected{% endif %}>Video Watched</option><option value="Paid ₹196" {% if lead.status == 'Paid ₹196' %}selected{% endif %}>Paid ₹196 ✅</option></optgroup><optgroup label="── Pipeline ──"><option value="Day 1" {% if lead.status == 'Day 1' %}selected{% endif %}>Day 1</option><option value="Day 2" {% if lead.status == 'Day 2' %}selected{% endif %}>Day 2</option><option value="Interview" {% if lead.status == 'Interview' %}selected{% endif %}>Interview</option><option value="Track Selected" {% if lead.status == 'Track Selected' %}selected{% endif %}>Track Selected</option><option value="Seat Hold Confirmed" {% if lead.status == 'Seat Hold Confirmed' %}selected{% endif %}>Seat Hold</option><option value="Fully Converted" {% if lead.status == 'Fully Converted' %}selected{% endif %}>Fully Converted ✅</option></optgroup><optgroup label="── Other ──"><option value="Lost" {% if lead.status == 'Lost' %}selected{% endif %}>Lost</option><option value="Retarget" {% if lead.status == 'Retarget' %}selected{% endif %}>Retarget</option></optgroup>{% if lead.status and lead.status in ('New Lead','New','Invited','Mindset Lock','Training','Converted') %}<option value="{{ lead.status }}" selected>{{ lead.status }}</option>{% endif %}</select></form></td><td class="text-center">{% if lead.day1_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.day2_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.interview_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.payment_done %}<span class="badge bg-success" style="font-size:0.7rem;">Paid</span>{% else %}<span class="badge" style="background:#fee2e2;color:#dc2626;font-size:0.7rem;">No</span>{% endif %}</td><td class="text-muted" style="font-size:0.78rem;">{{ lead.created_at[:10] }}</td><td><a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-xs btn-outline-primary me-1"><i class="bi bi-pencil-fill"></i></a>{% if session.get('role') == 'admin' %}<form method="post" action="{{ url_for('delete_lead', lead_id=lead.id) }}" class="d-inline" onsubmit="return confirm('Delete?')"><button type="submit" class="btn btn-xs btn-outline-danger" data-noloading><i class="bi bi-trash-fill"></i></button></form>{% endif %}</td></tr>
     {% endfor %}
   </tbody></table></div></div></div>
   </div>{# /hpane-d2 #}
@@ -724,7 +778,7 @@
     {% endfor %}</div>
   <div class="card border-0 shadow-sm d-none d-md-block"><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th style="width:36px;padding-left:16px;"><input class="form-check-input lead-check" type="checkbox" style="accent-color:#6366f1;"></th><th class="text-muted">#</th><th>Name</th><th>Phone</th><th>Referred</th>{% if session.get('role') == 'admin' %}<th>Assigned</th>{% endif %}<th>Status</th><th class="text-center">D1</th><th class="text-center">D2</th><th class="text-center">IV</th><th class="text-center">₹196</th><th>Added</th><th>Actions</th></tr></thead><tbody>
     {% for lead in hist_day3_leads %}
-    <tr><td style="padding-left:16px;"><input class="form-check-input lead-check lead-check-desktop" type="checkbox" value="{{ lead.id }}" style="accent-color:#6366f1;"></td><td class="text-muted label-sm">{{ lead.id }}</td><td><div class="fw-semibold" style="font-size:0.875rem;">{{ lead.name or ('Lead #' ~ lead.id) }}</div></td><td><span class="small">{{ lead.phone }}</span> <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-success px-1 py-0"><i class="bi bi-telephone-fill"></i></a> <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener" class="btn btn-xs px-1 py-0" style="background:#25D366;color:#fff;"><i class="bi bi-whatsapp"></i></a></td><td class="text-muted small">{{ lead.referred_by or '—' }}</td>{% if session.get('role') == 'admin' %}<td><span class="badge rounded-pill px-2 py-1" style="background:#eef2ff;color:#4f46e5;font-size:0.72rem;">{{ lead.assigned_to or '—' }}</span></td>{% endif %}<td><form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="d-inline"><select name="status" class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}" data-lead-id="{{ lead.id }}" style="min-width:120px;font-size:0.78rem;">{% for s in statuses %}<option value="{{ s }}" {% if s == lead.status %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></form></td><td class="text-center">{% if lead.day1_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.day2_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.interview_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.payment_done %}<span class="badge bg-success" style="font-size:0.7rem;">Paid</span>{% else %}<span class="badge" style="background:#fee2e2;color:#dc2626;font-size:0.7rem;">No</span>{% endif %}</td><td class="text-muted" style="font-size:0.78rem;">{{ lead.created_at[:10] }}</td><td><a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-xs btn-outline-primary me-1"><i class="bi bi-pencil-fill"></i></a>{% if session.get('role') == 'admin' %}<form method="post" action="{{ url_for('delete_lead', lead_id=lead.id) }}" class="d-inline" onsubmit="return confirm('Delete?')"><button type="submit" class="btn btn-xs btn-outline-danger" data-noloading><i class="bi bi-trash-fill"></i></button></form>{% endif %}</td></tr>
+    <tr><td style="padding-left:16px;"><input class="form-check-input lead-check lead-check-desktop" type="checkbox" value="{{ lead.id }}" style="accent-color:#6366f1;"></td><td class="text-muted label-sm">{{ lead.id }}</td><td><div class="fw-semibold" style="font-size:0.875rem;">{{ lead.name or ('Lead #' ~ lead.id) }}</div></td><td><span class="small">{{ lead.phone }}</span> <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-success px-1 py-0"><i class="bi bi-telephone-fill"></i></a> <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener" class="btn btn-xs px-1 py-0" style="background:#25D366;color:#fff;"><i class="bi bi-whatsapp"></i></a></td><td class="text-muted small">{{ lead.referred_by or '—' }}</td>{% if session.get('role') == 'admin' %}<td><span class="badge rounded-pill px-2 py-1" style="background:#eef2ff;color:#4f46e5;font-size:0.72rem;">{{ lead.assigned_to or '—' }}</span></td>{% endif %}<td><form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="d-inline"><select name="status" class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}" data-lead-id="{{ lead.id }}" style="min-width:120px;font-size:0.78rem;"><optgroup label="── Enrollment ──"><option value="Contacted" {% if lead.status == 'Contacted' %}selected{% endif %}>Contacted</option><option value="Video Sent" {% if lead.status == 'Video Sent' %}selected{% endif %}>Video Sent</option><option value="Video Watched" {% if lead.status == 'Video Watched' %}selected{% endif %}>Video Watched</option><option value="Paid ₹196" {% if lead.status == 'Paid ₹196' %}selected{% endif %}>Paid ₹196 ✅</option></optgroup><optgroup label="── Pipeline ──"><option value="Day 1" {% if lead.status == 'Day 1' %}selected{% endif %}>Day 1</option><option value="Day 2" {% if lead.status == 'Day 2' %}selected{% endif %}>Day 2</option><option value="Interview" {% if lead.status == 'Interview' %}selected{% endif %}>Interview</option><option value="Track Selected" {% if lead.status == 'Track Selected' %}selected{% endif %}>Track Selected</option><option value="Seat Hold Confirmed" {% if lead.status == 'Seat Hold Confirmed' %}selected{% endif %}>Seat Hold</option><option value="Fully Converted" {% if lead.status == 'Fully Converted' %}selected{% endif %}>Fully Converted ✅</option></optgroup><optgroup label="── Other ──"><option value="Lost" {% if lead.status == 'Lost' %}selected{% endif %}>Lost</option><option value="Retarget" {% if lead.status == 'Retarget' %}selected{% endif %}>Retarget</option></optgroup>{% if lead.status and lead.status in ('New Lead','New','Invited','Mindset Lock','Training','Converted') %}<option value="{{ lead.status }}" selected>{{ lead.status }}</option>{% endif %}</select></form></td><td class="text-center">{% if lead.day1_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.day2_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.interview_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td><td class="text-center">{% if lead.payment_done %}<span class="badge bg-success" style="font-size:0.7rem;">Paid</span>{% else %}<span class="badge" style="background:#fee2e2;color:#dc2626;font-size:0.7rem;">No</span>{% endif %}</td><td class="text-muted" style="font-size:0.78rem;">{{ lead.created_at[:10] }}</td><td><a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-xs btn-outline-primary me-1"><i class="bi bi-pencil-fill"></i></a>{% if session.get('role') == 'admin' %}<form method="post" action="{{ url_for('delete_lead', lead_id=lead.id) }}" class="d-inline" onsubmit="return confirm('Delete?')"><button type="submit" class="btn btn-xs btn-outline-danger" data-noloading><i class="bi bi-trash-fill"></i></button></form>{% endif %}</td></tr>
     {% endfor %}
   </tbody></table></div></div></div>
   </div>{# /hpane-d3 #}

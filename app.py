@@ -1687,9 +1687,17 @@ def watch_video(token):
             ).fetchone()
         except Exception:
             pass
+    # Embed enrollment video so prospect watches in-app (no YouTube suggestions)
+    enrollment_video_url = _get_setting(db, 'enrollment_video_url', '') if db else ''
     db.close()
     title = (content['curiosity_title'] or content['title']) if content else 'Video'
-    return render_template('watch_video.html', token=token, title=title, error=None)
+    yt_id = None
+    if enrollment_video_url:
+        m = _re.search(r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]{11})', enrollment_video_url)
+        yt_id = m.group(1) if m else None
+    embed_url = ('https://www.youtube.com/embed/' + yt_id + '?rel=0&modestbranding=1') if yt_id else ''
+    return render_template('watch_video.html', token=token, title=title,
+                           enrollment_video_url=enrollment_video_url or '', embed_url=embed_url, error=None)
 
 
 def _trigger_training_unlock(db, lead):
@@ -3130,6 +3138,17 @@ def mark_called(lead_id):
         WHERE id=?
     """, (now, now, lead_id))
     _log_lead_event(db, lead_id, session['username'], 'Called / contacted')
+    # Auto-advance status to "Contacted" if currently below
+    _STATUS_ORDER_MC = [
+        'New Lead', 'New', 'Contacted', 'Invited',
+        'Video Sent', 'Video Watched', 'Paid ₹196', 'Mindset Lock'
+    ]
+    lead_status = lead['status'] or 'New'
+    if lead_status in ('New Lead', 'New'):
+        db.execute(
+            "UPDATE leads SET status='Contacted', updated_at=? WHERE id=?",
+            (now, lead_id)
+        )
     db.commit()
     db.close()
     return {'ok': True}
@@ -7359,8 +7378,13 @@ def health():
 #  Working Section
 # ─────────────────────────────────────────────────────────────────
 
-STAGE1_STATUSES = ('New Lead', 'New', 'Contacted', 'Invited',
-                   'Video Sent', 'Video Watched', 'Paid ₹196', 'Mindset Lock')
+# Working section Stage 1 = only leads ready for Day 1
+STAGE1_STATUSES = ('Paid ₹196', 'Mindset Lock')
+
+# My Leads enrollment statuses (for leads page filtering and pending-calls count)
+ENROLLMENT_STATUSES = ('New Lead', 'New', 'Contacted', 'Invited',
+                       'Video Sent', 'Video Watched', 'Paid ₹196', 'Mindset Lock')
+
 PAST_STATUSES   = ('Fully Converted', 'Converted', 'Lost')
 
 
@@ -7844,14 +7868,15 @@ def working():
     pending_calls = db.execute(f"""
         SELECT COUNT(*) FROM leads
         WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
-          AND status IN ({','.join('?'*len(STAGE1_STATUSES))})
+          AND status IN ({','.join('?'*len(ENROLLMENT_STATUSES))})
           AND (call_result='' OR call_result='Follow Up Later' OR call_result='Callback Requested')
-    """, [username] + list(STAGE1_STATUSES)).fetchone()[0] or 0
+    """, [username] + list(ENROLLMENT_STATUSES)).fetchone()[0] or 0
 
     videos_to_send = db.execute("""
         SELECT COUNT(*) FROM leads
         WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
-          AND status IN ('Contacted','Invited')
+          AND status = 'Contacted'
+          AND (call_status IS NULL OR call_status = '' OR call_status NOT IN ('Video Sent', 'Video Watched', 'Payment Done'))
     """, (username,)).fetchone()[0] or 0
 
     batches_due = (
@@ -8251,6 +8276,34 @@ def update_call_status(lead_id):
     db.execute("UPDATE leads SET call_status=?, updated_at=? WHERE id=?",
                (call_status, now_str, lead_id))
     _log_activity(db, username, 'call_status_update', f'Lead #{lead_id} call_status={call_status}')
+
+    # ── AUTO STATUS UPDATE based on call_status ──────────────
+    # Only move status FORWARD — never backward
+    _STATUS_ORDER = [
+        'New Lead', 'New', 'Contacted', 'Invited',
+        'Video Sent', 'Video Watched', 'Paid ₹196', 'Mindset Lock',
+        'Day 1', 'Day 2', 'Interview', 'Track Selected',
+        'Seat Hold Confirmed', 'Fully Converted', 'Training', 'Converted'
+    ]
+    current_status = lead['status'] or 'New'
+    cur_idx = _STATUS_ORDER.index(current_status) if current_status in _STATUS_ORDER else 0
+    _call_to_status = {
+        'Called - No Answer':    'Contacted',
+        'Called - Interested':   'Contacted',
+        'Called - Follow Up':    'Contacted',
+        'Called - Not Interested': None,
+        'Video Sent':            'Video Sent',
+        'Video Watched':         'Video Watched',
+        'Payment Done':          'Paid ₹196',
+    }
+    new_auto_status = _call_to_status.get(call_status)
+    if new_auto_status:
+        new_idx = _STATUS_ORDER.index(new_auto_status) if new_auto_status in _STATUS_ORDER else 0
+        if new_idx > cur_idx:
+            db.execute(
+                "UPDATE leads SET status=?, updated_at=? WHERE id=?",
+                (new_auto_status, now_str, lead_id)
+            )
 
     # Gamification: award points for call actions
     pts = 0
