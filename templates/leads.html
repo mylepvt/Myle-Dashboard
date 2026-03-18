@@ -1045,36 +1045,6 @@ if (selAllMobile) {
 }
 document.querySelectorAll('.lead-check').forEach(cb => cb.addEventListener('change', updateBulkBar));
 
-/* ── Status AJAX (reuses existing route) ─────────────────── */
-document.addEventListener('change', function(e) {
-  const sel = e.target;
-  if (!sel.classList.contains('status-select') || !sel.dataset.leadId) return;
-  const leadId = sel.dataset.leadId;
-  const status = sel.value;
-  fetch(`/leads/${leadId}/status`, {
-    method: 'POST',
-    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ status: status })
-  })
-  .then(r => r.json())
-  .then(data => {
-    if (data.ok) {
-      showToast('Status updated → ' + status, 'success');
-      if (status === 'Day 1' || status === 'Paid ₹196') {
-        if (typeof MyleSound !== 'undefined') MyleSound.celebrate();
-        var card = sel.closest('.wl-card, .wk-lead-card, tr');
-        if (card && typeof spawnConfetti === 'function') spawnConfetti(card);
-      }
-      if (data.stage_changed) {
-        showToast('Stage advanced → ' + data.new_stage + ' 🎯', 'info');
-        if (typeof MyleAnim !== 'undefined') MyleAnim.floatPoints(10, sel);
-        setTimeout(() => location.reload(), 1400);
-      }
-    } else { showToast('Could not save. Try again.', 'danger'); }
-  })
-  .catch(() => showToast('Network error.', 'danger'));
-});
-
 /* ── Batch assignment (AJAX) ─────────────────────────────── */
 function setBatch(leadId, day, batchVal) {
   // Toggle: if already active batch, clicking again clears it

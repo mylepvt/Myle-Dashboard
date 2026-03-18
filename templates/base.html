@@ -862,19 +862,12 @@ if (!window.CSS || !window.CSS.supports) {
       return _origFetch.call(this, url, opts);
     };
 
-    /* 3. Also inject into dynamically added forms (e.g. modals) */
+    /* 3. Also inject into dynamically added forms (debounced) */
     if (window.MutationObserver) {
-      new MutationObserver(function (mutations) {
-        mutations.forEach(function (m) {
-          m.addedNodes.forEach(function (node) {
-            if (node.nodeType === 1) {
-              if (node.tagName === 'FORM') _injectForms();
-              else if (node.querySelectorAll) {
-                if (node.querySelectorAll('form').length) _injectForms();
-              }
-            }
-          });
-        });
+      var _injectTimer = null;
+      new MutationObserver(function () {
+        if (_injectTimer) return;
+        _injectTimer = setTimeout(function() { _injectTimer = null; _injectForms(); }, 300);
       }).observe(document.body, { childList: true, subtree: true });
     }
   })();
@@ -1018,6 +1011,10 @@ if (!window.CSS || !window.CSS.supports) {
      ║  MyleSound — Web Audio + Haptic Feedback     ║
      ╚══════════════════════════════════════════════╝ -->
 <script>
+window.MyleSound = { _enabled:false, click:function(){}, batch:function(){}, success:function(){}, error:function(){}, score:function(){}, celebrate:function(){}, toggle:function(){ return false; } };
+window.MyleAnim = { floatPoints:function(){}, animateScore:function(){}, ripple:function(){}, shake:function(){}, bounceIn:function(){}, glowGreen:function(){}, countUp:function(){} };
+window.spawnConfetti = function(){};
+(typeof requestIdleCallback === 'function' ? requestIdleCallback : function(cb){setTimeout(cb,200)})(function(){
 (function () {
   /* ── MyleSound object ─────────────────────────────────── */
   window.MyleSound = {
@@ -1158,9 +1155,7 @@ if (!window.CSS || !window.CSS.supports) {
     };
   })();
 })();
-</script>
 
-<script>
 /* ══════════════════════════════════════════════
    MYLE — Animation Engine
    ══════════════════════════════════════════════ */
@@ -1266,14 +1261,13 @@ document.addEventListener('click', function(e) {
   if (btn && typeof MyleAnim !== 'undefined') MyleAnim.ripple(e, btn);
 }, { passive: true });
 
-document.addEventListener('DOMContentLoaded', function() {
-  document.querySelectorAll('[class*="streak"]').forEach(function(el) {
-    el.classList.add('streak-pulse');
-  });
-  document.querySelectorAll('[data-countup]').forEach(function(el) {
-    var target = parseInt(el.dataset.countup, 10) || 0;
-    if (typeof MyleAnim !== 'undefined') MyleAnim.countUp(el, target, 1000);
-  });
+document.querySelectorAll('[class*="streak"]').forEach(function(el) {
+  el.classList.add('streak-pulse');
+});
+document.querySelectorAll('[data-countup]').forEach(function(el) {
+  var target = parseInt(el.dataset.countup, 10) || 0;
+  if (typeof MyleAnim !== 'undefined') MyleAnim.countUp(el, target, 1000);
+});
 });
 </script>
 

@@ -6771,12 +6771,14 @@ _TRAINING_EXEMPT = (
 
 @app.before_request
 def refresh_session_role():
-    """Auto-sync session role from DB on every request.
-    Ensures promotions (team→leader) take effect immediately
-    without requiring logout/login."""
+    """Auto-sync session role from DB periodically (not every request)."""
     if 'username' not in session:
         return
     if request.path.startswith('/static'):
+        return
+    import time
+    last_check = session.get('_role_checked', 0)
+    if time.time() - last_check < 60:
         return
     try:
         db = get_db()
@@ -6785,6 +6787,7 @@ def refresh_session_role():
             (session['username'],)
         ).fetchone()
         db.close()
+        session['_role_checked'] = time.time()
         if row and row['role'] != session.get('role'):
             session['role'] = row['role']
     except Exception:

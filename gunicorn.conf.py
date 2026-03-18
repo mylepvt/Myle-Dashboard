@@ -4,8 +4,7 @@ gunicorn.conf.py — Myle Dashboard production config
 import os
 
 workers      = 2
-worker_class = "gthread"
-threads       = 4
+worker_class = "sync"
 timeout      = 120
 preload_app  = True
 accesslog    = "-"
