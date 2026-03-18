@@ -795,6 +795,11 @@ button, .btn, .nav-link, .mbn-item {
 .badge {
   font-family:var(--font);font-weight:700;border-radius:6px;
   letter-spacing:0.01em;
+  /* Perfect text centering inside any shape */
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
 }
 
@@ -1549,22 +1554,22 @@ p,span,td,li { color: inherit; }
 
 /* ── Dashboard Batch Cards ───────────────────────────────── */
 .db-batch-card {
-  background: var(--bs-body-bg);
-  border: 1.5px solid var(--bs-border-color);
-  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--sep);
+  border-radius: 12px;
   padding: 10px 12px;
   transition: border-color 0.2s ease, background 0.2s ease;
 }
 .db-batch-card.db-batch-complete {
-  border-color: #22c55e;
-  background: #f0fdf4;
+  border-color: var(--ios-green);
+  background: rgba(48,209,88,0.06);
 }
 [data-theme="dark"] .db-batch-card.db-batch-complete {
-  background: rgba(34, 197, 94, 0.1);
+  background: rgba(48,209,88,0.10);
 }
 .db-batch-progress {
   height: 4px;
-  background: var(--bs-border-color);
+  background: var(--fill-3);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -1573,17 +1578,18 @@ p,span,td,li { color: inherit; }
   border-radius: 4px;
   transition: width 0.35s ease;
 }
-.db-bar-d1 { background: #0891b2; }
-.db-bar-d2 { background: #d97706; }
+.db-bar-d1 { background: var(--ios-cyan); }
+.db-bar-d2 { background: var(--ios-orange); }
 .db-batch-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 3px;
   padding: 4px 10px;
-  border: 1.5px solid var(--bs-border-color);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--bs-body-color);
+  border: 1.5px solid var(--sep-opaque);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--label-2);
   cursor: pointer;
   font-size: 0.75rem;
   font-weight: 600;
@@ -1591,9 +1597,10 @@ p,span,td,li { color: inherit; }
   user-select: none;
 }
 .db-batch-btn.db-batch-done {
-  border-color: #22c55e;
-  background: #22c55e;
+  border-color: var(--ios-green);
+  background: var(--ios-green);
   color: #fff;
+  box-shadow: 0 2px 8px rgba(48,209,88,0.30);
 }
 .db-batch-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .db-batch-btn:not(:disabled):active { transform: scale(0.93); }
@@ -1616,29 +1623,30 @@ p,span,td,li { color: inherit; }
   border-radius: 50%;
   font-size: 0.6rem;
   font-weight: 800;
-  background: #f0f0f5;
-  color: #c7c7cc;
+  background: var(--fill-4);
+  color: var(--label-4);
   flex-shrink: 0;
   transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
   cursor: default;
-  border: 1.5px solid #e5e5ea;
+  border: 1.5px solid var(--sep-opaque);
   letter-spacing: 0;
+  line-height: 1;
 }
 
 /* Completed stages — green fill */
 .pipeline-step.completed {
-  background: #30D158;
+  background: var(--ios-green);
   color: #fff;
-  border-color: #30D158;
+  border-color: var(--ios-green);
 }
 
-/* Current active stage — purple + glow */
+/* Current active stage — indigo + glow */
 .pipeline-step.active {
-  background: #6366f1;
+  background: var(--ios-indigo);
   color: #fff;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.25),
-              0 2px 8px rgba(99,102,241,0.4);
+  border-color: var(--ios-indigo);
+  box-shadow: 0 0 0 3px rgba(94,92,230,0.25),
+              0 2px 8px rgba(94,92,230,0.4);
   transform: scale(1.15);
 }
 
@@ -1646,7 +1654,7 @@ p,span,td,li { color: inherit; }
 .pipeline-connector {
   width: 12px;
   height: 2px;
-  background: #e5e5ea;
+  background: var(--sep-opaque);
   flex-shrink: 0;
   border-radius: 2px;
   transition: background 0.2s;
@@ -1654,7 +1662,7 @@ p,span,td,li { color: inherit; }
 
 /* Completed connector — green */
 .pipeline-connector.completed {
-  background: #30D158;
+  background: var(--ios-green);
 }
 
 /* Dark mode */
@@ -1690,13 +1698,13 @@ p,span,td,li { color: inherit; }
 /* Read-only notice for leaders */
 .pipeline-readonly-notice {
   font-size: 0.65rem;
-  color: #9ca3af;
+  color: var(--label-4);
   font-style: italic;
 }
 
 /* ── Heat Score ─────────────────────────────────────────────────── */
 .heat-bar-wrap { margin-top: 8px; margin-bottom: 2px; }
-.heat-bar-wrap .progress { height: 5px; border-radius: 99px; background: #f3f4f6; }
+.heat-bar-wrap .progress { height: 5px; border-radius: 99px; background: var(--fill-3); }
 
 /* ── Next Action Badge ──────────────────────────────────────────── */
 .next-action-badge {
@@ -1705,24 +1713,24 @@ p,span,td,li { color: inherit; }
   font-size: 0.72rem; font-weight: 700;
   margin-top: 6px;
 }
-.next-action-badge.urgent   { background: #fee2e2; color: #dc2626; }
-.next-action-badge.today    { background: #fff7ed; color: #d97706; }
-.next-action-badge.followup { background: #dbeafe; color: #1d4ed8; }
-.next-action-badge.cold     { background: #f3f4f6; color: #9ca3af; }
+.next-action-badge.urgent   { background: rgba(255,69,58,0.12);  color: var(--ios-red); }
+.next-action-badge.today    { background: rgba(255,159,10,0.12); color: var(--ios-orange); }
+.next-action-badge.followup { background: rgba(0,122,255,0.10);  color: var(--ios-blue); }
+.next-action-badge.cold     { background: var(--fill-4);         color: var(--label-3); }
 
 /* ── Leaderboard weekly ─────────────────────────────────────────── */
 .leaderboard-row {
   display: flex; align-items: center; gap: 12px;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(0,0,0,0.05);
+  border-bottom: 1px solid var(--sep);
   transition: background 0.15s ease;
 }
 .leaderboard-row:last-child { border-bottom: none; }
 .leaderboard-row.me {
-  background: #eef2ff;
-  border-left: 3px solid #6366f1;
+  background: rgba(0,122,255,0.06);
+  border-left: 3px solid var(--ios-blue);
 }
-.leaderboard-row.top1 { background: #fffbeb; }
+.leaderboard-row.top1 { background: rgba(255,214,10,0.07); }
 .rank-medal {
   width: 32px; height: 32px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
@@ -1848,12 +1856,15 @@ p,span,td,li { color: inherit; }
 }
 
 /* ── Touch target size — minimum 44px (Apple/Google guideline) ── */
-.btn, .nav-link, .mbn-item, .wk-batch-btn {
+.btn, .nav-link, .mbn-item {
   min-height: 44px;
-  min-width: 44px;
 }
+.wk-batch-btn { min-height: 36px; min-width: 36px; }
 .btn-sm { min-height: 36px; } /* small buttons exception */
+.btn-xs { min-height: 32px; } /* extra small exception */
 .badge  { min-height: auto; min-width: auto; } /* badges exception */
+/* Icon-only buttons: square touch target */
+.nav-icon-btn { min-height: 36px; min-width: 36px; }
 
 /* ── Overflow fix for old Android WebView ────────────── */
 .table-responsive { -webkit-overflow-scrolling: touch; overflow-x: auto; }
