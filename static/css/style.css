@@ -27,7 +27,7 @@
   /* Light mode backgrounds — layered depth */
   --bg-base:        #F0F0F5;
   --bg-primary:     #F2F2F7;
-  --bg-card:        rgba(255,255,255,0.80);
+  --bg-card:        #FFFFFF;          /* solid — no blur needed, much faster */
   --bg-card-solid:  #FFFFFF;
   --bg-elevated:    rgba(255,255,255,0.95);
   --bg-glass:       rgba(255,255,255,0.60);
@@ -117,7 +117,7 @@
 [data-theme="dark"] {
   --bg-base:        #000000;
   --bg-primary:     #050507;
-  --bg-card:        rgba(28,28,32,0.88);
+  --bg-card:        #1C1C20;           /* solid — no blur, faster */
   --bg-card-solid:  #1C1C20;
   --bg-elevated:    rgba(38,38,44,0.95);
   --bg-glass:       rgba(30,30,35,0.65);
@@ -546,16 +546,17 @@ button, .btn, .nav-link, .mbn-item {
 
 .card {
   background: var(--bg-card) !important;
-  border: 1px solid var(--glass-border) !important;
+  border: 1px solid var(--sep) !important;
   border-radius: var(--r-card) !important;
   box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
-  transition: box-shadow 0.2s ease, transform 0.2s cubic-bezier(0.4,0,0.2,1),
-              background 0.25s ease, border-color 0.25s ease;
+  /* No backdrop-filter — it costs a new compositing layer per card (huge GPU hit) */
+  /* Only navbar/sidebar/modal get blur; cards use solid bg for 60fps scrolling */
+  transition: box-shadow 0.2s ease, transform 0.2s cubic-bezier(0.4,0,0.2,1);
   color: var(--label-1);
   position: relative;
   overflow: hidden;
+  /* Paint containment — card repaints don't affect siblings */
+  contain: layout style paint;
 }
 
 /* Glossy top highlight strip */
@@ -571,7 +572,7 @@ button, .btn, .nav-link, .mbn-item {
 }
 
 .card-header {
-  background: rgba(255,255,255,0.45) !important;
+  background: rgba(249,249,251,0.95) !important;
   border-bottom: 1px solid var(--sep) !important;
   border-radius: var(--r-card) var(--r-card) 0 0 !important;
   padding: 1rem 1.25rem 0.8rem;
@@ -579,7 +580,7 @@ button, .btn, .nav-link, .mbn-item {
   color: var(--label-1);
   font-size: 0.925rem;
   letter-spacing: -0.015em;
-  backdrop-filter: blur(10px);
+  /* No backdrop-filter — cards use solid bg */
 }
 [data-theme="dark"] .card-header { background: rgba(255,255,255,0.04) !important; }
 
@@ -1370,6 +1371,8 @@ p,span,td,li { color: inherit; }
 .wk-kanban-col {
   flex: 0 0 280px;
   min-height: 200px;
+  /* Isolate column layout — changes don't trigger sibling recalculation */
+  contain: layout style;
 }
 @media (min-width: 992px) {
   .wk-kanban-col { flex: 1 1 0; min-width: 240px; }
@@ -1831,8 +1834,8 @@ p,span,td,li { color: inherit; }
 .mobile-bottom-nav {
   will-change: auto; /* don't force GPU on old devices */
 }
-/* Only use will-change on things that actually animate */
-.wk-lead-card { will-change: transform; }
+/* will-change only on hover — static will-change wastes GPU memory */
+.wk-lead-card:hover { will-change: transform; }
 
 /* ── Font size — prevent tiny text on old phones ──────── */
 @media screen and (max-width: 380px) {

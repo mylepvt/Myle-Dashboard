@@ -34,7 +34,7 @@
   <!-- Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
   <!-- Custom -->
-  <link href="{{ url_for('static', filename='css/style.css') }}?v=20260318i" rel="stylesheet" />
+  <link href="{{ url_for('static', filename='css/style.css') }}?v=20260318j" rel="stylesheet" />
   {% block extra_head %}{% endblock %}
   <script>
   // ── Device Capability Detection ──────────────────────────
@@ -688,18 +688,20 @@ if (!window.CSS || !window.CSS.supports) {
       link.addEventListener('click', () => { if (isMobile()) closeMobileSidebar(); });
     });
 
+    let _resizeRaf;
     window.addEventListener('resize', () => {
-      if (isMobile()) {
-        /* Switching from desktop → mobile: clear collapsed state */
-        sidebar.classList.remove('collapsed');
-      } else {
-        /* Switching from mobile → desktop: clean up any open mobile state */
-        sidebar.classList.remove('mobile-open');
-        backdrop.classList.remove('show');
-        document.body.style.overflow = '';
-        if (pageWrapper) pageWrapper.style.overflowY = '';
-      }
-    });
+      cancelAnimationFrame(_resizeRaf);
+      _resizeRaf = requestAnimationFrame(() => {
+        if (isMobile()) {
+          sidebar.classList.remove('collapsed');
+        } else {
+          sidebar.classList.remove('mobile-open');
+          backdrop.classList.remove('show');
+          document.body.style.overflow = '';
+          if (pageWrapper) pageWrapper.style.overflowY = '';
+        }
+      });
+    }, { passive: true });
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initSidebar);
