@@ -91,7 +91,7 @@
           </div>
         </div>
         {% else %}
-        <div class="text-center text-muted p-4">Koi data nahi hai is week.</div>
+        <div class="text-center text-muted p-4">No data for this week.</div>
         {% endfor %}
       </div>
     </div>
@@ -99,11 +99,11 @@
     <!-- Points guide -->
     <div class="card border-0 shadow-sm mb-3">
       <div class="card-body">
-        <div class="fw-bold mb-3" style="font-size:0.88rem;">⚡ Points Kaise Milte Hain</div>
+        <div class="fw-bold mb-3" style="font-size:0.88rem;">⚡ How Points Are Earned</div>
         {% for action, pts, icon in [
-          ('Call log karo', 5, '📞'),
-          ('Video bhejo', 10, '🎬'),
-          ('Batch mark karo', 15, '✅'),
+          ('Log a call', 5, '📞'),
+          ('Send video', 10, '🎬'),
+          ('Mark batch', 15, '✅'),
           ('Payment ₹196 confirm', 25, '💰'),
           ('Daily report submit', 20, '📋'),
           ('Seat Hold confirm', 50, '🛡️'),

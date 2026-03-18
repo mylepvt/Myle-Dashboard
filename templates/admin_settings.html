@@ -86,7 +86,7 @@
             <i class="bi bi-envelope-fill me-2 text-success"></i>Welcome Email (SMTP)
           </h6>
           <p class="small text-muted mb-3">
-            Jab kisi member ko approve karo, unhe automatically welcome email jaayegi.
+            When you approve a member, they will receive a welcome email automatically.
           </p>
 
           <div class="row g-2 mb-3">
@@ -142,12 +142,12 @@
           {% if settings.anthropic_api_key_set %}
           <div class="alert alert-success py-2 small border-0 mb-3 d-flex align-items-center gap-2">
             <i class="bi bi-check-circle-fill text-success"></i>
-            <div><strong>Anthropic Claude active</strong> — Maya kaam kar rahi hai ✓</div>
+            <div><strong>Anthropic Claude active</strong> — Maya is working ✓</div>
           </div>
           {% else %}
           <div class="alert alert-warning py-2 small border-0 mb-3 d-flex align-items-center gap-2">
             <i class="bi bi-exclamation-triangle-fill text-warning"></i>
-            <div>Anthropic API key set nahi — Maya inactive. Neeche key add karo.</div>
+            <div>Anthropic API key not set — Maya inactive. Add key below.</div>
           </div>
           {% endif %}
 
@@ -159,7 +159,7 @@
                    autocomplete="off">
             <div class="form-text">
               Get from <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.
-              Ya Render mein <code>ANTHROPIC_API_KEY</code> environment variable set karo.
+              Or set <code>ANTHROPIC_API_KEY</code> in your environment (e.g. on Render).
             </div>
           </div>
 
@@ -170,7 +170,7 @@
             <i class="bi bi-film me-2" style="color:#ef4444;"></i>📹 Batch Video Links
           </h6>
           <p class="small text-muted mb-3">
-            Yeh links team members ko WhatsApp pe bhejे जाते हैं जब वो batch button tap करते हैं।
+            These links are sent to team members on WhatsApp when they tap the batch button.
           </p>
 
           <!-- Day 1 Videos -->

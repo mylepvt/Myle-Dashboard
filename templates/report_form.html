@@ -34,7 +34,7 @@
   <div class="card-body py-3">
     <div class="d-flex align-items-center gap-2 mb-2">
       <i class="bi bi-shield-check-fill text-success"></i>
-      <span class="fw-bold" style="font-size:0.85rem;">System Verified — Aaj Ka Real Count</span>
+      <span class="fw-bold" style="font-size:0.85rem;">System Verified — Today's Actual Count</span>
       <span class="badge bg-success ms-auto" style="font-size:0.7rem;">Auto-Tracked</span>
     </div>
     <div class="row g-2">
@@ -52,7 +52,7 @@
       </div>
     </div>
     <div class="mt-2" style="font-size:0.7rem; color:#6b7280; text-align:center;">
-      Yeh numbers system ne track kiye hain — inse zyada enter karna allowed nahi hai
+      These numbers are tracked by the system — you cannot enter more than this
     </div>
   </div>
 </div>
@@ -96,7 +96,7 @@
           <input type="number" name="total_calling" class="form-control" min="0"
                  value="{{ actual_counts.calls_made if actual_counts is defined and actual_counts else (existing.total_calling if existing else 0) }}" required>
           {% if actual_counts is defined and actual_counts %}
-          <small class="text-muted"><i class="bi bi-info-circle me-1"></i>System se auto-filled — real actions se count</small>
+          <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Auto-filled from system — counted from actual actions</small>
           {% endif %}
         </div>
         <div class="col-6 col-sm-4">
@@ -105,7 +105,7 @@
                  value="{{ actual_counts.videos_sent if actual_counts is defined and actual_counts else (existing.pdf_covered if existing else 0) }}"
                  max="{{ ((actual_counts.videos_sent|default(0)) + (actual_counts.enroll_links_sent|default(0)) + 5) if actual_counts is defined and actual_counts else 9999 }}" required>
           {% if actual_counts is defined and actual_counts %}
-          <small class="text-muted"><i class="bi bi-info-circle me-1"></i>System se auto-filled — real actions se count</small>
+          <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Auto-filled from system — counted from actual actions</small>
           {% endif %}
         </div>
         <div class="col-6 col-sm-4">

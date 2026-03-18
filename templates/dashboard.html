@@ -94,10 +94,96 @@
 {% endif %}
 
 {# ════════════════════════════════════════════════════════════
+   ZONE 2b · TODAY'S PRIORITIES (Team / Leader)
+   ════════════════════════════════════════════════════════════ #}
+{% if user_role in ('team', 'leader') %}
+{% set has_priorities = (followup_count and followup_count > 0) or (pending_batches and pending_batches > 0) or (stage1_count and stage1_count > 0) or not today_report %}
+{% if has_priorities %}
+<div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #6366f1;">
+  <div class="card-header bg-transparent border-0 py-2 px-3">
+    <span class="fw-semibold small text-primary"><i class="bi bi-list-check me-2"></i>Today's Priorities</span>
+  </div>
+  <div class="card-body py-2 px-3">
+    <ul class="mb-0 list-unstyled small">
+      {% if not today_report %}
+      <li class="d-flex align-items-center gap-2 py-1">
+        <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+        <a href="{{ url_for('report_submit') }}" class="text-danger fw-semibold text-decoration-none">Submit daily report</a>
+      </li>
+      {% endif %}
+      {% if followup_count and followup_count > 0 %}
+      <li class="d-flex align-items-center gap-2 py-1">
+        <i class="bi bi-calendar-x-fill text-warning"></i>
+        <a href="{{ url_for('follow_up_queue') }}" class="text-decoration-none">{{ followup_count }} follow-up{% if followup_count != 1 %}s{% endif %} due</a>
+      </li>
+      {% endif %}
+      {% if stage1_count and stage1_count > 0 %}
+      <li class="d-flex align-items-center gap-2 py-1">
+        <i class="bi bi-camera-video text-info"></i>
+        <a href="{{ url_for('working') }}#stage1" class="text-decoration-none">{{ stage1_count }} in Stage 1 — send videos &amp; call</a>
+      </li>
+      {% endif %}
+      {% if pending_batches and pending_batches > 0 %}
+      <li class="d-flex align-items-center gap-2 py-1">
+        <i class="bi bi-check2-square text-success"></i>
+        <a href="{{ url_for('working') }}" class="text-decoration-none">{{ pending_batches }} batch(es) pending (Day 1/2)</a>
+      </li>
+      {% endif %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+{# ════════════════════════════════════════════════════════════
+   ZONE 2c · TEAM SNAPSHOT (Leader only)
+   ════════════════════════════════════════════════════════════ #}
+{% if user_role == 'leader' and team_snapshot is defined and team_snapshot %}
+<div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #0d6efd;">
+  <div class="card-header bg-transparent border-0 py-2 px-3 d-flex justify-content-between align-items-center">
+    <span class="fw-semibold small text-primary"><i class="bi bi-people-fill me-2"></i>Team Snapshot</span>
+    <a href="{{ url_for('working') }}" class="btn btn-sm btn-outline-primary py-0">Working</a>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="small">Member</th>
+            <th class="text-center small">S1</th>
+            <th class="text-center small">D1</th>
+            <th class="text-center small">D2</th>
+            <th class="text-center small">D3</th>
+            <th class="text-center small">Conv.</th>
+            <th class="text-center small">Pts</th>
+            <th class="text-center small">Report</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in team_snapshot %}
+          <tr>
+            <td class="fw-semibold small">{{ m.username }}</td>
+            <td class="text-center">{{ m.stage1 }}</td>
+            <td class="text-center">{{ m.day1 }}</td>
+            <td class="text-center">{{ m.day2 }}</td>
+            <td class="text-center">{{ m.day3 }}</td>
+            <td class="text-center">{{ m.converted }}</td>
+            <td class="text-center fw-bold text-primary">{{ m.today_score }}</td>
+            <td class="text-center">{% if m.report_submitted %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ════════════════════════════════════════════════════════════
    ZONE 3 · PIPELINE
    ════════════════════════════════════════════════════════════ #}
 
-{% if user_role == 'team' %}
+{% if user_role in ('team', 'leader') %}
 
 {# ── Pre-compute section header hints (namespace for mutable loop vars) ── #}
 {% set _d3 = namespace(hot=0, urgent=0) %}
@@ -936,7 +1022,7 @@
   </div>
 </div>
 
-{% endif %}{# end user_role == 'team' else #}
+{% endif %}{# end pipeline (team/leader) #}
 
 {% endblock %}
 

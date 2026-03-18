@@ -1074,18 +1074,18 @@ def _get_next_action(lead):
 
     if stage == 'enrollment':
         if not call_status or call_status == 'Not Called Yet':
-            return {'action': 'Pehli call karo', 'type': 'urgent', 'priority': 1}
+            return {'action': 'Make first call', 'type': 'urgent', 'priority': 1}
         if call_status == 'Called - Interested' and status != 'Video Sent':
-            return {'action': 'Video bhejo abhi', 'type': 'urgent', 'priority': 1}
+            return {'action': 'Send video now', 'type': 'urgent', 'priority': 1}
         if call_status in ('Called - No Answer', 'Called - Follow Up'):
-            return {'action': 'Follow-up call karo', 'type': 'today', 'priority': 2}
+            return {'action': 'Follow-up call', 'type': 'today', 'priority': 2}
         if call_status == 'Video Watched' and not payment_done:
-            return {'action': 'Payment ke liye call karo', 'type': 'urgent', 'priority': 1}
+            return {'action': 'Call for payment', 'type': 'urgent', 'priority': 1}
         if payment_done and status != 'Mindset Lock':
-            return {'action': 'Mindset Lock call karo', 'type': 'today', 'priority': 2}
+            return {'action': 'Mindset Lock call', 'type': 'today', 'priority': 2}
         if status == 'Mindset Lock':
-            return {'action': 'Day 1 mein move karo', 'type': 'today', 'priority': 2}
-        return {'action': 'Follow up karo', 'type': 'followup', 'priority': 3}
+            return {'action': 'Move to Day 1', 'type': 'today', 'priority': 2}
+        return {'action': 'Follow up', 'type': 'followup', 'priority': 3}
 
     if stage == 'day1':
         d1_m = int(get('d1_morning', 0) or 0)
@@ -1093,18 +1093,18 @@ def _get_next_action(lead):
         d1_e = int(get('d1_evening', 0) or 0)
         rem   = 3 - (d1_m + d1_a + d1_e)
         if rem > 0:
-            return {'action': f'{rem} batch(es) baaki hain', 'type': 'today', 'priority': 2}
-        return {'action': 'Day 2 ke liye bhejo', 'type': 'today', 'priority': 2}
+            return {'action': f'{rem} batch(es) left', 'type': 'today', 'priority': 2}
+        return {'action': 'Send to Day 2', 'type': 'today', 'priority': 2}
 
     if stage == 'day2':
-        return {'action': 'Admin conduct kar raha hai', 'type': 'followup', 'priority': 4}
+        return {'action': 'Admin conducting', 'type': 'followup', 'priority': 4}
 
     if stage == 'day3':
         if not int(get('interview_done', 0) or 0):
-            return {'action': 'Interview karo', 'type': 'urgent', 'priority': 1}
+            return {'action': 'Do interview', 'type': 'urgent', 'priority': 1}
         if not int(get('track_selected', 0) or 0):
-            return {'action': 'Track select karo', 'type': 'urgent', 'priority': 1}
-        return {'action': 'Seat Hold confirm karo', 'type': 'urgent', 'priority': 1}
+            return {'action': 'Select track', 'type': 'urgent', 'priority': 1}
+        return {'action': 'Confirm Seat Hold', 'type': 'urgent', 'priority': 1}
 
     if stage == 'seat_hold':
         expiry_str = get('seat_hold_expiry', '')
@@ -1121,12 +1121,12 @@ def _get_next_action(lead):
         return {'action': 'Final payment follow up', 'type': 'followup', 'priority': 3}
 
     if stage in ('closing', 'training'):
-        return {'action': 'Closing process mein hai', 'type': 'followup', 'priority': 4}
+        return {'action': 'In closing process', 'type': 'followup', 'priority': 4}
 
     if stage in ('complete', 'lost'):
         return {'action': '—', 'type': 'cold', 'priority': 9}
 
-    return {'action': 'Follow up karo', 'type': 'followup', 'priority': 3}
+    return {'action': 'Follow up', 'type': 'followup', 'priority': 3}
 
 
 def _generate_ai_tip(lead):
@@ -1165,30 +1165,30 @@ def _generate_ai_tip(lead):
 
     # Rule-based tips (order matters — most specific first)
     if stage == 'seat_hold' and expiry_soon:
-        return f"⚠️ {name} ka seat hold kal expire ho raha hai — aaj final call must hai!"
+        return f"⚠️ {name}'s seat hold expires soon — final call today is a must!"
     if stage == 'day1' and d1_done == 3:
-        return f"✅ Saare batches complete! {name} ko abhi Day 2 pe move karo."
+        return f"✅ All batches complete! Move {name} to Day 2 now."
     if stage == 'enrollment' and heat >= 75:
-        return f"🔥 {name} bahut interested lag raha/rahi hai — aaj hi convert karne ki koshish karo."
+        return f"🔥 {name} looks very interested — try to convert today."
     if stage == 'enrollment' and call_status == 'Video Watched' and not payment_done:
-        return f"👀 {name} ne video dekh liya hai — payment ke liye ek strong call lagao abhi."
+        return f"👀 {name} has watched the video — make a strong payment call now."
     if stage == 'enrollment' and call_status == 'Payment Done':
-        return f"💰 Payment confirm! {name} ko Day 1 mein move karo aur Mindset Lock call karo."
+        return f"💰 Payment confirmed! Move {name} to Day 1 and do Mindset Lock call."
     if stage == 'enrollment' and days_in > 5 and heat < 30:
-        return f"❄️ {name} {days_in}d se stuck hai aur cold ho rahi/raha hai — ek strong follow-up call karo."
+        return f"❄️ {name} has been stuck for {days_in}d and going cold — do a strong follow-up call."
     if stage == 'enrollment' and (not call_status or call_status == 'Not Called Yet'):
-        return f"📞 {name} ko pehli baar call nahi kiya abhi tak — aaj contact karo."
+        return f"📞 {name} has not been called yet — contact today."
     if stage == 'day1' and d1_done < 3:
-        return f"⏳ {name} ke {d1_done}/3 batches hue hain — baaki ke liye remind karo."
+        return f"⏳ {name} has {d1_done}/3 batches done — remind for the rest."
     if stage == 'day2':
-        return f"🎓 {name} Day 2 mein hai — admin se interview schedule karo."
+        return f"🎓 {name} is in Day 2 — schedule interview with admin."
     if stage == 'day3':
-        return f"🏁 {name} interview stage pe hai — track select karwa ke seat hold confirm karo."
+        return f"🏁 {name} is at interview stage — get track selected and confirm seat hold."
     if stage == 'seat_hold':
-        return f"🛡️ {name} seat hold pe hai — final payment ke liye follow up karo."
+        return f"🛡️ {name} is on seat hold — follow up for final payment."
     if heat < 40 and days_in > 3:
-        return f"❄️ {name} {days_in}d se inactive — ek baar call karke status update karo."
-    return f"📋 {name} ke saath regular follow up maintain karo."
+        return f"❄️ {name} inactive for {days_in}d — call once and update status."
+    return f"📋 Maintain regular follow up with {name}."
 
 
 def _enrich_lead(lead):
@@ -1549,8 +1549,8 @@ def _sync_watch_event_to_lead(db, token):
 
     try:
         _push_to_users(db, shared_by,
-                       f'{lead.get("name") or "Lead"} ne video dekha!',
-                       'Abhi call karo — interest peak pe hai!',
+                       f'{lead.get("name") or "Lead"} watched the video!',
+                       'Call now — interest is at its peak!',
                        '/working')
     except Exception:
         pass
@@ -1714,7 +1714,7 @@ def _trigger_training_unlock(db, lead):
         try:
             _push_to_users(db, user_row['username'],
                            'Training Ready!',
-                           '7-day training shuru karo. Certificate milega!',
+                           'Start 7-day training. You will get a certificate!',
                            '/training')
         except Exception:
             pass
@@ -2506,6 +2506,46 @@ def team_dashboard():
     day3_leads_e    = _enrich_leads(day3_leads)
     pending_leads_e = _enrich_leads(pending_leads)
     recent_e        = _enrich_leads(recent)
+
+    # Leader: team snapshot (downline pipeline + today score + report status)
+    fresh_role = db.execute("SELECT role FROM users WHERE username=?", (username,)).fetchone()
+    team_snapshot = []
+    if fresh_role and fresh_role['role'] == 'leader':
+        downline = db.execute(
+            "SELECT username FROM users WHERE (upline_username=? OR upline_name=?) AND role='team' AND status='approved' ORDER BY username",
+            (username, username)
+        ).fetchall()
+        stage_ph = ','.join('?' * len(STAGE1_STATUSES))
+        for row in downline:
+            uname = row['username']
+            counts = db.execute(f"""
+                SELECT
+                    SUM(CASE WHEN status IN ({stage_ph}) THEN 1 ELSE 0 END) AS stage1,
+                    SUM(CASE WHEN status='Day 1' THEN 1 ELSE 0 END) AS day1,
+                    SUM(CASE WHEN status='Day 2' THEN 1 ELSE 0 END) AS day2,
+                    SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3,
+                    SUM(CASE WHEN status IN ('Fully Converted','Converted') THEN 1 ELSE 0 END) AS converted
+                FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
+            """, (*STAGE1_STATUSES, uname)).fetchone()
+            score_row = db.execute(
+                "SELECT total_points FROM daily_scores WHERE username=? AND score_date=?",
+                (uname, today)
+            ).fetchone()
+            report_row = db.execute(
+                "SELECT 1 FROM daily_reports WHERE username=? AND report_date=?",
+                (uname, today)
+            ).fetchone()
+            team_snapshot.append({
+                'username': uname,
+                'stage1': counts['stage1'] or 0,
+                'day1': counts['day1'] or 0,
+                'day2': counts['day2'] or 0,
+                'day3': counts['day3'] or 0,
+                'converted': counts['converted'] or 0,
+                'today_score': score_row['total_points'] if score_row else 0,
+                'report_submitted': bool(report_row),
+            })
+
     db.close()
     resp = make_response(render_template('dashboard.html',
                            metrics=metrics,
@@ -2544,6 +2584,7 @@ def team_dashboard():
                            pending_batches=pending_batches,
                            batch_videos=batch_videos,
                            user_role=session.get('role', 'team'),
+                           team_snapshot=team_snapshot,
                            call_status_values=CALL_STATUS_VALUES,
                            csrf_token=session.get('_csrf_token', '')))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
@@ -3444,13 +3485,13 @@ def report_submit():
         max_videos = (actual_counts['videos_sent'] + actual_counts['enroll_links_sent'] + 5)
         if pdf_covered > max_videos:
             inflation_errors.append(
-                f"Videos/PDFs: System ne aaj {actual_counts['videos_sent']} videos track ki hain. "
-                f"Isse zyada enter nahi kar sakte."
+                f"Videos/PDFs: System tracked {actual_counts['videos_sent']} videos today. "
+                f"You cannot enter more than that."
             )
         if total_calling > (actual_counts['calls_made'] + 10):
             inflation_errors.append(
-                f"Calls: System ne aaj {actual_counts['calls_made']} calls track ki hain. "
-                f"Isse zyada enter nahi kar sakte."
+                f"Calls: System tracked {actual_counts['calls_made']} calls today. "
+                f"You cannot enter more than that."
             )
         if inflation_errors:
             for err in inflation_errors:
@@ -6602,7 +6643,7 @@ def training_complete_day():
             (username,)
         )
         session['training_status'] = 'completed'
-        flash('🎉 Saate din complete! Ab training test do — 60/100 score karo aur certificate unlock karo.', 'success')
+        flash('🎉 All 7 days complete! Take the training test — score 60/100 to unlock your certificate.', 'success')
     else:
         flash(f'✅ Day {day} complete! Keep going.', 'success')
 
@@ -6882,7 +6923,7 @@ def admin_training_reset(username):
 def training_test():
     ts = session.get('training_status', 'pending')
     if ts not in ('completed', 'unlocked'):
-        flash('Pehle saare 7 din ki training poori karo.', 'warning')
+        flash('Complete all 7 days of training first.', 'warning')
         return redirect(url_for('training_home'))
 
     username = session['username']
@@ -6921,7 +6962,7 @@ def training_test_submit():
     questions = db.execute("SELECT * FROM training_questions ORDER BY id").fetchall()
     if not questions:
         db.close()
-        flash('Koi questions available nahi hain. Admin se contact karo.', 'warning')
+        flash('No questions available. Contact admin.', 'warning')
         return redirect(url_for('training_home'))
 
     correct = 0
@@ -6948,7 +6989,7 @@ def training_test_submit():
     db.close()
 
     if passed:
-        flash(f'🎉 Congratulations! Score: {score}/100. Test pass! Ab apna certificate download karo.', 'success')
+        flash(f'🎉 Congratulations! Score: {score}/100. Test passed! Download your certificate now.', 'success')
         return redirect(url_for('training_certificate'))
     else:
         flash(f'Score: {score}/100. Pass nahi hua (60 chahiye). Dobara try karo!', 'danger')
@@ -7111,7 +7152,7 @@ def api_chat():
     db.close()
 
     if not anthropic_key or not ANTHROPIC_AVAILABLE:
-        return {'error': 'AI assistant configure nahi hua. Admin → Settings mein Anthropic API key add karo.'}, 503
+        return {'error': 'AI assistant not configured. Add Anthropic API key in Admin → Settings.'}, 503
 
     # ── Conversation history from session ──────────────────────────
     history = list(session.get('maya_history', []))
@@ -7158,8 +7199,8 @@ def api_chat():
     # ── Failed ───────────────────────────────────────────────────────
     if reply is None:
         if '401' in last_err or '403' in last_err or 'api_key' in last_err.lower():
-            return {'error': 'AI key invalid hai — Admin se contact karo.'}, 401
-        return {'error': 'Maya abhi available nahi hai. Thodi der baad try karo.'}, 503
+            return {'error': 'AI key is invalid — contact Admin.'}, 401
+        return {'error': 'Maya is not available right now. Try again in a moment.'}, 503
 
     # ── Save history (text only) ────────────────────────────────────
     if image_data and not message:
@@ -7558,7 +7599,7 @@ def batch_toggle(lead_id):
     # Day 1 batches: only leader or admin can mark (team cannot send Day 1 task from dashboard)
     if batch.startswith('d1_'):
         if role not in ('leader', 'admin'):
-            db.close(); return {'ok': False, 'error': 'Day 1 batches sirf leader/admin bhej sakte hain'}, 403
+            db.close(); return {'ok': False, 'error': 'Only leader/admin can send Day 1 batches'}, 403
         if role == 'leader':
             downline = _get_network_usernames(db, session['username'])
             if owner != session['username'] and owner not in downline:
@@ -7566,7 +7607,7 @@ def batch_toggle(lead_id):
     else:
         # Day 2 batches can only be marked by admin
         if batch.startswith('d2_') and role != 'admin':
-            db.close(); return {'ok': False, 'error': 'Day 2 batches sirf admin mark kar sakta hai'}, 403
+            db.close(); return {'ok': False, 'error': 'Only admin can mark Day 2 batches'}, 403
         if role != 'admin' and owner != session['username']:
             db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
 

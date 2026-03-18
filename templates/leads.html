@@ -97,11 +97,11 @@
     {% endif %}
     {% if lead.call_status == 'Video Watched' %}
     <div class="mt-1" style="background:#dcfce7; border-radius:6px; padding:3px 8px; font-size:0.67rem; font-weight:600; color:#16a34a;">
-      👀 Video dekha — abhi call karo!
+      👀 Video watched — call now!
     </div>
     {% elif lead.call_status == 'Video Sent' %}
     <div class="mt-1" style="background:#dbeafe; border-radius:6px; padding:3px 8px; font-size:0.67rem; color:#1d4ed8;">
-      📤 Video bheji — response pending
+      📤 Video sent — response pending
     </div>
     {% endif %}
   </div>
@@ -233,7 +233,7 @@
   {% if not today_leads %}
   <div class="text-center py-5 text-muted">
     <i class="bi bi-sun" style="font-size:3rem;opacity:.3;"></i>
-    <p class="mt-3 mb-1 fw-semibold">Aaj koi lead nahi</p>
+    <p class="mt-3 mb-1 fw-semibold">No leads today</p>
     <p class="small">Add a lead or claim from pool to start working.</p>
     <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#quickAddModal">
       <i class="bi bi-plus-lg me-1"></i>Quick Add
@@ -306,7 +306,7 @@
       {% if unassigned_d1 %}
       <div class="wl-unassigned-hdr">
         <i class="bi bi-dash-circle-dotted me-2"></i>Unassigned ({{ unassigned_d1|length }})
-        <span class="small text-muted ms-2">— B1/B2/B3 press karke batch assign karo</span>
+        <span class="small text-muted ms-2">— Press B1/B2/B3 to assign batch</span>
       </div>
       <div class="row g-2">
         {% for lead in unassigned_d1 %}
@@ -317,7 +317,7 @@
       {% else %}
       <div class="text-center py-5 text-muted small">
         <i class="bi bi-1-circle" style="font-size:2.5rem;opacity:.3;"></i>
-        <p class="mt-2 mb-0">Aaj koi lead Day 1 mein nahi</p>
+        <p class="mt-2 mb-0">No leads in Day 1 today</p>
       </div>
       {% endif %}
     </div>
@@ -334,7 +334,7 @@
       {% if unassigned_d2 %}
       <div class="wl-unassigned-hdr">
         <i class="bi bi-dash-circle-dotted me-2"></i>Unassigned ({{ unassigned_d2|length }})
-        <span class="small text-muted ms-2">— B1/B2/B3 press karke batch assign karo</span>
+        <span class="small text-muted ms-2">— Press B1/B2/B3 to assign batch</span>
       </div>
       <div class="row g-2">
         {% for lead in unassigned_d2 %}
@@ -345,7 +345,7 @@
       {% else %}
       <div class="text-center py-5 text-muted small">
         <i class="bi bi-2-circle" style="font-size:2.5rem;opacity:.3;"></i>
-        <p class="mt-2 mb-0">Aaj koi lead Day 2 mein nahi</p>
+        <p class="mt-2 mb-0">No leads in Day 2 today</p>
       </div>
       {% endif %}
     </div>
@@ -362,7 +362,7 @@
       {% if unassigned_d3 %}
       <div class="wl-unassigned-hdr">
         <i class="bi bi-dash-circle-dotted me-2"></i>Unassigned ({{ unassigned_d3|length }})
-        <span class="small text-muted ms-2">— B1/B2/B3 press karke batch assign karo</span>
+        <span class="small text-muted ms-2">— Press B1/B2/B3 to assign batch</span>
       </div>
       <div class="row g-2">
         {% for lead in unassigned_d3 %}
@@ -373,7 +373,7 @@
       {% else %}
       <div class="text-center py-5 text-muted small">
         <i class="bi bi-3-circle" style="font-size:2.5rem;opacity:.3;"></i>
-        <p class="mt-2 mb-0">Aaj koi lead Day 3 mein nahi</p>
+        <p class="mt-2 mb-0">No leads in Day 3 today</p>
       </div>
       {% endif %}
     </div>
@@ -391,7 +391,7 @@
   {% if not hist_leads %}
   <div class="text-center py-5 text-muted">
     <i class="bi bi-clock-history" style="font-size:3rem;opacity:.3;"></i>
-    <p class="mt-3 mb-0">Koi purani lead nahi</p>
+    <p class="mt-3 mb-0">No older leads</p>
   </div>
   {% else %}
 

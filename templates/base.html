@@ -1038,7 +1038,7 @@
       </label>
       <input type="file" id="mayaImgFile" accept="image/*" style="display:none;" onchange="mayaPreviewImg(this)">
       <input type="text" id="mayaTextInput" class="maya-text-input"
-             placeholder="Message karo..." autocomplete="off"
+             placeholder="Type a message..." autocomplete="off"
              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();mayaSend();}">
       <button class="maya-send-btn" onclick="mayaSend()" id="mayaSendBtn" title="Send">
         <i class="bi bi-arrow-up-short" style="font-size:1.2rem;"></i>
@@ -1349,7 +1349,7 @@
       if (data.reply) {
         mayaAddMsg('ai', mayaEscape(data.reply));
       } else {
-        mayaAddMsg('ai', '⚠️ ' + mayaEscape(data.error || 'Kuch error aa gaya. Dobara try karo.'));
+        mayaAddMsg('ai', '⚠️ ' + mayaEscape(data.error || 'Something went wrong. Please try again.'));
       }
     } catch(e) {
       mayaHideTyping();
