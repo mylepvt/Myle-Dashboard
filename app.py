@@ -38,6 +38,7 @@ from flask import (Flask, render_template, request, redirect, url_for,
                    flash, session, Response, make_response, abort, send_from_directory, jsonify)
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_db, init_db, migrate_db, seed_users, seed_training_questions
+from pathlib import Path
 
 # Optional QR code support
 try:
@@ -90,6 +91,7 @@ except ImportError:
     GEMINI_AVAILABLE = False
 
 app = Flask(__name__)
+
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 # ── Structured logging ───────────────────────────────────────
@@ -1325,10 +1327,25 @@ def _get_user_badges_emoji(db, username):
     return ' '.join(BADGE_META[r['badge_key']][0] for r in rows if r['badge_key'] in BADGE_META)
 
 
-def _transition_stage(db, lead_id, new_stage, triggered_by):
+# Canonical stage -> default status (for transitions that don't provide an override)
+STAGE_TO_DEFAULT_STATUS = {
+    'day1': 'Day 1',
+    'day2': 'Day 2',
+    'day3': 'Interview',
+    'seat_hold': 'Seat Hold Confirmed',
+    'closing': 'Fully Converted',
+    'training': 'Training',
+    'complete': 'Converted',
+    'lost': 'Lost',
+}
+
+
+def _transition_stage(db, lead_id, new_stage, triggered_by, status_override=None):
     """
-    Move a lead to a new pipeline stage, updating current_owner, status, and
-    logging to lead_stage_history. Returns (new_stage, new_owner).
+    Move a lead to a new pipeline stage: update pipeline_stage, current_owner,
+    optionally status (when status_override or stage default), and log to lead_stage_history.
+    Returns (new_stage, new_owner).
+    When status_override is provided, it is used so status always matches the caller's intent.
     """
     lead = db.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone()
     if not lead:
@@ -1358,17 +1375,8 @@ def _transition_stage(db, lead_id, new_stage, triggered_by):
     else:
         new_owner = current_owner or _get_admin_username(db)
 
-    _stage_to_status = {
-        'day1':      'Day 1',
-        'day2':      'Day 2',
-        'day3':      'Interview',
-        'seat_hold': 'Seat Hold Confirmed',
-        'closing':   'Fully Converted',
-        'training':  'Training',
-        'complete':  'Converted',
-        'lost':      'Lost',
-    }
-    new_status = _stage_to_status.get(new_stage)
+    # One status value: caller override or stage default (ensures status maps to pipeline_stage)
+    new_status = status_override if status_override is not None else STAGE_TO_DEFAULT_STATUS.get(new_stage)
     now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
 
     if new_status is not None:
@@ -1443,7 +1451,7 @@ def _sync_enroll_share_to_lead(db, token, username):
 
     if current_idx < video_sent_idx:
         db.execute(
-            "UPDATE leads SET status='Video Sent', call_status='Video Sent', "
+            "UPDATE leads SET status='Video Sent', call_status='Video Sent', pipeline_stage='enrollment', "
             "last_contacted=?, contact_count=COALESCE(contact_count,0)+1, updated_at=? "
             "WHERE id=?",
             (now_str, now_str, lead_id)
@@ -1520,7 +1528,7 @@ def _sync_watch_event_to_lead(db, token):
 
     if current_idx < watched_idx:
         db.execute(
-            "UPDATE leads SET status='Video Watched', call_status='Video Watched', "
+            "UPDATE leads SET status='Video Watched', call_status='Video Watched', pipeline_stage='enrollment', "
             "updated_at=? WHERE id=?",
             (now_str, lead_id)
         )
@@ -2986,58 +2994,37 @@ def edit_lead(lead_id):
         else:
             assigned_to = lead['assigned_to'] or ''
 
-        # Sync pipeline_stage from status
+        # Sync pipeline_stage from status (one status -> one pipeline_stage)
         new_pipeline_stage = STATUS_TO_STAGE.get(status, 'enrollment')
         lead_pipeline_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'enrollment'
-
+        stage_changed = new_pipeline_stage != lead_pipeline_stage
         _updated_at = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
-        if new_pipeline_stage != lead_pipeline_stage:
-            # Avoid double-writing pipeline_stage/current_owner. Let _transition_stage own it.
-            db.execute("""
-                UPDATE leads
-                SET name=?, phone=?, email=?, referred_by=?, assigned_to=?, status=?,
-                    payment_done=?, payment_amount=?,
-                    day1_done=?, day2_done=?, interview_done=?,
-                    follow_up_date=?, call_result=?, notes=?, city=?,
-                    track_selected=?, track_price=?, seat_hold_amount=?, pending_amount=?,
-                    updated_at=?
-                WHERE id=?
-            """, (name, phone, email, referred_by, assigned_to, status,
-                  payment_done, payment_amount,
-                  day1_done, day2_done, interview_done,
-                  follow_up_date, call_result, notes, city,
-                  track_selected_val, track_price_val, seat_hold_amount_val, pending_amount_val,
-                  _updated_at,
-                  lead_id))
-        else:
-            db.execute("""
-                UPDATE leads
-                SET name=?, phone=?, email=?, referred_by=?, assigned_to=?, status=?,
-                    payment_done=?, payment_amount=?,
-                    day1_done=?, day2_done=?, interview_done=?,
-                    follow_up_date=?, call_result=?, notes=?, city=?,
-                    track_selected=?, track_price=?, seat_hold_amount=?, pending_amount=?,
-                    pipeline_stage=?,
-                    updated_at=?
-                WHERE id=?
-            """, (name, phone, email, referred_by, assigned_to, status,
-                  payment_done, payment_amount,
-                  day1_done, day2_done, interview_done,
-                  follow_up_date, call_result, notes, city,
-                  track_selected_val, track_price_val, seat_hold_amount_val, pending_amount_val,
-                  new_pipeline_stage,
-                  _updated_at,
-                  lead_id))
-            db.commit()
 
-        # If stage changed, use _transition_stage to set owner + log history
-        if new_pipeline_stage != lead_pipeline_stage:
+        # Single UPDATE: always set status and pipeline_stage together
+        db.execute("""
+            UPDATE leads
+            SET name=?, phone=?, email=?, referred_by=?, assigned_to=?, status=?,
+                payment_done=?, payment_amount=?,
+                day1_done=?, day2_done=?, interview_done=?,
+                follow_up_date=?, call_result=?, notes=?, city=?,
+                track_selected=?, track_price=?, seat_hold_amount=?, pending_amount=?,
+                pipeline_stage=?,
+                updated_at=?
+            WHERE id=?
+        """, (name, phone, email, referred_by, assigned_to, status,
+              payment_done, payment_amount,
+              day1_done, day2_done, interview_done,
+              follow_up_date, call_result, notes, city,
+              track_selected_val, track_price_val, seat_hold_amount_val, pending_amount_val,
+              new_pipeline_stage,
+              _updated_at,
+              lead_id))
+        db.commit()
+
+        # If stage changed, run _transition_stage for current_owner + history (status already set above)
+        if stage_changed:
             try:
-                _transition_stage(db, lead_id, new_pipeline_stage, session['username'])
-                # Preserve the explicit status chosen in the edit form (some statuses
-                # like "Track Selected" don't match the stage default mapping).
-                db.execute("UPDATE leads SET status=?, updated_at=? WHERE id=?",
-                           (status, _updated_at, lead_id))
+                _transition_stage(db, lead_id, new_pipeline_stage, session['username'], status_override=status)
                 db.commit()
             except Exception:
                 pass
@@ -3277,13 +3264,18 @@ def update_status(lead_id):
     now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
 
     if stage_changed:
-        # Only update status — let _transition_stage handle pipeline_stage + current_owner
-        # (so _transition_stage reads correct current_stage from DB)
-        db.execute(
-            "UPDATE leads SET status=?, payment_done=1, updated_at=? WHERE id=? AND in_pool=0",
-            (new_status, now_str, lead_id)
-        )
-        _transition_stage(db, lead_id, new_pipeline_stage, session['username'])
+        # Single update: _transition_stage sets pipeline_stage, current_owner, status (status_override)
+        _transition_stage(db, lead_id, new_pipeline_stage, session['username'], status_override=new_status)
+        if new_status == 'Day 1':
+            db.execute(
+                "UPDATE leads SET payment_done=1, payment_amount=?, updated_at=? WHERE id=? AND in_pool=0",
+                (PAYMENT_AMOUNT, now_str, lead_id)
+            )
+        elif new_status in ('Seat Hold Confirmed', 'Fully Converted'):
+            db.execute(
+                "UPDATE leads SET payment_done=1, updated_at=? WHERE id=? AND in_pool=0",
+                (now_str, lead_id)
+            )
     else:
         db.execute(
             "UPDATE leads SET status=?, pipeline_stage=?, updated_at=? WHERE id=? AND in_pool=0",
@@ -5951,8 +5943,9 @@ def bulk_update_leads():
             continue
         if role != 'admin' and lead['assigned_to'] != username:
             continue
-        db.execute("UPDATE leads SET status=?, updated_at=? WHERE id=?",
-                   (new_status, now, lead_id))
+        new_stage = STATUS_TO_STAGE.get(new_status, 'enrollment')
+        db.execute("UPDATE leads SET status=?, pipeline_stage=?, updated_at=? WHERE id=?",
+                   (new_status, new_stage, now, lead_id))
         _log_lead_event(db, lead_id, username, f'[Bulk] Status → {new_status}')
         updated += 1
 
@@ -8110,13 +8103,7 @@ def quick_advance(lead_id):
         new_stage = None
 
     if new_stage:
-        _transition_stage(db, lead_id, new_stage, session['username'])
-
-        # overwrite issue fix
-        db.execute(
-            "UPDATE leads SET status=? WHERE id=?",
-            (new_status, lead_id)
-        )
+        _transition_stage(db, lead_id, new_stage, session['username'], status_override=new_status)
     _log_lead_event(db, lead_id, session['username'], f'Status → {new_status} (quick advance)')
     _log_activity(db, session['username'], 'quick_advance',
                   f'{row["name"]} → {new_status}')
@@ -8189,13 +8176,8 @@ def stage_advance(lead_id):
 
     if action == 'interview_done':
         now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
-        db.execute("UPDATE leads SET interview_done=1, status='Track Selected', updated_at=? WHERE id=?",
-                   (now_str, lead_id))
-        # For interview_done, we intentionally DO NOT call _transition_stage:
-        # - avoids double-commit
-        # - prevents overwriting status back to 'Interview' for stage 'day3'
-        new_stage_result = lead['pipeline_stage'] if 'pipeline_stage' in lead_keys else 'day3'
-        new_owner = lead['current_owner'] if 'current_owner' in lead_keys else ''
+        new_stage_result, new_owner = _transition_stage(db, lead_id, 'day3', username, status_override='Track Selected')
+        db.execute("UPDATE leads SET interview_done=1, updated_at=? WHERE id=?", (now_str, lead_id))
         db.commit()
         _log_activity(db, username, 'stage_advance', f'Lead #{lead_id} {action} to {new_stage_result}')
         db.close()
@@ -8340,11 +8322,10 @@ def update_call_status(lead_id):
                 pass
         lead_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'enrollment'
         if lead_stage == 'enrollment':
-            _transition_stage(db, lead_id, 'day1', username)
+            _transition_stage(db, lead_id, 'day1', username, status_override='Day 1')
             stage_advanced = True
-            # Ensure lead shows in Day 1 lists: status and payment must be set
             db.execute(
-                "UPDATE leads SET status='Day 1', payment_done=1, payment_amount=?, updated_at=? WHERE id=?",
+                "UPDATE leads SET payment_done=1, payment_amount=?, updated_at=? WHERE id=?",
                 (PAYMENT_AMOUNT, now_str, lead_id)
             )
 

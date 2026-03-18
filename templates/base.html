@@ -1256,12 +1256,15 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 {% if session.get('username') %}
+<script>
+window.mayaSend=function(){};window.mayaClear=function(){};window.mayaToggle=function(){};
+</script>
 <!-- ╔══════════════════════════════════════════════╗
      ║  Maya AI — Floating Chat Assistant           ║
      ╚══════════════════════════════════════════════╝ -->
 
 <!-- Bubble button -->
-<div id="mayaBubble" onclick="mayaToggle()" title="Maya AI Assistant" aria-label="Open AI Assistant">
+<div id="mayaBubble" onclick="typeof mayaToggle==='function'&&mayaToggle()" title="Maya AI Assistant" aria-label="Open AI Assistant">
   <i class="bi bi-robot"></i>
   <span class="maya-unread" id="mayaUnreadDot" style="display:none;"></span>
 </div>
@@ -1279,8 +1282,8 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
     </div>
     <div class="d-flex gap-1 align-items-center">
-      <button class="maya-icon-btn" onclick="mayaClear()" title="Clear chat"><i class="bi bi-arrow-counterclockwise"></i></button>
-      <button class="maya-icon-btn" onclick="mayaToggle()" title="Close"><i class="bi bi-x-lg"></i></button>
+      <button type="button" class="maya-icon-btn" id="mayaClearBtn" title="Clear chat"><i class="bi bi-arrow-counterclockwise"></i></button>
+      <button type="button" class="maya-icon-btn" onclick="typeof mayaToggle==='function'&&mayaToggle()" title="Close"><i class="bi bi-x-lg"></i></button>
     </div>
   </div>
 
@@ -1314,8 +1317,8 @@ document.addEventListener('DOMContentLoaded', function() {
       <input type="file" id="mayaImgFile" accept="image/*" style="display:none;" onchange="mayaPreviewImg(this)">
       <input type="text" id="mayaTextInput" class="maya-text-input"
              placeholder="Type a message..." autocomplete="off"
-             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();mayaSend();}">
-      <button class="maya-send-btn" onclick="mayaSend()" id="mayaSendBtn" title="Send">
+             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();if(window.mayaSend)window.mayaSend();}">
+      <button type="button" class="maya-send-btn" id="mayaSendBtn" title="Send">
         <i class="bi bi-arrow-up-short" style="font-size:1.2rem;"></i>
       </button>
     </div>
@@ -1618,11 +1621,18 @@ document.addEventListener('DOMContentLoaded', function() {
   var mayaImgData  = null;
   var mayaIsOpen   = false;
 
+  // Stub handlers so onclick never sees undefined (overwritten below)
+  window.mayaSend   = function() {};
+  window.mayaClear  = function() {};
+  window.mayaToggle = function() {};
+
   window.mayaToggle = function() {
-    mayaIsOpen = !mayaIsOpen;
     var win = document.getElementById('mayaWindow');
+    if (!win) return;
+    mayaIsOpen = !mayaIsOpen;
     win.classList.toggle('maya-hidden', !mayaIsOpen);
-    document.getElementById('mayaUnreadDot').style.display = 'none';
+    var unread = document.getElementById('mayaUnreadDot');
+    if (unread) unread.style.display = 'none';
     if (mayaIsOpen) {
       setTimeout(function() {
         var inp = document.getElementById('mayaTextInput');
@@ -1657,6 +1667,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function mayaAddMsg(role, html) {
     var msgs = document.getElementById('mayaMessages');
+    if (!msgs) return null;
     var div  = document.createElement('div');
     div.className = 'maya-msg ' + role;
     var bub = document.createElement('div');
@@ -1670,6 +1681,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function mayaShowTyping() {
     var msgs = document.getElementById('mayaMessages');
+    if (!msgs) return;
     var div  = document.createElement('div');
     div.className = 'maya-msg ai';
     div.id = 'mayaTypingIndicator';
@@ -1692,30 +1704,29 @@ document.addEventListener('DOMContentLoaded', function() {
     return text;
   }
 
-  window.mayaSend = async function() {
+  async function doSend() {
     var inp  = document.getElementById('mayaTextInput');
     var btn  = document.getElementById('mayaSendBtn');
+    if (!inp || !btn) return;
     var msg  = inp.value.trim();
     if (!msg && !mayaImgData) return;
 
-    // Disable inputs
+    var statusEl = document.getElementById('mayaStatus');
     btn.disabled = true;
     inp.disabled = true;
-
-    // Show user message
-    var display = msg ? mayaEscape(msg) : '📸 <em>Screenshot</em>';
-    if (mayaImgData && msg) display = '📸 ' + mayaEscape(msg);
-    mayaAddMsg('user', display);
-    inp.value = '';
-
-    // Show typing
-    mayaShowTyping();
-    document.getElementById('mayaStatus').textContent = 'Maya is typing...';
-
-    var imgToSend = mayaImgData;
-    mayaRemoveImg();
+    if (statusEl) statusEl.textContent = 'Maya is typing...';
 
     try {
+      var display = msg ? mayaEscape(msg) : '📸 <em>Screenshot</em>';
+      if (mayaImgData && msg) display = '📸 ' + mayaEscape(msg);
+      mayaAddMsg('user', display);
+      inp.value = '';
+
+      mayaShowTyping();
+
+      var imgToSend = mayaImgData;
+      mayaRemoveImg();
+
       var body = { message: msg };
       if (imgToSend) body.image = imgToSend;
 
@@ -1735,19 +1746,34 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch(e) {
       mayaHideTyping();
       mayaAddMsg('ai', '⚠️ Connection error. Please try again.');
+    } finally {
+      if (statusEl) statusEl.textContent = 'Online · Myle Community';
+      btn.disabled = false;
+      inp.disabled = false;
+      inp.focus();
     }
+  }
 
-    document.getElementById('mayaStatus').textContent = 'Online · Myle Community';
-    btn.disabled = false;
-    inp.disabled = false;
-    inp.focus();
-  };
-
-  window.mayaClear = async function() {
+  async function doClear() {
     try { await fetch('/api/chat/clear', { method: 'POST' }); } catch(e) {}
     var msgs = document.getElementById('mayaMessages');
-    msgs.innerHTML = '<div class="maya-msg ai"><div class="maya-bubble-msg">Chat clear ho gaya! Kuch aur poochna hai? 😊</div></div>';
-  };
+    if (msgs) msgs.innerHTML = '<div class="maya-msg ai"><div class="maya-bubble-msg">Chat clear ho gaya! Kuch aur poochna hai? 😊</div></div>';
+  }
+
+  window.mayaSend = doSend;
+  window.mayaClear = doClear;
+
+  document.addEventListener('click', function(e) {
+    try {
+      var mayaWin = document.getElementById('mayaWindow');
+      if (!mayaWin || (mayaWin.contains && !mayaWin.contains(e.target))) return;
+      var t = e.target;
+      var btn = (t && t.closest) ? t.closest('button') : (t && t.tagName === 'BUTTON' ? t : (t && t.parentElement && t.parentElement.tagName === 'BUTTON' ? t.parentElement : null));
+      if (!btn) return;
+      if (btn.id === 'mayaSendBtn') { doSend(); return; }
+      if (btn.id === 'mayaClearBtn') { doClear(); return; }
+    } catch (err) {}
+  });
 })();
 </script>
 {% endif %}
