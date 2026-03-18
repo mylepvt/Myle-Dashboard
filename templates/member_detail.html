@@ -113,7 +113,7 @@
     <div class="card border-0 shadow-sm text-center py-3" style="cursor:pointer;"
          data-bs-toggle="modal" data-bs-target="#walletAdjustModal" title="Click to adjust wallet">
       <div class="fw-bold fs-3 {% if wallet.balance >= 0 %}text-success{% else %}text-danger{% endif %}">
-        ₹{{ wallet.balance|int }}
+        ₹{{ "%.0f"|format(wallet.balance) }}
       </div>
       <div class="text-muted small">Wallet Balance <i class="bi bi-pencil-fill ms-1" style="font-size:0.65rem;"></i></div>
     </div>
@@ -313,7 +313,7 @@
                style="background:#f5f3ff;border:1px solid #e0d9ff;">
             <div class="text-muted small mb-1">Current Balance</div>
             <div class="fw-bold fs-3 {% if wallet.balance >= 0 %}text-success{% else %}text-danger{% endif %}">
-              ₹{{ wallet.balance|int }}
+              ₹{{ "%.0f"|format(wallet.balance) }}
             </div>
           </div>
 

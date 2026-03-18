@@ -587,7 +587,11 @@ def _set_setting(db, key, value):
 
 
 def _get_wallet(db, username):
-    """Compute wallet stats for a team member."""
+    """Compute wallet stats for a team member.
+    Balance is not stored: recharged = SUM(wallet_recharges.amount) where status='approved',
+    spent = SUM(leads.pool_price) where assigned_to=user and in_pool=0 and claimed_at set.
+    Updated when: recharges approved or admin adjust (recharged); claim_leads (spent via leads).
+    """
     recharged = db.execute(
         "SELECT COALESCE(SUM(amount), 0) FROM wallet_recharges "
         "WHERE username=? AND status='approved'",
@@ -600,10 +604,11 @@ def _get_wallet(db, username):
         (username,)
     ).fetchone()[0] or 0.0
 
+    balance = round(float(recharged) - float(spent), 2)
     return {
-        'recharged': recharged,
-        'spent':     spent,
-        'balance':   recharged - spent,
+        'recharged': round(float(recharged), 2),
+        'spent':     round(float(spent), 2),
+        'balance':   balance,
     }
 
 
