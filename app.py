@@ -1810,6 +1810,21 @@ def inject_pending_count():
 #   - /meta/webhook      → external service uses its own HMAC signature
 _CSRF_EXEMPT_PREFIXES = ('/meta/webhook', '/login', '/register')
 
+# Local dev: bypass login — set DEV_BYPASS_AUTH=1 and open app → auto admin session
+_DEV_BYPASS_AUTH = os.environ.get('DEV_BYPASS_AUTH', '').lower() in ('1', 'true', 'yes')
+
+@app.before_request
+def dev_bypass_auth():
+    """When DEV_BYPASS_AUTH=1 and no user in session, inject admin session so local run works without login."""
+    if not _DEV_BYPASS_AUTH or session.get('username'):
+        return
+    if request.path.startswith('/static') or request.path.startswith('/watch/'):
+        return
+    session['username'] = 'admin'
+    session['role'] = 'admin'
+    session.permanent = True
+
+
 @app.before_request
 def csrf_protect():
     """Generate a CSRF token for the session and validate it on unsafe methods."""
@@ -7597,7 +7612,10 @@ def working():
     if role == 'leader':
         # Assigned filter: own = leader's leads, downline = team's leads (excludes self)
         _own_where, _own_params = _working_assigned_where(db, 'leader', username, 'own')
-        _downline_only = [u for u in _get_network_usernames(db, username) if u != username]
+        try:
+            _downline_only = [u for u in _get_network_usernames(db, username) if u != username]
+        except Exception:
+            _downline_only = []
         _team_where, _team_params = _working_assigned_where(db, 'leader', username, 'downline', _downline_only)
 
         _base = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' "
@@ -7668,22 +7686,44 @@ def working():
             downline_members = []
 
         # ── Pending action counts ────────────────────────────────
+        def _row_val(r, key, default=None):
+            try:
+                return r[key] if key in r.keys() else default
+            except Exception:
+                return default
         own_pending_calls = sum(
             1 for l in own_stage1
-            if not l['call_result'] or l['call_result'] in ('Follow Up Later','Callback Requested')
+            if not _row_val(l, 'call_result') or _row_val(l, 'call_result') in ('Follow Up Later','Callback Requested')
         )
         team_pending_calls = sum(
             1 for l in team_stage1
-            if not l['call_result'] or l['call_result'] in ('Follow Up Later','Callback Requested')
+            if not _row_val(l, 'call_result') or _row_val(l, 'call_result') in ('Follow Up Later','Callback Requested')
         )
         own_batches_due = (
-            sum(1 for l in own_day1 if not (l['d1_morning'] and l['d1_afternoon'] and l['d1_evening'])) +
-            sum(1 for l in own_day2 if not (l['d2_morning'] and l['d2_afternoon'] and l['d2_evening']))
+            sum(1 for l in own_day1 if not (_row_val(l, 'd1_morning') and _row_val(l, 'd1_afternoon') and _row_val(l, 'd1_evening'))) +
+            sum(1 for l in own_day2 if not (_row_val(l, 'd2_morning') and _row_val(l, 'd2_afternoon') and _row_val(l, 'd2_evening')))
         )
         team_batches_due = (
-            sum(1 for l in team_day1 if not (l['d1_morning'] and l['d1_afternoon'] and l['d1_evening'])) +
-            sum(1 for l in team_day2 if not (l['d2_morning'] and l['d2_afternoon'] and l['d2_evening']))
+            sum(1 for l in team_day1 if not (_row_val(l, 'd1_morning') and _row_val(l, 'd1_afternoon') and _row_val(l, 'd1_evening'))) +
+            sum(1 for l in team_day2 if not (_row_val(l, 'd2_morning') and _row_val(l, 'd2_afternoon') and _row_val(l, 'd2_evening')))
         )
+
+        # Leader today_actions (for sidebar badge on Working Section)
+        _count_own = "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' " + _own_where + " "
+        own_videos_to_send = db.execute(
+            _count_own + " AND status='Contacted' AND (call_status IS NULL OR call_status='' OR call_status NOT IN ('Video Sent','Video Watched','Payment Done'))",
+            _own_params
+        ).fetchone()[0] or 0
+        own_closings_due = db.execute(
+            _count_own + " AND status IN ('Interview','Track Selected','Seat Hold Confirmed')",
+            _own_params
+        ).fetchone()[0] or 0
+        leader_today_actions = {
+            'pending_calls':  own_pending_calls,
+            'videos_to_send': own_videos_to_send,
+            'batches_due':    own_batches_due,
+            'closings_due':   own_closings_due,
+        }
 
         # ── Enrich all lists ─────────────────────────────────────
         own_stage1   = _enrich_leads(own_stage1)
@@ -7715,38 +7755,44 @@ def working():
             'd2_evening_v2':   _get_setting(db, 'batch_d2_evening_v2', ''),
         }
 
-        # ── Enroll To data ───────────────────────────────────────
-        _ec_rows = db.execute(
-            "SELECT * FROM enroll_content WHERE is_active=1 ORDER BY day_number, sort_order"
-        ).fetchall()
+        # ── Enroll To data (guarded so old DB or missing tables never crash leader view) ──
         enroll_days = {}
-        for _r in _ec_rows:
-            _d = _r['day_number']
-            if _d not in enroll_days:
-                enroll_days[_d] = []
-            enroll_days[_d].append(dict(_r))
+        enroll_pdfs = []
+        recent_shares = []
+        team_leads_for_enroll = []
+        try:
+            _ec_rows = db.execute(
+                "SELECT * FROM enroll_content WHERE is_active=1 ORDER BY day_number, sort_order"
+            ).fetchall()
+            for _r in _ec_rows:
+                _row_d = dict(_r)
+                _d = _row_d.get('day_number', 1) or 1
+                if _d not in enroll_days:
+                    enroll_days[_d] = []
+                enroll_days[_d].append(_row_d)
 
-        enroll_pdfs = db.execute(
-            "SELECT * FROM enroll_pdfs WHERE is_active=1 ORDER BY sort_order"
-        ).fetchall()
+            enroll_pdfs = db.execute(
+                "SELECT * FROM enroll_pdfs WHERE is_active=1 ORDER BY sort_order"
+            ).fetchall()
 
-        recent_shares = db.execute("""
-            SELECT esl.*, ec.curiosity_title as video_title, ec.day_number as video_day
-            FROM enroll_share_links esl
-            JOIN enroll_content ec ON ec.id = esl.content_id
-            WHERE esl.shared_by=?
-            ORDER BY esl.created_at DESC LIMIT 15
-        """, (username,)).fetchall()
+            recent_shares = db.execute("""
+                SELECT esl.*, ec.curiosity_title as video_title, ec.day_number as video_day
+                FROM enroll_share_links esl
+                JOIN enroll_content ec ON ec.id = esl.content_id
+                WHERE esl.shared_by=?
+                ORDER BY esl.created_at DESC LIMIT 15
+            """, (username,)).fetchall()
 
-        # All leads for enroll share link generator (own + team)
-        _all_leader_leads_phs = ','.join('?' * len([username] + list(_downline_only)))
-        team_leads_for_enroll = db.execute(f"""
-            SELECT id, name, phone, assigned_to FROM leads
-            WHERE assigned_to IN ({_all_leader_leads_phs})
-              AND in_pool=0 AND deleted_at=''
-              AND status NOT IN ('Lost','Converted','Fully Converted')
-            ORDER BY assigned_to, name
-        """, [username] + list(_downline_only)).fetchall()
+            _all_leader_leads_phs = ','.join('?' * len([username] + list(_downline_only)))
+            team_leads_for_enroll = db.execute(f"""
+                SELECT id, name, phone, assigned_to FROM leads
+                WHERE assigned_to IN ({_all_leader_leads_phs})
+                  AND in_pool=0 AND deleted_at=''
+                  AND status NOT IN ('Lost','Converted','Fully Converted')
+                ORDER BY assigned_to, name
+            """, [username] + list(_downline_only)).fetchall()
+        except Exception:
+            pass
 
         enrollment_video_url   = _get_setting(db, 'enrollment_video_url', '')
         enrollment_video_title = _get_setting(db, 'enrollment_video_title', 'Enrollment Video')
@@ -7793,6 +7839,7 @@ def working():
 
             today_score=today_score,
             streak=streak,
+            today_actions=leader_today_actions,
             tracks=TRACKS,
             statuses=STATUSES,
             batch_videos=leader_batch_videos,

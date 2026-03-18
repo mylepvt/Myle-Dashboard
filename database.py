@@ -701,6 +701,32 @@ def migrate_db():
     except Exception:
         pass
 
+    # Add columns required by leader Working / Enroll To (is_active, day_number, sort_order)
+    for col, definition in [
+        ("is_active", "INTEGER NOT NULL DEFAULT 1"),
+        ("day_number", "INTEGER NOT NULL DEFAULT 1"),
+        ("sort_order", "INTEGER NOT NULL DEFAULT 0"),
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE enroll_content ADD COLUMN {col} {definition}")
+        except Exception:
+            pass
+
+    # --- enroll_pdfs table (Enroll To — PDFs for leaders) ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS enroll_pdfs (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                title       TEXT NOT NULL DEFAULT '',
+                url         TEXT NOT NULL DEFAULT '',
+                is_active   INTEGER NOT NULL DEFAULT 1,
+                sort_order  INTEGER NOT NULL DEFAULT 0,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+        """)
+    except Exception:
+        pass
+
     # --- enroll_share_links table (Enroll To share link → lead sync) ---
     try:
         cursor.execute("""
