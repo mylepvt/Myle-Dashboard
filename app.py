@@ -161,7 +161,7 @@ STATUS_TO_STAGE = {
     'Invited':             'enrollment',
     'Video Sent':          'enrollment',
     'Video Watched':       'enrollment',
-    'Paid ₹196':           'day1',
+    'Paid ₹196':           'enrollment',
     'Mindset Lock':        'enrollment',
     'Day 1':               'day1',
     'Day 2':               'day2',
@@ -2324,68 +2324,147 @@ def admin_dashboard():
         _check_seat_hold_expiry(db, u['username'])
 
     metrics = _get_metrics(db)
+    today   = _today_ist().isoformat()
+    _base_w = "in_pool=0 AND deleted_at=''"
 
+    # ── 1. Live Pipeline Funnel (current leads at each stage) ────────
+    _s1_ph = ','.join('?' * len(STAGE1_STATUSES))
+    pipeline = db.execute(f"""
+        SELECT
+            SUM(CASE WHEN status IN ('New Lead','New','Contacted','Invited',
+                         'Video Sent','Video Watched') THEN 1 ELSE 0 END) AS enrollment,
+            SUM(CASE WHEN status IN ({_s1_ph}) THEN 1 ELSE 0 END) AS ready,
+            SUM(CASE WHEN status='Day 1'       THEN 1 ELSE 0 END) AS day1,
+            SUM(CASE WHEN status='Day 2'       THEN 1 ELSE 0 END) AS day2,
+            SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3,
+            SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS seat_hold,
+            SUM(CASE WHEN status IN ('Fully Converted','Converted') THEN 1 ELSE 0 END) AS converted
+        FROM leads WHERE {_base_w}
+    """, list(STAGE1_STATUSES)).fetchone()
+    pipeline = dict(pipeline) if pipeline else {}
+    for k in ('enrollment','ready','day1','day2','day3','seat_hold','converted'):
+        pipeline[k] = pipeline.get(k) or 0
+
+    pipeline_value = db.execute(
+        f"SELECT COALESCE(SUM(track_price),0) FROM leads WHERE {_base_w} "
+        "AND status IN ('Seat Hold Confirmed','Track Selected')"
+    ).fetchone()[0] or 0
+
+    # ── 2. Today's Pulse ─────────────────────────────────────────────
+    approved_members = db.execute(
+        "SELECT username, fbo_id FROM users WHERE role IN ('team','leader') AND status='approved' ORDER BY username"
+    ).fetchall()
+    today_reports = db.execute(
+        "SELECT * FROM daily_reports WHERE report_date=? ORDER BY submitted_at DESC",
+        (today,)
+    ).fetchall()
+    submitted_set   = {r['username'] for r in today_reports}
+    missing_reports = [u['username'] for u in approved_members
+                       if u['username'] not in submitted_set]
+
+    _pulse_calls = sum(r['total_calling'] or 0 for r in today_reports)
+
+    _pay_today = db.execute(
+        f"SELECT COUNT(*), COALESCE(SUM(payment_amount),0) FROM leads "
+        f"WHERE payment_done=1 AND date(updated_at)=? AND {_base_w}",
+        (today,)
+    ).fetchone()
+
+    _d1_total = db.execute(f"SELECT COUNT(*) FROM leads WHERE {_base_w} AND status='Day 1'").fetchone()[0] or 0
+    _d1_done  = db.execute(f"SELECT COUNT(*) FROM leads WHERE {_base_w} AND status='Day 1' AND d1_morning=1 AND d1_afternoon=1 AND d1_evening=1").fetchone()[0] or 0
+    _d2_total = db.execute(f"SELECT COUNT(*) FROM leads WHERE {_base_w} AND status='Day 2'").fetchone()[0] or 0
+    _d2_done  = db.execute(f"SELECT COUNT(*) FROM leads WHERE {_base_w} AND status='Day 2' AND d2_morning=1 AND d2_afternoon=1 AND d2_evening=1").fetchone()[0] or 0
+
+    stale_cutoff = (_now_ist() - datetime.timedelta(hours=48)).strftime('%Y-%m-%d %H:%M:%S')
+    stale_leads = db.execute(
+        f"SELECT id, name, phone, assigned_to, status, updated_at FROM leads "
+        f"WHERE {_base_w} AND assigned_to != '' "
+        "AND status NOT IN ('Fully Converted','Converted','Lost','Seat Hold Confirmed') "
+        "AND updated_at < ? ORDER BY updated_at ASC LIMIT 20",
+        (stale_cutoff,)
+    ).fetchall()
+
+    pulse = {
+        'reports_done':    len(today_reports),
+        'reports_total':   len(approved_members),
+        'total_calls':     _pulse_calls,
+        'payments_count':  _pay_today[0] or 0,
+        'payments_amount': _pay_today[1] or 0,
+        'batch_d1_done':   _d1_done, 'batch_d1_total': _d1_total,
+        'batch_d1_pct':    round(_d1_done / _d1_total * 100) if _d1_total else 0,
+        'batch_d2_done':   _d2_done, 'batch_d2_total': _d2_total,
+        'batch_d2_pct':    round(_d2_done / _d2_total * 100) if _d2_total else 0,
+        'stale_count':     len(stale_leads),
+    }
+
+    # ── 3. Team Leaderboard ──────────────────────────────────────────
+    _verif_rows = db.execute(f"""
+        SELECT assigned_to, COUNT(*) as cnt FROM leads
+        WHERE payment_done=1 AND date(updated_at)=? AND {_base_w}
+        GROUP BY assigned_to
+    """, (today,)).fetchall()
+    report_verification = {r['assigned_to']: r['cnt'] for r in _verif_rows}
+
+    team_board = []
+    for m in approved_members:
+        uname = m['username']
+        score_pts, streak = _get_today_score(db, uname)
+        counts = db.execute(f"""
+            SELECT
+                SUM(CASE WHEN status IN ({_s1_ph}) THEN 1 ELSE 0 END) AS s1,
+                SUM(CASE WHEN status='Day 1' THEN 1 ELSE 0 END) AS d1,
+                SUM(CASE WHEN status='Day 2' THEN 1 ELSE 0 END) AS d2,
+                SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS d3,
+                SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS sh,
+                SUM(CASE WHEN status IN ('Fully Converted','Converted') THEN 1 ELSE 0 END) AS conv,
+                COUNT(*) AS total
+            FROM leads WHERE assigned_to=? AND {_base_w}
+        """, (*STAGE1_STATUSES, uname)).fetchone()
+
+        _m_d1_total = db.execute(f"SELECT COUNT(*) FROM leads WHERE assigned_to=? AND {_base_w} AND status='Day 1'", (uname,)).fetchone()[0] or 0
+        _m_d1_done  = db.execute(f"SELECT COUNT(*) FROM leads WHERE assigned_to=? AND {_base_w} AND status='Day 1' AND d1_morning=1 AND d1_afternoon=1 AND d1_evening=1", (uname,)).fetchone()[0] or 0
+        _m_d2_total = db.execute(f"SELECT COUNT(*) FROM leads WHERE assigned_to=? AND {_base_w} AND status='Day 2'", (uname,)).fetchone()[0] or 0
+        _m_d2_done  = db.execute(f"SELECT COUNT(*) FROM leads WHERE assigned_to=? AND {_base_w} AND status='Day 2' AND d2_morning=1 AND d2_afternoon=1 AND d2_evening=1", (uname,)).fetchone()[0] or 0
+        _m_batch_total = _m_d1_total + _m_d2_total
+        _m_batch_done  = _m_d1_done + _m_d2_done
+        batch_pct = round(_m_batch_done / _m_batch_total * 100) if _m_batch_total else -1
+
+        team_board.append({
+            'username': uname, 'fbo_id': m['fbo_id'] or '',
+            'score': score_pts, 'streak': streak,
+            's1': counts['s1'] or 0, 'd1': counts['d1'] or 0,
+            'd2': counts['d2'] or 0, 'd3': counts['d3'] or 0,
+            'sh': counts['sh'] or 0, 'conv': counts['conv'] or 0,
+            'total': counts['total'] or 0,
+            'batch_pct': batch_pct,
+            'has_report': uname in submitted_set,
+        })
+    team_board.sort(key=lambda x: x['score'], reverse=True)
+
+    # ── 4. Existing metrics kept ─────────────────────────────────────
     recent = db.execute(
-        "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' ORDER BY created_at DESC LIMIT 5"
+        f"SELECT * FROM leads WHERE {_base_w} ORDER BY created_at DESC LIMIT 5"
     ).fetchall()
 
     _sc = db.execute(
-        "SELECT status, COUNT(*) as c FROM leads WHERE in_pool=0 AND deleted_at='' GROUP BY status"
+        f"SELECT status, COUNT(*) as c FROM leads WHERE {_base_w} GROUP BY status"
     ).fetchall()
     status_data = {s: 0 for s in STATUSES}
     for row in _sc:
         if row['status'] in status_data:
             status_data[row['status']] = row['c']
 
-    monthly = db.execute("""
+    monthly = db.execute(f"""
         SELECT strftime('%Y-%m', created_at) as month,
                SUM(payment_amount) as total
         FROM leads
-        WHERE payment_done=1 AND in_pool=0 AND deleted_at=''
-        GROUP BY month
-        ORDER BY month DESC
-        LIMIT 6
+        WHERE payment_done=1 AND {_base_w}
+        GROUP BY month ORDER BY month DESC LIMIT 6
     """).fetchall()
-
-    members = db.execute(
-        "SELECT username as name FROM users WHERE role='team' AND status='approved' ORDER BY username"
-    ).fetchall()
-    _stats_rows = db.execute("""
-        SELECT assigned_to,
-            COUNT(*) as total,
-            SUM(CASE WHEN status IN ('Converted','Fully Converted') THEN 1 ELSE 0 END) as converted,
-            SUM(CASE WHEN payment_done=1     THEN 1 ELSE 0 END) as paid,
-            SUM(COALESCE(payment_amount,0) + COALESCE(revenue,0)) as revenue
-        FROM leads WHERE in_pool=0 AND deleted_at=''
-        GROUP BY assigned_to
-    """).fetchall()
-    _stats_map = {r['assigned_to']: r for r in _stats_rows}
-    _empty = {'total': 0, 'converted': 0, 'paid': 0, 'revenue': 0}
-    team_stats = [{'member': m, 'stats': _stats_map.get(m['name'], _empty)}
-                  for m in members]
 
     pending_users = db.execute(
         "SELECT * FROM users WHERE status='pending' ORDER BY created_at DESC"
     ).fetchall()
-
-    today = _today_ist().isoformat()
-    today_reports = db.execute(
-        "SELECT * FROM daily_reports WHERE report_date=? ORDER BY submitted_at DESC",
-        (today,)
-    ).fetchall()
-    approved_team = db.execute(
-        "SELECT username FROM users WHERE role='team' AND status='approved'"
-    ).fetchall()
-    submitted_set   = {r['username'] for r in today_reports}
-    missing_reports = [u['username'] for u in approved_team
-                       if u['username'] not in submitted_set]
-
-    _verif_rows = db.execute("""
-        SELECT assigned_to, COUNT(*) as cnt FROM leads
-        WHERE payment_done=1 AND date(updated_at)=? AND in_pool=0 AND deleted_at=''
-        GROUP BY assigned_to
-    """, (today,)).fetchall()
-    report_verification = {r['assigned_to']: r['cnt'] for r in _verif_rows}
 
     wallet_pending_count = db.execute(
         "SELECT COUNT(*) FROM wallet_recharges WHERE status='pending'"
@@ -2393,28 +2472,28 @@ def admin_dashboard():
 
     pool_count = db.execute("SELECT COUNT(*) FROM leads WHERE in_pool=1").fetchone()[0]
 
-    funnel_members = {}
-    for _mk, _cond in [
-        ('day1',      'day1_done=1'),
-        ('day2',      'day2_done=1'),
-        ('interview', 'interview_done=1'),
-        ('converted', "status IN ('Converted','Fully Converted')"),
-    ]:
-        _rows = db.execute(
-            f"SELECT DISTINCT assigned_to FROM leads "
-            f"WHERE in_pool=0 AND deleted_at='' AND assigned_to!='' AND {_cond} "
-            f"ORDER BY assigned_to"
-        ).fetchall()
-        funnel_members[_mk] = [r['assigned_to'] for r in _rows]
+    # ── 5. Daily conversion trend (7 days) ───────────────────────────
+    daily_trend = db.execute(f"""
+        SELECT date(updated_at) AS d,
+               SUM(CASE WHEN status IN ('Converted','Fully Converted') THEN 1 ELSE 0 END) AS conversions,
+               SUM(CASE WHEN payment_done=1 THEN 1 ELSE 0 END) AS payments
+        FROM leads WHERE {_base_w} AND date(updated_at) >= date(?, '-6 days')
+        GROUP BY d ORDER BY d
+    """, (today,)).fetchall()
 
     recent = _enrich_leads(recent)
     db.close()
     resp = make_response(render_template('admin.html',
                            metrics=metrics,
+                           pipeline=pipeline,
+                           pipeline_value=pipeline_value,
+                           pulse=pulse,
+                           team_board=team_board,
+                           stale_leads=stale_leads,
                            recent=recent,
                            status_data=status_data,
                            monthly=monthly,
-                           team_stats=team_stats,
+                           daily_trend=daily_trend,
                            pending_users=pending_users,
                            payment_amount=PAYMENT_AMOUNT,
                            today_reports=today_reports,
@@ -2422,8 +2501,7 @@ def admin_dashboard():
                            report_verification=report_verification,
                            today=today,
                            wallet_pending_count=wallet_pending_count,
-                           pool_count=pool_count,
-                           funnel_members=funnel_members))
+                           pool_count=pool_count))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
     return resp
 
@@ -7592,7 +7670,7 @@ def working():
         stage_counts = db.execute(
             "SELECT "
             "SUM(CASE WHEN status IN (" + stage_placeholders + ") THEN 1 ELSE 0 END) AS stage1, "
-            "SUM(CASE WHEN status IN ('Day 1','Paid ₹196') THEN 1 ELSE 0 END) AS day1, "
+            "SUM(CASE WHEN status='Day 1' THEN 1 ELSE 0 END) AS day1, "
             "SUM(CASE WHEN status='Day 2' THEN 1 ELSE 0 END) AS day2, "
             "SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3, "
             "SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS pending, "
@@ -7616,7 +7694,7 @@ def working():
             row = db.execute(f"""
                 SELECT
                     SUM(CASE WHEN status IN ({stage_placeholders}) THEN 1 ELSE 0 END) AS stage1,
-                    SUM(CASE WHEN status IN ('Day 1','Paid ₹196') THEN 1 ELSE 0 END) AS day1,
+                    SUM(CASE WHEN status='Day 1' THEN 1 ELSE 0 END) AS day1,
                     SUM(CASE WHEN status='Day 2'             THEN 1 ELSE 0 END) AS day2,
                     SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3,
                     SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS pending,
@@ -7724,7 +7802,7 @@ def working():
             _own_params + list(STAGE1_STATUSES)
         ).fetchall()
         own_day1 = db.execute(
-            _base + _own_where + " AND status IN ('Day 1','Paid ₹196') ORDER BY updated_at DESC",
+            _base + _own_where + " AND status='Day 1' ORDER BY updated_at DESC",
             _own_params
         ).fetchall()
         own_day2 = db.execute(
@@ -7753,7 +7831,7 @@ def working():
                 _team_params + list(STAGE1_STATUSES)
             ).fetchall()
             team_day1 = db.execute(
-                _team_base + "AND status IN ('Day 1','Paid ₹196') ORDER BY assigned_to, updated_at DESC",
+                _team_base + "AND status='Day 1' ORDER BY assigned_to, updated_at DESC",
                 _team_params
             ).fetchall()
             team_day2 = db.execute(
@@ -7965,7 +8043,7 @@ def working():
         _tp + list(STAGE1_STATUSES)
     ).fetchall()
     day1_leads = db.execute(
-        _base_team + "AND status IN ('Day 1','Paid ₹196') ORDER BY updated_at DESC",
+        _base_team + "AND status='Day 1' ORDER BY updated_at DESC",
         _tp
     ).fetchall()
     day2_leads = db.execute(
@@ -7999,7 +8077,7 @@ def working():
     ).fetchone()[0] or 0
     batches_due = (
         db.execute(
-            _count_base + "AND status IN ('Day 1','Paid ₹196') AND (d1_morning+d1_afternoon+d1_evening) < 3",
+            _count_base + "AND status='Day 1' AND (d1_morning+d1_afternoon+d1_evening) < 3",
             _tp
         ).fetchone()[0] or 0
     ) + (

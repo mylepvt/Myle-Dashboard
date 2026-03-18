@@ -1,61 +1,268 @@
 {% extends "base.html" %}
 {% block title %}Admin Dashboard – Myle Community{% endblock %}
-{% block page_title %}Admin Dashboard{% endblock %}
-{% block extra_head %}<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>{% endblock %}
+{% block page_title %}Command Center{% endblock %}
+{% block extra_head %}<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<style>
+.cmd-stat{background:var(--card-bg,#fff);border-radius:14px;padding:14px 16px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+.cmd-stat .val{font-size:1.5rem;font-weight:800;line-height:1.1;}
+.cmd-stat .lbl{font-size:.7rem;color:var(--label-3,#6b7280);margin-top:2px;}
+.funnel-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-color,#f0f0f0);}
+.funnel-row:last-child{border-bottom:none;}
+.funnel-label{width:80px;font-size:.72rem;font-weight:600;color:var(--label-2,#374151);flex-shrink:0;}
+.funnel-bar-wrap{flex:1;background:var(--bg-muted,#f3f4f6);border-radius:6px;height:22px;position:relative;overflow:hidden;}
+.funnel-bar{height:100%;border-radius:6px;transition:width .6s cubic-bezier(.32,.72,0,1);display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-size:.65rem;font-weight:700;color:#fff;min-width:24px;}
+.funnel-count{width:36px;text-align:right;font-weight:700;font-size:.85rem;flex-shrink:0;}
+.funnel-pct{width:40px;font-size:.65rem;color:var(--label-3,#6b7280);text-align:right;flex-shrink:0;}
+.pulse-card{background:var(--card-bg,#fff);border-radius:12px;padding:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06);position:relative;overflow:hidden;}
+.pulse-card .p-icon{font-size:1.3rem;margin-bottom:4px;}
+.pulse-card .p-val{font-size:1.25rem;font-weight:800;line-height:1.1;}
+.pulse-card .p-lbl{font-size:.65rem;color:var(--label-3,#6b7280);margin-top:2px;}
+.lb-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border-color,#f0f0f0);font-size:.78rem;}
+.lb-row:last-child{border-bottom:none;}
+.lb-row:hover{background:var(--bg-muted,#f9fafb);}
+.lb-rank{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.65rem;flex-shrink:0;}
+.lb-name{font-weight:600;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lb-cell{text-align:center;min-width:28px;font-weight:600;font-size:.72rem;}
+.lb-cell.dim{color:var(--label-3,#6b7280);font-weight:400;}
+.action-badge{position:absolute;top:-4px;right:-4px;width:20px;height:20px;border-radius:50%;background:#ef4444;color:#fff;font-size:.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;}
+[data-theme="dark"] .cmd-stat,.pulse-card{background:var(--card-bg);}
+[data-theme="dark"] .funnel-bar-wrap{background:var(--bg-muted);}
+[data-theme="dark"] .lb-row:hover{background:var(--bg-muted);}
+</style>
+{% endblock %}
 
 {% block content %}
 
-<!-- ── Pending Approvals Alert ───────────────────────────── -->
-{% if pending_users %}
-<div class="card border-0 shadow-sm mb-4 card-accent-warning">
-  <div class="card-header bg-warning-subtle d-flex justify-content-between align-items-center">
-    <h6 class="mb-0 text-warning-emphasis">
-      <i class="bi bi-hourglass-split me-2"></i>
-      Pending Registration Requests
-      <span class="badge bg-warning text-dark ms-2">{{ pending_users|length }}</span>
-    </h6>
-    <a href="{{ url_for('admin_approvals', filter='pending') }}" class="btn btn-sm btn-warning">
-      Review All <i class="bi bi-arrow-right ms-1"></i>
+{# ═══ SECTION 1: COMMAND BAR ═══ #}
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="cmd-stat">
+      <div class="val text-primary">{{ pipeline.enrollment + pipeline.ready + pipeline.day1 + pipeline.day2 + pipeline.day3 + pipeline.seat_hold }}</div>
+      <div class="lbl">Active Leads</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="cmd-stat">
+      <div class="val text-success">₹{{ "{:,.0f}".format(pipeline_value) }}</div>
+      <div class="lbl">Pipeline Value</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="cmd-stat">
+      <div class="val text-warning">{{ metrics.close_pct }}%</div>
+      <div class="lbl">Close Rate</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="cmd-stat">
+      <div class="val" style="color:#6366f1;">{{ pipeline.converted }}</div>
+      <div class="lbl">Total Converted</div>
+    </div>
+  </div>
+</div>
+
+{# ═══ SECTION 2: LIVE PIPELINE FUNNEL ═══ #}
+{% set max_pipe = [pipeline.enrollment, pipeline.ready, pipeline.day1, pipeline.day2, pipeline.day3, pipeline.seat_hold, pipeline.converted]|max or 1 %}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header bg-transparent border-0 pt-3 pb-1">
+    <h6 class="mb-0 fw-bold"><i class="bi bi-funnel-fill me-2 text-primary"></i>Live Pipeline</h6>
+  </div>
+  <div class="card-body pt-1">
+    {% set stages = [
+      ('Enrollment', pipeline.enrollment, '#6b7280', None),
+      ('Ready ₹196', pipeline.ready, '#0d6efd', pipeline.enrollment),
+      ('Day 1', pipeline.day1, '#0dcaf0', pipeline.ready),
+      ('Day 2', pipeline.day2, '#ffc107', pipeline.day1),
+      ('Day 3', pipeline.day3, '#fd7e14', pipeline.day2),
+      ('Seat Hold', pipeline.seat_hold, '#7c3aed', pipeline.day3),
+      ('Converted', pipeline.converted, '#198754', pipeline.seat_hold),
+    ] %}
+    {% for label, count, color, prev_count in stages %}
+    <div class="funnel-row">
+      <div class="funnel-label">{{ label }}</div>
+      <div class="funnel-bar-wrap">
+        <div class="funnel-bar" style="width:{{ (count / max_pipe * 100)|int }}%;background:{{ color }};"></div>
+      </div>
+      <div class="funnel-count">{{ count }}</div>
+      <div class="funnel-pct">
+        {% if prev_count is not none and prev_count > 0 %}
+          {{ (count / prev_count * 100)|round(0)|int }}%
+        {% else %}—{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# ═══ SECTION 3: TODAY'S PULSE ═══ #}
+<div class="row g-2 mb-3">
+  <div class="col-4 col-md-2">
+    <div class="pulse-card">
+      <div class="p-icon">📋</div>
+      <div class="p-val {% if pulse.reports_done < pulse.reports_total %}text-warning{% else %}text-success{% endif %}">
+        {{ pulse.reports_done }}/{{ pulse.reports_total }}
+      </div>
+      <div class="p-lbl">Reports</div>
+    </div>
+  </div>
+  <div class="col-4 col-md-2">
+    <div class="pulse-card">
+      <div class="p-icon">📞</div>
+      <div class="p-val text-primary">{{ pulse.total_calls }}</div>
+      <div class="p-lbl">Calls Today</div>
+    </div>
+  </div>
+  <div class="col-4 col-md-2">
+    <div class="pulse-card">
+      <div class="p-icon">💰</div>
+      <div class="p-val text-success">{{ pulse.payments_count }}</div>
+      <div class="p-lbl">₹{{ pulse.payments_amount|int }} earned</div>
+    </div>
+  </div>
+  <div class="col-4 col-md-2">
+    <div class="pulse-card">
+      <div class="p-icon">📚</div>
+      <div class="p-val {% if pulse.batch_d1_pct >= 80 %}text-success{% elif pulse.batch_d1_pct >= 50 %}text-warning{% else %}text-danger{% endif %}">{{ pulse.batch_d1_pct }}%</div>
+      <div class="p-lbl">D1 Batch ({{ pulse.batch_d1_done }}/{{ pulse.batch_d1_total }})</div>
+    </div>
+  </div>
+  <div class="col-4 col-md-2">
+    <div class="pulse-card">
+      <div class="p-icon">📖</div>
+      <div class="p-val {% if pulse.batch_d2_pct >= 80 %}text-success{% elif pulse.batch_d2_pct >= 50 %}text-warning{% else %}text-danger{% endif %}">{{ pulse.batch_d2_pct }}%</div>
+      <div class="p-lbl">D2 Batch ({{ pulse.batch_d2_done }}/{{ pulse.batch_d2_total }})</div>
+    </div>
+  </div>
+  <div class="col-4 col-md-2">
+    <div class="pulse-card" {% if pulse.stale_count > 0 %}style="border:1.5px solid #ef4444;"{% endif %}>
+      <div class="p-icon">⚠️</div>
+      <div class="p-val {% if pulse.stale_count > 0 %}text-danger{% else %}text-success{% endif %}">{{ pulse.stale_count }}</div>
+      <div class="p-lbl">Stale >48h</div>
+    </div>
+  </div>
+</div>
+
+{# ═══ SECTION 4: TEAM LEADERBOARD ═══ #}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header bg-transparent border-0 pt-3 pb-1 d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-bold"><i class="bi bi-trophy-fill me-2 text-warning"></i>Team Leaderboard</h6>
+    <a href="{{ url_for('working') }}" class="btn btn-sm btn-outline-primary py-0" style="font-size:.72rem;">
+      Working Section <i class="bi bi-arrow-right ms-1"></i>
     </a>
   </div>
   <div class="card-body p-0">
     <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th>Username</th>
-            <th>Email</th>
-            <th>FBO ID</th>
-            <th>Upline</th>
-            <th>Phone</th>
-            <th>Requested</th>
-            <th class="text-end">Actions</th>
-          </tr>
-        </thead>
+      <div class="d-none d-md-flex lb-row fw-bold" style="background:var(--bg-muted,#f9fafb);font-size:.68rem;color:var(--label-3,#6b7280);">
+        <div style="width:22px;flex-shrink:0;"></div>
+        <div class="lb-name">Member</div>
+        <div class="lb-cell">Score</div>
+        <div class="lb-cell">Streak</div>
+        <div class="lb-cell">S1</div>
+        <div class="lb-cell">D1</div>
+        <div class="lb-cell">D2</div>
+        <div class="lb-cell">D3</div>
+        <div class="lb-cell">SH</div>
+        <div class="lb-cell">Conv</div>
+        <div class="lb-cell" style="min-width:42px;">Batch</div>
+        <div class="lb-cell" style="min-width:32px;">Rpt</div>
+      </div>
+      {% for m in team_board %}
+      {% set rank_colors = {0: 'background:#fbbf24;color:#92400e;', 1: 'background:#d1d5db;color:#374151;', 2: 'background:#f59e0b;color:#78350f;'} %}
+      <div class="lb-row {% if m.score >= 50 %}bg-success bg-opacity-10{% elif m.score == 0 and not m.has_report %}bg-danger bg-opacity-10{% endif %}">
+        <div class="lb-rank" style="{{ rank_colors.get(loop.index0, 'background:var(--bg-muted,#f3f4f6);color:var(--label-3,#6b7280);') }}">
+          {{ loop.index }}
+        </div>
+        <div class="lb-name">
+          {{ m.username }}
+          <span class="d-md-none text-muted" style="font-size:.6rem;"> · {{ m.total }} leads</span>
+        </div>
+        <div class="lb-cell">
+          <span class="badge {% if m.score >= 50 %}bg-success{% elif m.score >= 10 %}bg-warning text-dark{% else %}bg-secondary{% endif %}" style="font-size:.65rem;">
+            {{ m.score }}
+          </span>
+        </div>
+        <div class="lb-cell">
+          {% if m.streak > 1 %}<span style="color:#d97706;">{{ m.streak }}d</span>{% else %}—{% endif %}
+        </div>
+        <div class="lb-cell {% if m.s1 == 0 %}dim{% endif %}">{{ m.s1 or '—' }}</div>
+        <div class="lb-cell {% if m.d1 == 0 %}dim{% endif %}">{{ m.d1 or '—' }}</div>
+        <div class="lb-cell {% if m.d2 == 0 %}dim{% endif %}">{{ m.d2 or '—' }}</div>
+        <div class="lb-cell {% if m.d3 == 0 %}dim{% endif %}">{{ m.d3 or '—' }}</div>
+        <div class="lb-cell {% if m.sh == 0 %}dim{% endif %}" style="{% if m.sh > 0 %}color:#7c3aed;{% endif %}">{{ m.sh or '—' }}</div>
+        <div class="lb-cell {% if m.conv == 0 %}dim{% endif %}" style="{% if m.conv > 0 %}color:#16a34a;font-weight:700;{% endif %}">{{ m.conv or '—' }}</div>
+        <div class="lb-cell" style="min-width:42px;">
+          {% if m.batch_pct >= 0 %}
+            <span class="{% if m.batch_pct >= 80 %}text-success{% elif m.batch_pct >= 40 %}text-warning{% else %}text-danger{% endif %}" style="font-size:.68rem;font-weight:600;">{{ m.batch_pct }}%</span>
+          {% else %}—{% endif %}
+        </div>
+        <div class="lb-cell" style="min-width:32px;">
+          {% if m.has_report %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %}
+        </div>
+      </div>
+      {% else %}
+      <div class="text-center text-muted py-4 small">No team members yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{# ═══ SECTION 5: CHARTS ROW — Revenue + Trend + Status ═══ #}
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h6 class="card-title text-muted mb-3" style="font-size:.8rem;"><i class="bi bi-bar-chart-fill me-2 text-success"></i>Monthly Revenue</h6>
+        <canvas id="revenueChart" height="180"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h6 class="card-title text-muted mb-3" style="font-size:.8rem;"><i class="bi bi-graph-up me-2 text-primary"></i>Daily Trend (7d)</h6>
+        <canvas id="trendChart" height="180"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <h6 class="card-title text-muted mb-3" style="font-size:.8rem;"><i class="bi bi-pie-chart-fill me-2 text-warning"></i>Status Breakdown</h6>
+        <canvas id="statusChart" height="180"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ═══ SECTION 6: ACTION QUEUE ═══ #}
+
+{# Pending Approvals #}
+{% if pending_users %}
+<div class="card border-0 shadow-sm mb-3" style="border-left:4px solid #f59e0b !important;">
+  <div class="card-header bg-transparent border-0 pt-3 pb-1 d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-bold text-warning"><i class="bi bi-hourglass-split me-2"></i>Pending Approvals <span class="badge bg-warning text-dark ms-1">{{ pending_users|length }}</span></h6>
+    <a href="{{ url_for('admin_approvals', filter='pending') }}" class="btn btn-sm btn-warning py-0" style="font-size:.72rem;">Review All</a>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0" style="font-size:.78rem;">
+        <thead class="table-light"><tr><th>Username</th><th>FBO ID</th><th>Upline</th><th>Phone</th><th class="text-end">Actions</th></tr></thead>
         <tbody>
-          {% for u in pending_users %}
+          {% for u in pending_users[:5] %}
           <tr>
-            <td class="fw-semibold"><i class="bi bi-person-circle me-1 text-muted"></i>{{ u.username }}</td>
-            <td class="text-muted small">{{ u.email or '—' }}</td>
-            <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2">{{ u.fbo_id or '—' }}</span></td>
-            <td>{{ u.upline_name or '—' }}</td>
+            <td class="fw-semibold">{{ u.username }}</td>
+            <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2" style="font-size:.65rem;">{{ u.fbo_id or '—' }}</span></td>
+            <td class="text-muted">{{ u.upline_name or '—' }}</td>
             <td class="text-muted">{{ u.phone or '—' }}</td>
-            <td class="text-muted small">{{ u.created_at[:16] }}</td>
             <td class="text-end">
               <div class="d-flex gap-1 justify-content-end">
                 <form method="post" action="{{ url_for('approve_user', user_id=u.id) }}">
                   <input type="hidden" name="current_filter" value="pending">
-                  <button type="submit" class="btn btn-sm btn-success"
-                          onclick="return confirm('Approve {{ u.username }}?')">
-                    <i class="bi bi-check-lg me-1"></i>Approve
-                  </button>
+                  <button type="submit" class="btn btn-sm btn-success py-0 px-2" style="font-size:.7rem;" onclick="return confirm('Approve {{ u.username }}?')"><i class="bi bi-check-lg"></i></button>
                 </form>
                 <form method="post" action="{{ url_for('reject_user', user_id=u.id) }}">
                   <input type="hidden" name="current_filter" value="pending">
-                  <button type="submit" class="btn btn-sm btn-outline-danger"
-                          onclick="return confirm('Reject {{ u.username }}?')">
-                    <i class="bi bi-x-lg me-1"></i>Reject
-                  </button>
+                  <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size:.7rem;" onclick="return confirm('Reject {{ u.username }}?')"><i class="bi bi-x-lg"></i></button>
                 </form>
               </div>
             </td>
@@ -68,460 +275,149 @@
 </div>
 {% endif %}
 
+{# Missing Reports Alert #}
 {% if missing_reports %}
-<div class="alert alert-warning py-2 mb-3 d-flex align-items-center gap-2"
-     style="border-left:4px solid #f59e0b;border-radius:8px;">
+<div class="alert alert-warning py-2 mb-3 d-flex align-items-center gap-2" style="border-left:4px solid #f59e0b;border-radius:8px;font-size:.78rem;">
   <i class="bi bi-file-earmark-x-fill text-warning"></i>
-  <span class="small fw-semibold">
-    {{ missing_reports|length }} member{% if missing_reports|length > 1 %}s{% endif %} did not submit report today:
-    {{ missing_reports[:3]|join(', ') }}{% if missing_reports|length > 3 %} +{{ missing_reports|length - 3 }} more{% endif %}
+  <span class="fw-semibold">
+    {{ missing_reports|length }} report{% if missing_reports|length > 1 %}s{% endif %} missing:
+    {{ missing_reports[:4]|join(', ') }}{% if missing_reports|length > 4 %} +{{ missing_reports|length - 4 }}{% endif %}
   </span>
-  <a href="{{ url_for('reports_admin') }}" class="btn btn-sm btn-warning ms-auto py-0">View Reports</a>
-  </div>
+  <a href="{{ url_for('reports_admin') }}" class="btn btn-sm btn-warning ms-auto py-0" style="font-size:.68rem;">View</a>
+</div>
 {% endif %}
 
-<!-- ── Today's Reports Widget ────────────────────────────── -->
-<div class="card border-0 shadow-sm mb-4 card-accent-primary">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <h6 class="mb-0">
-      <i class="bi bi-clipboard2-data-fill me-2 text-primary"></i>
-      Today's Daily Reports
-      <span class="badge bg-primary ms-2">{{ today_reports|length }} submitted</span>
-      {% if missing_reports %}
-      <span class="badge bg-danger ms-1">{{ missing_reports|length }} missing</span>
-      {% endif %}
+{# Stale Leads #}
+{% if stale_leads %}
+<div class="card border-0 shadow-sm mb-3" style="border-left:4px solid #ef4444 !important;">
+  <div class="card-header bg-transparent border-0 pt-3 pb-1">
+    <h6 class="mb-0 fw-bold text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Stale Leads — No update in 48h</h6>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0" style="font-size:.78rem;">
+        <thead class="table-light"><tr><th>Name</th><th>Member</th><th>Status</th><th>Last Update</th></tr></thead>
+        <tbody>
+          {% for l in stale_leads[:10] %}
+          <tr>
+            <td><a href="{{ url_for('edit_lead', lead_id=l.id) }}" class="text-decoration-none fw-semibold">{{ l.name }}</a></td>
+            <td class="text-muted">{{ l.assigned_to }}</td>
+            <td><span class="badge bg-secondary" style="font-size:.62rem;">{{ l.status }}</span></td>
+            <td class="text-danger small">{{ l.updated_at[:16] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# Wallet Recharges #}
+{% if wallet_pending_count > 0 %}
+<div class="alert alert-info py-2 mb-3 d-flex align-items-center gap-2" style="border-left:4px solid #0dcaf0;border-radius:8px;font-size:.78rem;">
+  <i class="bi bi-wallet2 text-info"></i>
+  <span class="fw-semibold">{{ wallet_pending_count }} pending wallet recharge{% if wallet_pending_count > 1 %}s{% endif %}</span>
+  <a href="{{ url_for('admin_wallet_requests') }}" class="btn btn-sm btn-info ms-auto py-0 text-white" style="font-size:.68rem;">Review</a>
+</div>
+{% endif %}
+
+{# Today's Reports Detail (collapsible) #}
+{% if today_reports %}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header bg-transparent border-0 pt-3 pb-1 d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-bold" style="font-size:.82rem;">
+      <i class="bi bi-clipboard2-data-fill me-2 text-primary"></i>Today's Reports
+      <span class="badge bg-primary ms-1" style="font-size:.62rem;">{{ today_reports|length }}</span>
     </h6>
-    <a href="{{ url_for('reports_admin') }}" class="btn btn-sm btn-outline-primary">
-      All Reports <i class="bi bi-arrow-right ms-1"></i>
-    </a>
+    <button class="btn btn-sm btn-outline-secondary py-0" style="font-size:.68rem;" type="button" data-bs-toggle="collapse" data-bs-target="#reportDetail">
+      <i class="bi bi-chevron-down"></i> Details
+    </button>
   </div>
-  <div class="card-body">
-    {% if today_reports %}
-    <div class="small fw-semibold text-success mb-2"><i class="bi bi-check-circle-fill me-1"></i>Submitted today:</div>
-    <div class="table-responsive">
-      <table class="table table-sm align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th>Member</th>
-            <th class="text-center">
-              <a href="{{ url_for('drilldown', metric='total_calling') }}" class="text-decoration-none text-dark">Calls</a>
-            </th>
-            <th class="text-center">
-              <a href="{{ url_for('drilldown', metric='pdf_covered') }}" class="text-decoration-none text-dark">PDF</a>
-            </th>
-            <th class="text-center">
-              <div class="d-flex flex-column gap-0 align-items-center">
-                <a href="{{ url_for('drilldown', metric='enrollments_done') }}" class="text-decoration-none text-dark">Enrolled</a>
-                <span class="text-muted fw-normal label-xs">Reported</span>
-              </div>
-            </th>
-            <th class="text-center">
-              <div class="d-flex flex-column gap-0 align-items-center">
-                <span>₹196 Actual</span>
-                <span class="text-muted fw-normal label-xs">In System</span>
-              </div>
-            </th>
-            <th class="text-center">Verified</th>
-            <th class="text-center">
-              <a href="{{ url_for('drilldown', metric='plan_2cc') }}" class="text-decoration-none text-dark">2CC</a>
-            </th>
-            <th class="text-center">Educated</th>
-            <th>Remarks</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in today_reports %}
-          {% set actual = report_verification.get(r.username, 0) %}
-          {% set mismatch = r.enrollments_done > actual %}
-          {% set inflated = (r.videos_sent_actual is not none) and (r.pdf_covered or 0) > (r.videos_sent_actual or 0) + 5 %}
-          <tr {% if mismatch or inflated %}class="table-warning"{% endif %} {% if inflated %}title="Videos mismatch detected"{% endif %}>
-            <td class="fw-semibold">
-              {{ r.username }}
-              {% if mismatch %}
-              <i class="bi bi-exclamation-triangle-fill text-warning ms-1"
-                 title="Reported enrollments ({{ r.enrollments_done }}) exceed actual payments in system ({{ actual }})"></i>
-              {% endif %}
-            </td>
-            <td class="text-center fw-bold text-primary">{{ r.total_calling }}</td>
-            <td class="text-center text-danger">{{ r.pdf_covered }}</td>
-            <td class="text-center fw-bold {% if mismatch %}text-warning{% else %}text-success{% endif %}">
-              {{ r.enrollments_done }}
-            </td>
-            <td class="text-center">
-              <span class="badge {% if actual > 0 %}bg-success{% else %}bg-secondary{% endif %}">
-                {{ actual }}
-              </span>
-            </td>
-            <td class="text-center">
-              {% if r.system_verified %}
-                <span class="badge bg-success" style="font-size:0.65rem;">✅</span>
-                {% if r.videos_sent_actual is not none and r.videos_sent_actual >= 0 %}
-                <div style="font-size:0.6rem;color:#6b7280;">{{ r.videos_sent_actual }} actual</div>
-                {% endif %}
-              {% else %}
-                <span class="badge bg-light text-muted border" style="font-size:0.65rem;">Manual</span>
-              {% endif %}
-            </td>
-            <td class="text-center text-purple">{{ r.plan_2cc }}</td>
-            <td class="text-center">
-              <span class="badge {% if r.leads_educated=='Yes' %}bg-success{% elif r.leads_educated=='No' %}bg-danger{% else %}bg-warning text-dark{% endif %} small">
-                {{ r.leads_educated or '—' }}
-              </span>
-            </td>
-            <td class="text-muted small">{{ (r.remarks or '')[:40] }}{% if r.remarks and r.remarks|length > 40 %}…{% endif %}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <div class="mt-2 text-muted" style="font-size:0.75rem;">
-      <i class="bi bi-info-circle me-1"></i>
-      <strong>₹196 Actual</strong> = leads marked payment done today in system.
-      <span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>Yellow row</span> = reported enrollments exceed system records — verify with member.
-    </div>
-    {% else %}
-    <p class="text-muted small mb-0">No reports submitted today yet.</p>
-    {% endif %}
-  </div>
-</div>
-
-<!-- ── KPI Cards ─────────────────────────────────────────── -->
-<div class="row g-3 mb-4">
-
-  <div class="col-6 col-md-3">
-    <div class="card kpi-card border-0 shadow-sm h-100 position-relative">
-      <div class="card-body">
-        <div class="d-flex align-items-center mb-2">
-          <div class="kpi-icon bg-primary-subtle text-primary me-3">
-            <i class="bi bi-people-fill"></i>
-          </div>
-          <span class="text-muted small">Total Leads</span>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50 small"></i>
-        </div>
-        <h3 class="fw-bold mb-0">{{ metrics.total }}</h3>
-        <a href="{{ url_for('drilldown', metric='total') }}" class="stretched-link"></a>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-6 col-md-3">
-    <div class="card kpi-card border-0 shadow-sm h-100 position-relative">
-      <div class="card-body">
-        <div class="d-flex align-items-center mb-2">
-          <div class="kpi-icon bg-success-subtle text-success me-3">
-            <i class="bi bi-check-circle-fill"></i>
-          </div>
-          <span class="text-muted small">Converted</span>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50 small"></i>
-        </div>
-        <h3 class="fw-bold mb-0">{{ metrics.converted }}
-          <small class="fs-6 text-success fw-normal">{{ metrics.conv_rate }}%</small>
-        </h3>
-        <a href="{{ url_for('drilldown', metric='converted') }}" class="stretched-link"></a>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-6 col-md-3">
-    <div class="card kpi-card border-0 shadow-sm h-100 position-relative">
-      <div class="card-body">
-        <div class="d-flex align-items-center mb-2">
-          <div class="kpi-icon bg-warning-subtle text-warning me-3">
-            <i class="bi bi-currency-rupee"></i>
-          </div>
-          <span class="text-muted small">Total Revenue</span>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50 small"></i>
-        </div>
-        <h3 class="fw-bold mb-0">₹{{ "%.0f"|format(metrics.revenue) }}</h3>
-        <a href="{{ url_for('drilldown', metric='revenue') }}" class="stretched-link"></a>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-6 col-md-3">
-    <div class="card kpi-card border-0 shadow-sm h-100 position-relative">
-      <div class="card-body">
-        <div class="d-flex align-items-center mb-2">
-          <div class="kpi-icon bg-info-subtle text-info me-3">
-            <i class="bi bi-credit-card-2-front-fill"></i>
-          </div>
-          <span class="text-muted small text-truncate">Payments (₹{{ payment_amount|int }})</span>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50 small"></i>
-        </div>
-        <h3 class="fw-bold mb-0">{{ metrics.paid }}</h3>
-        <a href="{{ url_for('drilldown', metric='paid') }}" class="stretched-link"></a>
-      </div>
-    </div>
-  </div>
-
-</div>
-
-<!-- ── Extended Funnel KPI Cards ────────────────────────── -->
-<div class="row g-3 mb-4">
-
-  <div class="col-6 col-md-3">
-    <div class="card kpi-card border-0 shadow-sm h-100 position-relative">
-      <div class="card-body">
-        <div class="d-flex align-items-center mb-2">
-          <div class="kpi-icon bg-purple-subtle text-purple me-3">
-            <i class="bi bi-shield-fill"></i>
-          </div>
-          <span class="text-muted small">Seat Hold</span>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50 small"></i>
-        </div>
-        <h3 class="fw-bold mb-0 text-purple">{{ metrics.seat_hold }}</h3>
-        <div class="label-xs text-muted mt-1">₹{{ "%.0f"|format(metrics.seat_rev or 0) }} collected</div>
-        <a href="{{ url_for('drilldown', metric='seat_hold') }}" class="stretched-link"></a>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-6 col-md-3">
-    <div class="card kpi-card border-0 shadow-sm h-100 position-relative">
-      <div class="card-body">
-        <div class="d-flex align-items-center mb-2">
-          <div class="kpi-icon bg-success-subtle text-success me-3">
-            <i class="bi bi-trophy-fill"></i>
-          </div>
-          <span class="text-muted small text-truncate">Fully Conv.</span>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50 small flex-shrink-0"></i>
-        </div>
-        <h3 class="fw-bold mb-0 text-success">{{ metrics.fully_conv }}</h3>
-        <div class="label-xs text-muted mt-1">₹{{ "%.0f"|format(metrics.final_rev or 0) }} track rev</div>
-        <a href="{{ url_for('drilldown', metric='fully_converted') }}" class="stretched-link"></a>
-      </div>
-    </div>
-  </div>
-
-</div>
-
-<!-- ── Computed Rate Cards ───────────────────────────────── -->
-<div class="row g-3 mb-4">
-
-  <!-- ₹196 Conversion % -->
-  <div class="col-12 col-md-4">
-    <div class="card rate-card border-0 shadow-sm h-100">
-      <div class="card-body">
-        <div class="d-flex align-items-center mb-3">
-          <div class="kpi-icon bg-purple-subtle text-purple me-3">
-            <i class="bi bi-credit-card-fill"></i>
-          </div>
-          <div>
-            <div class="text-muted small fw-semibold">₹196 Conversion %</div>
-            <div class="text-muted" style="font-size:0.7rem;">paid196 / total_leads × 100</div>
-          </div>
-        </div>
-        <div class="d-flex align-items-end gap-3">
-          <h2 class="fw-bold mb-0 text-purple">{{ metrics.paid196_pct }}%</h2>
-          <span class="text-muted small mb-1">{{ metrics.paid }} of {{ metrics.total }}</span>
-        </div>
-        <div class="progress mt-3" style="height:6px;">
-          <div class="progress-bar bg-purple" style="width:{{ metrics.paid196_pct }}%;"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Close % -->
-  <div class="col-12 col-md-4">
-    <div class="card rate-card border-0 shadow-sm h-100">
-      <div class="card-body">
-        <div class="d-flex align-items-center mb-3">
-          <div class="kpi-icon bg-success-subtle text-success me-3">
-            <i class="bi bi-trophy-fill"></i>
-          </div>
-          <div>
-            <div class="text-muted small fw-semibold">Close %</div>
-            <div class="text-muted" style="font-size:0.7rem;">closed / total_leads × 100</div>
-          </div>
-        </div>
-        <div class="d-flex align-items-end gap-3">
-          <h2 class="fw-bold mb-0 text-success">{{ metrics.close_pct }}%</h2>
-          <span class="text-muted small mb-1">{{ metrics.converted }} of {{ metrics.total }}</span>
-        </div>
-        <div class="progress mt-3" style="height:6px;">
-          <div class="progress-bar bg-success" style="width:{{ metrics.close_pct }}%;"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Revenue per Lead -->
-  <div class="col-12 col-md-4">
-    <div class="card rate-card border-0 shadow-sm h-100">
-      <div class="card-body">
-        <div class="d-flex align-items-center mb-3">
-          <div class="kpi-icon bg-warning-subtle text-warning me-3">
-            <i class="bi bi-graph-up-arrow"></i>
-          </div>
-          <div>
-            <div class="text-muted small fw-semibold">Revenue per Lead</div>
-            <div class="text-muted" style="font-size:0.7rem;">total_revenue / total_leads</div>
-          </div>
-        </div>
-        <div class="d-flex align-items-end gap-3">
-          <h2 class="fw-bold mb-0 text-warning">₹{{ "%.2f"|format(metrics.rev_per_lead) }}</h2>
-          <span class="text-muted small mb-1">from ₹{{ "%.0f"|format(metrics.revenue) }} total</span>
-        </div>
-        <div class="progress mt-3" style="height:6px;">
-          {% set rev_pct = [(metrics.rev_per_lead / 196 * 100), 100]|min %}
-          <div class="progress-bar bg-warning" style="width:{{ rev_pct|int }}%;"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-</div>
-
-<!-- ── Charts Row ────────────────────────────────────────── -->
-<div class="row g-3 mb-4">
-  <div class="col-md-4">
-    <div class="card border-0 shadow-sm h-100">
-      <div class="card-body">
-        <h6 class="card-title text-muted mb-3"><i class="bi bi-funnel-fill me-2 text-primary"></i>Funnel Progress</h6>
-        {% for label_f, val_f, color_f, metric_f in [
-            ('Day 1 Done',     metrics.day1,       'bg-info',    'day1'),
-            ('Day 2 Done',     metrics.day2,       'bg-warning', 'day2'),
-            ('Interview Done', metrics.interviews, 'bg-danger',  'interview'),
-            ('Converted',      metrics.converted,  'bg-success', 'converted')
-        ] %}
-        <div class="funnel-step mb-2 position-relative" style="cursor:pointer;">
-          <div class="d-flex justify-content-between small mb-1">
-            <span class="text-dark">{{ label_f }}</span>
-            <strong>{{ val_f }}</strong>
-          </div>
-          <div class="progress" style="height:8px;">
-            <div class="progress-bar {{ color_f }}"
-                 style="width:{{ ((val_f/metrics.total)*100)|int if metrics.total else 0 }}%"></div>
-          </div>
-          {% set members_at_stage = funnel_members.get(metric_f, []) %}
-          {% if members_at_stage %}
-          <div class="d-flex flex-wrap gap-1 mt-1" style="position:relative;z-index:2;">
-            {% for m in members_at_stage[:4] %}
-            <span class="badge bg-light text-dark border" style="font-size:0.62rem;font-weight:500;">{{ m }}</span>
+  <div class="collapse" id="reportDetail">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0" style="font-size:.75rem;">
+          <thead class="table-light">
+            <tr>
+              <th>Member</th><th class="text-center">Calls</th><th class="text-center">PDF</th>
+              <th class="text-center">Enrolled</th><th class="text-center">₹196 Actual</th>
+              <th class="text-center">2CC</th><th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in today_reports %}
+            {% set actual = report_verification.get(r.username, 0) %}
+            {% set mismatch = r.enrollments_done > actual %}
+            <tr {% if mismatch %}class="table-warning"{% endif %}>
+              <td class="fw-semibold">
+                {{ r.username }}
+                {% if mismatch %}<i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Reported ({{ r.enrollments_done }}) > Actual ({{ actual }})"></i>{% endif %}
+              </td>
+              <td class="text-center fw-bold text-primary">{{ r.total_calling }}</td>
+              <td class="text-center">{{ r.pdf_covered }}</td>
+              <td class="text-center fw-bold {% if mismatch %}text-warning{% else %}text-success{% endif %}">{{ r.enrollments_done }}</td>
+              <td class="text-center"><span class="badge {% if actual > 0 %}bg-success{% else %}bg-secondary{% endif %}" style="font-size:.6rem;">{{ actual }}</span></td>
+              <td class="text-center" style="color:#7c3aed;">{{ r.plan_2cc }}</td>
+              <td class="text-muted">{{ (r.remarks or '')[:30] }}{% if r.remarks and r.remarks|length > 30 %}…{% endif %}</td>
+            </tr>
             {% endfor %}
-            {% if members_at_stage|length > 4 %}
-            <span class="badge bg-secondary" style="font-size:0.62rem;">+{{ members_at_stage|length - 4 }}</span>
-            {% endif %}
-          </div>
-          {% endif %}
-          <a href="{{ url_for('drilldown', metric=metric_f) }}" class="stretched-link"></a>
-        </div>
-        {% endfor %}
+          </tbody>
+        </table>
       </div>
-    </div>
-  </div>
-
-  <div class="col-md-4">
-    <div class="card border-0 shadow-sm h-100">
-      <div class="card-body">
-        <h6 class="card-title text-muted mb-3"><i class="bi bi-pie-chart-fill me-2 text-warning"></i>Status Breakdown</h6>
-        <canvas id="statusChart" height="200"></canvas>
-        {% set _sc = ['#6c757d','#0d6efd','#0dcaf0','#20c997','#ffc107','#fd7e14','#6610f2','#d63384','#198754','#dc3545','#adb5bd','#343a40','#e65100'] %}
-        <div class="d-flex flex-wrap gap-1 mt-2 d-md-none" style="font-size:0.68rem;overflow:hidden;">
-          {% for s, c in status_data.items() %}
-          {% set cidx = loop.index0 %}
-          <span style="display:inline-flex;align-items:center;gap:3px;max-width:100%;min-width:0;">
-            <span style="width:8px;height:8px;border-radius:2px;background:{{ _sc[cidx] if cidx < _sc|length else '#aaa' }};flex-shrink:0;"></span>
-            <span style="color:#6c757d;white-space:nowrap;">{{ s }}</span>
-          </span>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-md-4">
-    <div class="card border-0 shadow-sm h-100">
-      <div class="card-body">
-        <h6 class="card-title text-muted mb-3"><i class="bi bi-bar-chart-fill me-2 text-success"></i>Monthly Revenue</h6>
-        <canvas id="revenueChart" height="200"></canvas>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ── Team Performance Summary ──────────────────────────── -->
-{% if team_stats %}
-<div class="card border-0 shadow-sm mb-4">
-  <div class="card-header bg-white d-flex justify-content-between align-items-center">
-    <h6 class="mb-0"><i class="bi bi-trophy-fill me-2 text-warning"></i>Team Performance</h6>
-    <a href="{{ url_for('team') }}" class="btn btn-sm btn-outline-primary">Full View</a>
-  </div>
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th>Member</th>
-            <th>Leads</th>
-            <th>Converted</th>
-            <th>Paid</th>
-            <th>Revenue</th>
-            <th>Conv %</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in team_stats|sort(attribute='stats.revenue', reverse=True) %}
-          {% set s = row.stats %}
-          <tr>
-            <td class="fw-semibold">{{ row.member.name }}</td>
-            <td>{{ s.total or 0 }}</td>
-            <td><span class="badge bg-success">{{ s.converted or 0 }}</span></td>
-            <td>{{ s.paid or 0 }}</td>
-            <td class="fw-semibold text-success">₹{{ (s.revenue or 0)|int }}</td>
-            <td>
-              {% if s.total %}
-                {{ ((s.converted or 0) / s.total * 100) | round(1) }}%
-              {% else %}—{% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
     </div>
   </div>
 </div>
 {% endif %}
 
-<!-- ── Recent Leads ──────────────────────────────────────── -->
-<div class="card border-0 shadow-sm">
-  <div class="card-header bg-white d-flex justify-content-between align-items-center">
-    <h6 class="mb-0"><i class="bi bi-clock-history me-2 text-secondary"></i>Recent Leads</h6>
-    <a href="{{ url_for('leads') }}" class="btn btn-sm btn-outline-primary">View All</a>
+{# KPI Cards (compact) #}
+<div class="row g-2 mb-3">
+  {% set kpis = [
+    ('Total Leads', metrics.total, 'bi-people-fill', 'primary', 'total'),
+    ('Payments ₹196', metrics.paid, 'bi-credit-card-2-front-fill', 'info', 'paid'),
+    ('Revenue', '₹' ~ "%.0f"|format(metrics.revenue), 'bi-currency-rupee', 'warning', 'revenue'),
+    ('Seat Hold', metrics.seat_hold, 'bi-shield-fill', 'purple', 'seat_hold'),
+    ('Fully Conv', metrics.fully_conv, 'bi-trophy-fill', 'success', 'fully_converted'),
+    ('Close %', metrics.close_pct ~ '%', 'bi-graph-up-arrow', 'success', None),
+  ] %}
+  {% for label, val, icon, color, metric_key in kpis %}
+  <div class="col-4 col-md-2">
+    <div class="card kpi-card border-0 shadow-sm h-100 position-relative" style="padding:0;">
+      <div class="card-body py-2 px-3 text-center">
+        <i class="bi {{ icon }} text-{{ color }}" style="font-size:1rem;"></i>
+        <div class="fw-bold" style="font-size:1.05rem;">{{ val }}</div>
+        <div class="text-muted" style="font-size:.62rem;">{{ label }}</div>
+        {% if metric_key %}<a href="{{ url_for('drilldown', metric=metric_key) }}" class="stretched-link"></a>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{# Recent Leads #}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header bg-transparent border-0 pt-3 pb-1 d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-bold" style="font-size:.82rem;"><i class="bi bi-clock-history me-2 text-secondary"></i>Recent Leads</h6>
+    <a href="{{ url_for('leads') }}" class="btn btn-sm btn-outline-primary py-0" style="font-size:.68rem;">View All</a>
   </div>
   <div class="card-body p-0">
     <div class="table-responsive">
-      <table class="table table-hover mb-0 align-middle">
-        <thead class="table-light">
-          <tr>
-            <th>Name</th><th>Phone</th><th>Assigned To</th>
-            <th>Status</th><th>Payment</th><th>Added</th><th></th>
-          </tr>
-        </thead>
+      <table class="table table-sm table-hover mb-0 align-middle" style="font-size:.78rem;">
+        <thead class="table-light"><tr><th>Name</th><th>Assigned</th><th>Status</th><th>Payment</th><th></th></tr></thead>
         <tbody>
           {% for lead in recent %}
           <tr>
             <td class="fw-semibold">{{ lead.name }}</td>
-            <td>{{ lead.phone }}</td>
-            <td>{{ lead.assigned_to or '—' }}</td>
-            <td><span class="badge status-{{ lead.status|replace(' ','') }}">{{ lead.status }}</span></td>
+            <td class="text-muted">{{ lead.assigned_to or '—' }}</td>
+            <td><span class="badge status-{{ lead.status|replace(' ','') }}" style="font-size:.6rem;">{{ lead.status }}</span></td>
             <td>
-              {% if lead.payment_done %}
-                <span class="badge bg-success"><i class="bi bi-check-lg me-1"></i>₹{{ lead.payment_amount|int }}</span>
-              {% else %}
-                <span class="badge bg-secondary">Pending</span>
-              {% endif %}
+              {% if lead.payment_done %}<span class="badge bg-success" style="font-size:.6rem;">₹{{ lead.payment_amount|int }}</span>
+              {% else %}<span class="badge bg-secondary" style="font-size:.6rem;">—</span>{% endif %}
             </td>
-            <td class="text-muted small">{{ lead.created_at[:10] }}</td>
-            <td>
-              <a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-xs btn-outline-secondary">
-                <i class="bi bi-pencil-fill"></i>
-              </a>
-            </td>
+            <td><a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-xs btn-outline-secondary py-0"><i class="bi bi-pencil-fill"></i></a></td>
           </tr>
           {% else %}
-          <tr><td colspan="7" class="text-center text-muted py-4">No leads yet. <a href="{{ url_for('add_lead') }}">Add your first lead.</a></td></tr>
+          <tr><td colspan="5" class="text-center text-muted py-3 small">No leads yet.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -533,47 +429,44 @@
 
 {% block scripts %}
 <script>
+const _isMobile = window.innerWidth < 576;
+
 // ── Status Doughnut ──
-const statusCtx = document.getElementById('statusChart');
-const statusData = {
-  labels: [{% for s, c in status_data.items() %}'{{ s }}',{% endfor %}],
-  datasets: [{
-    data: [{% for s, c in status_data.items() %}{{ c }},{% endfor %}],
-    backgroundColor: ['#6c757d','#0d6efd','#0dcaf0','#20c997','#ffc107','#fd7e14','#6610f2','#d63384','#198754','#dc3545','#adb5bd','#343a40','#e65100'],
-    borderWidth: 2,
-    borderColor: '#fff'
-  }]
-};
-const isMobile = window.innerWidth < 576;
-new Chart(statusCtx, { type: 'doughnut', data: statusData,
-  options: {
-    responsive: true,
-    plugins: {
-      legend: {
-        display: !isMobile,
-        position: 'right',
-        labels: { boxWidth: 10, padding: 6, font: { size: 10 } }
-      }
-    },
-    cutout: '65%'
-  }
+new Chart(document.getElementById('statusChart'), {
+  type: 'doughnut',
+  data: {
+    labels: [{% for s, c in status_data.items() %}'{{ s }}',{% endfor %}],
+    datasets: [{
+      data: [{% for s, c in status_data.items() %}{{ c }},{% endfor %}],
+      backgroundColor: ['#6c757d','#0d6efd','#0dcaf0','#20c997','#ffc107','#fd7e14','#6610f2','#d63384','#198754','#dc3545','#adb5bd','#343a40','#e65100'],
+      borderWidth: 2, borderColor: getComputedStyle(document.documentElement).getPropertyValue('--card-bg') || '#fff'
+    }]
+  },
+  options: { responsive:true, plugins:{legend:{display:!_isMobile,position:'right',labels:{boxWidth:8,padding:4,font:{size:9}}}}, cutout:'65%' }
 });
 
 // ── Revenue Bar ──
-const revCtx = document.getElementById('revenueChart');
-const months  = [{% for r in monthly|reverse %}'{{ r.month }}',{% endfor %}];
-const amounts = [{% for r in monthly|reverse %}{{ r.total or 0 }},{% endfor %}];
-new Chart(revCtx, {
+new Chart(document.getElementById('revenueChart'), {
   type: 'bar',
   data: {
-    labels: months,
-    datasets: [{ label: '₹ Revenue', data: amounts,
-      backgroundColor: 'rgba(25,135,84,0.7)', borderRadius: 6 }]
+    labels: [{% for r in monthly|reverse %}'{{ r.month }}',{% endfor %}],
+    datasets: [{ label:'₹ Revenue', data:[{% for r in monthly|reverse %}{{ r.total or 0 }},{% endfor %}],
+      backgroundColor:'rgba(25,135,84,0.7)', borderRadius:6 }]
   },
-  options: {
-    plugins: { legend: { display: false } },
-    scales: { y: { beginAtZero: true, ticks: { callback: v => '₹'+v } } }
-  }
+  options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{callback:v=>'₹'+v,font:{size:9}}},x:{ticks:{font:{size:9}}}} }
+});
+
+// ── Daily Trend ──
+new Chart(document.getElementById('trendChart'), {
+  type: 'bar',
+  data: {
+    labels: [{% for t in daily_trend %}'{{ t.d[5:] }}',{% endfor %}],
+    datasets: [
+      { label:'Payments', data:[{% for t in daily_trend %}{{ t.payments or 0 }},{% endfor %}], backgroundColor:'rgba(13,110,253,0.6)', borderRadius:4, order:2 },
+      { label:'Conversions', data:[{% for t in daily_trend %}{{ t.conversions or 0 }},{% endfor %}], type:'line', borderColor:'#198754', backgroundColor:'rgba(25,135,84,0.1)', pointRadius:3, tension:0.3, fill:true, order:1 }
+    ]
+  },
+  options: { responsive:true, plugins:{legend:{labels:{boxWidth:8,font:{size:9}}}}, scales:{y:{beginAtZero:true,ticks:{stepSize:1,font:{size:9}}},x:{ticks:{font:{size:9}}}} }
 });
 </script>
 {% endblock %}
