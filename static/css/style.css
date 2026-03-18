@@ -908,7 +908,7 @@ p,span,td,li { color: inherit; }
 [data-theme="dark"] .wl-name { color: var(--label-1) !important; }
 [data-theme="dark"] .wl-city { color: var(--label-3) !important; }
 [data-theme="dark"] .wl-phone { color: var(--label-2) !important; }
-[data-theme="dark"] .badge.text-dark,[data-theme="dark"] .badge.bg-warning,[data-theme="dark"] .badge.bg-light,[data-theme="dark"] .badge.bg-white {
+[data-theme="dark"] .badge.bg-warning {
   color: #1C1C1E !important;
 }
 [data-theme="dark"] .badge.bg-secondary { color: #fff !important; }
@@ -1002,6 +1002,15 @@ p,span,td,li { color: inherit; }
 [data-theme="dark"] [style*="color:#111827"] { color: var(--label-1) !important; }
 [data-theme="dark"] [style*="color:#6b7280"] { color: var(--label-3) !important; }
 [data-theme="dark"] [style*="color:#9ca3af"] { color: var(--label-4) !important; }
+[data-theme="dark"] [style*="color:#333"]    { color: var(--label-1) !important; }
+[data-theme="dark"] [style*="color:#1C1C1E"] { color: var(--label-1) !important; }
+[data-theme="dark"] [style*="color:#1c1c1e"] { color: var(--label-1) !important; }
+[data-theme="dark"] [style*="color:#3c3c43"] { color: var(--label-2) !important; }
+[data-theme="dark"] [style*="color:#6c757d"] { color: var(--label-3) !important; }
+[data-theme="dark"] [style*="color:#8e8e93"] { color: var(--label-3) !important; }
+[data-theme="dark"] [style*="color:#4b5563"] { color: var(--label-2) !important; }
+[data-theme="dark"] [style*="color:#d97706"] { color: var(--ios-orange) !important; }
+[data-theme="dark"] [style*="color:#6366f1"] { color: var(--ios-indigo) !important; }
 [data-theme="dark"] [style*="background:#fff"] { background: var(--bg-card) !important; }
 [data-theme="dark"] [style*="background: #fff"] { background: var(--bg-card) !important; }
 [data-theme="dark"] [style*="background:white"] { background: var(--bg-card) !important; }
@@ -1016,6 +1025,15 @@ p,span,td,li { color: inherit; }
 [data-theme="dark"] [style*="background:#fef2f2"] { background: rgba(255,69,58,0.12) !important; }
 [data-theme="dark"] [style*="background:#fef3c7"] { background: rgba(255,159,10,0.15) !important; }
 [data-theme="dark"] [style*="background:#e0f2fe"] { background: rgba(10,132,255,0.12) !important; }
+[data-theme="dark"] [style*="background:#fff7ed"] { background: rgba(255,159,10,0.10) !important; }
+[data-theme="dark"] [style*="background:#eef2ff"] { background: rgba(94,92,230,0.12) !important; }
+[data-theme="dark"] [style*="background:#fffbeb"] { background: rgba(255,214,10,0.10) !important; }
+[data-theme="dark"] [style*="background:#f3f4f6"] { background: var(--fill-3) !important; }
+[data-theme="dark"] [style*="background:#e8f5e9"] { background: rgba(50,215,75,0.10) !important; }
+[data-theme="dark"] [style*="background:#fff5f5"] { background: rgba(255,69,58,0.10) !important; }
+[data-theme="dark"] [style*="background:#fff0f0"] { background: rgba(255,69,58,0.10) !important; }
+[data-theme="dark"] [style*="background:#f8f9fa"] { background: var(--fill-3) !important; }
+[data-theme="dark"] [style*="background:#fff8e6"] { background: rgba(255,214,10,0.10) !important; }
 [data-theme="dark"] [style*="color:#16a34a"] { color: var(--ios-green) !important; }
 [data-theme="dark"] [style*="color:#1d4ed8"] { color: var(--ios-blue) !important; }
 [data-theme="dark"] [style*="color:#dc2626"] { color: var(--ios-red) !important; }
@@ -1024,6 +1042,10 @@ p,span,td,li { color: inherit; }
 [data-theme="dark"] [style*="color:#854d0e"] { color: rgba(255,159,10,0.8) !important; }
 [data-theme="dark"] [class*="wk-status-badge"] { opacity: 0.9; }
 [data-theme="dark"] #scorePill { background: rgba(99,102,241,0.2) !important; color: #a5b4fc !important; }
+[data-theme="dark"] .badge.bg-white { background: var(--fill-2) !important; color: var(--label-1) !important; }
+[data-theme="dark"] .bg-white.card-header { background: rgba(255,255,255,0.04) !important; }
+[data-theme="dark"] .actual-counts-card { background: linear-gradient(135deg, rgba(10,132,255,0.10), rgba(50,215,75,0.08)) !important; }
+[data-theme="dark"] .card-header.bg-white { background: rgba(255,255,255,0.04) !important; color: var(--label-1) !important; }
 
 .label-xs { font-size:var(--fs-label-xs)!important; }
 .label-sm { font-size:var(--fs-label-sm)!important; }

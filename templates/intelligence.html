@@ -87,6 +87,15 @@
 .rank-medal.silver { background:#9ca3af; color:#fff; }
 .rank-medal.bronze { background:#cd7c3a; color:#fff; }
 .rank-medal.other  { background:#f3f4f6; color:#6b7280; }
+
+/* ── Dark mode ─────────────────────────────────── */
+[data-theme="dark"] .intel-card { background: var(--bg-card); border-color: var(--sep); color: var(--label-1); }
+[data-theme="dark"] .intel-tab-btn { color: var(--label-2); }
+[data-theme="dark"] .intel-tab-btn.active { color: var(--label-1); background: var(--bg-card); }
+[data-theme="dark"] .lb-weekly-row { border-color: var(--sep); color: var(--label-1); }
+[data-theme="dark"] .lb-weekly-row.me { background: rgba(94,92,230,0.10); }
+[data-theme="dark"] .lb-weekly-row:first-child { background: rgba(255,214,10,0.08); }
+[data-theme="dark"] .rank-medal.other { background: var(--fill-3); color: var(--label-3); }
 </style>
 {% endblock %}
 

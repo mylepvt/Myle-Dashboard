@@ -1233,5 +1233,33 @@ const _leadsPageCsrf = '{{ session.get("_csrf_token", "") }}';
 #outerTabs .nav-link.active {
   background: linear-gradient(135deg,#4f46e5,#7c3aed); color: #fff;
 }
+
+/* ── Dark mode ─────────────────────────────────── */
+[data-theme="dark"] .wl-card { background: var(--bg-card); border-color: var(--sep); }
+[data-theme="dark"] .wl-name { color: var(--label-1); }
+[data-theme="dark"] .wl-city { color: var(--label-3); }
+[data-theme="dark"] .wl-phone { color: var(--label-2); }
+[data-theme="dark"] .wl-batch-hdr { color: var(--label-1); }
+[data-theme="dark"] .wl-empty-col { color: var(--label-4); }
+[data-theme="dark"] .wl-unassigned-hdr { color: var(--label-3); }
+[data-theme="dark"] .wl-batch-col { background: var(--fill-3); border-color: var(--sep); }
+[data-theme="dark"] .wl-b { background: var(--fill-3); border-color: var(--sep); color: var(--label-2); }
+[data-theme="dark"] .wl-b:hover { border-color: var(--ios-indigo); color: var(--ios-indigo); background: rgba(94,92,230,0.12); }
+[data-theme="dark"] .wl-b.active { background: var(--ios-indigo); border-color: var(--ios-indigo); color: #fff; }
+[data-theme="dark"] .wl-done-badge.pending { background: var(--fill-3); color: var(--label-3); }
+[data-theme="dark"] .wl-done-badge.done { background: rgba(50,215,75,0.15); color: var(--ios-green); }
+[data-theme="dark"] .wl-action-btn.call { background: rgba(50,215,75,0.15); color: var(--ios-green); }
+[data-theme="dark"] .wl-action-btn.wa { background: rgba(50,215,75,0.15); color: var(--ios-green); }
+[data-theme="dark"] .wl-status-badge { background: var(--fill-3); color: var(--label-2); }
+[data-theme="dark"] .wl-status-badge.status-Day1 { background: rgba(10,132,255,0.15); color: var(--ios-blue); }
+[data-theme="dark"] .wl-status-badge.status-Day2 { background: rgba(191,90,242,0.15); color: var(--ios-purple); }
+[data-theme="dark"] .wl-status-badge.status-Interview { background: rgba(255,159,10,0.15); color: var(--ios-orange); }
+[data-theme="dark"] .wl-status-badge.status-FullyConverted,
+[data-theme="dark"] .wl-status-badge.status-Converted { background: rgba(50,215,75,0.15); color: var(--ios-green); }
+[data-theme="dark"] .wl-status-badge.status-Lost { background: rgba(255,69,58,0.15); color: var(--ios-red); }
+[data-theme="dark"] .wl-status-badge.status-Paid₹196 { background: rgba(50,215,75,0.12); color: var(--ios-green); }
+[data-theme="dark"] .wl-status-badge.status-MindsetLock { background: rgba(255,55,95,0.12); color: var(--ios-pink); }
+[data-theme="dark"] #outerTabs .nav-link { background: var(--fill-3); color: var(--label-2); }
+[data-theme="dark"] #outerTabs .nav-link.active { color: #fff; }
 </style>
 {% endblock %}
