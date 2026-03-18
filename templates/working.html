@@ -200,16 +200,14 @@
       {{ own_stage1|length + own_day1|length + own_day3|length }}
     </span>
   </button>
-  {% if has_team %}
   <button class="btn btn-outline-success leader-main-tab"
           data-section="team" onclick="switchLeaderTab('team', this)"
           style="flex:1;border-radius:10px;font-weight:700;font-size:0.85rem;">
-    <i class="bi bi-people-fill me-1"></i>My Team
+    <i class="bi bi-briefcase-fill me-1"></i>Team Work
     <span class="badge bg-success ms-1" style="font-size:0.7rem;">
       {{ team_stage1|length + team_day1|length + team_day3|length }}
     </span>
   </button>
-  {% endif %}
   <button class="btn btn-outline-secondary leader-main-tab"
           data-section="enroll" onclick="switchLeaderTab('enroll', this)"
           style="border-radius:10px;font-weight:700;font-size:0.85rem;padding:8px 14px;">
@@ -239,12 +237,13 @@
 
   <div class="wk-kanban-grid">
 
-    {# Own Stage 1 — Ready for Day 1 (Paid ₹196 / Mindset Lock) #}
+    {# Own Stage 1 — Ready for Day 1 (Paid ₹196 / Mindset Lock). Call status "Payment Done" select karoge to lead Day 1 me auto chala jayega. #}
     <div class="wk-kanban-col" id="zone-own-stage1" data-col="own-stage1">
       <div class="wk-col-header">
         <span class="wk-col-title"><i class="bi bi-check-circle me-2 text-success"></i>Ready for Day 1</span>
         <span class="badge bg-success">{{ own_stage1|length }}</span>
       </div>
+      <div class="small text-muted mb-2" style="font-size:0.65rem;">₹196 pay hua to <strong>Call Status → Payment Done</strong> karo — lead Day 1 me auto shift ho jayegi.</div>
       {% if own_stage1 %}{% for lead in own_stage1 %}
       <div class="wk-lead-card" id="lead-{{ lead.id }}">
         <div class="d-flex justify-content-between align-items-start mb-1">
@@ -407,17 +406,19 @@
 </div>{# end leader-section-own #}
 
 {# ══════════════════════════════════
-   MY TEAM SECTION
+   TEAM WORK SECTION — Team ke Day 1 / Day 2 / Day 3, har card pe kis member ka lead hai dikh raha hai
    ══════════════════════════════════ #}
 <div id="leader-section-team" style="display:none;">
 
   {% if not has_team %}
   <div class="text-muted text-center py-4">
-    <i class="bi bi-people fs-2 d-block mb-2 opacity-50"></i>
+    <i class="bi bi-briefcase fs-2 d-block mb-2 opacity-50"></i>
     <div class="small">Koi downline member nahi mila.</div>
     <div class="small text-muted mt-1">Admin se upline_name set karwao.</div>
   </div>
   {% else %}
+
+  <div class="small text-muted mb-2">Har lead ke upar <strong>kis team member ka</strong> lead hai wo dikh raha hai. Leader apni team ke Day 1 / Day 3 bhi handle kar sakta hai.</div>
 
   {# Member filter buttons #}
   <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
@@ -462,7 +463,7 @@
       {% if team_stage1 %}{% for lead in team_stage1 %}
       <div class="wk-lead-card" id="lead-{{ lead.id }}" data-member="{{ lead.assigned_to }}">
         <div style="background:#f0f4ff;border-radius:4px;padding:2px 6px;font-size:0.62rem;color:#6366f1;font-weight:700;display:inline-block;margin-bottom:4px;">
-          <i class="bi bi-person-fill me-1"></i>{{ lead.assigned_to }}
+          <i class="bi bi-person-fill me-1"></i>Member: {{ lead.assigned_to }}
         </div>
         <div class="fw-semibold text-truncate mb-1">{{ lead.name }}</div>
         <span class="badge rounded-pill small mb-2 wk-status-badge-{{ lead.status|lower|replace(' ','_')|replace('₹','') }}">{{ lead.status }}</span>
@@ -509,7 +510,7 @@
       {% set all_done = bd == 3 %}
       <div class="wk-lead-card {% if all_done %}wk-lead-complete{% endif %}" id="lead-{{ lead.id }}" data-member="{{ lead.assigned_to }}">
         <div style="background:#e0f2fe;border-radius:4px;padding:2px 6px;font-size:0.62rem;color:#0891b2;font-weight:700;display:inline-block;margin-bottom:4px;">
-          <i class="bi bi-person-fill me-1"></i>{{ lead.assigned_to }}
+          <i class="bi bi-person-fill me-1"></i>Member: {{ lead.assigned_to }}
         </div>
         <div class="fw-semibold text-truncate mb-1">{{ lead.name }}</div>
         <div class="wk-batch-progress mb-2"><div class="wk-batch-bar" style="width:{{ (bd/3*100)|int }}%"></div></div>
@@ -543,7 +544,7 @@
       {% set bd = lead.d2_morning + lead.d2_afternoon + lead.d2_evening %}
       <div class="wk-lead-card" id="lead-{{ lead.id }}" data-member="{{ lead.assigned_to }}">
         <div style="background:#fef3c7;border-radius:4px;padding:2px 6px;font-size:0.62rem;color:#92400e;font-weight:700;display:inline-block;margin-bottom:4px;">
-          <i class="bi bi-person-fill me-1"></i>{{ lead.assigned_to }}
+          <i class="bi bi-person-fill me-1"></i>Member: {{ lead.assigned_to }}
         </div>
         <div class="fw-semibold text-truncate mb-1">{{ lead.name }}</div>
         <div class="wk-batch-progress mb-1"><div class="wk-batch-bar wk-batch-bar-d2" style="width:{{ (bd/3*100)|int }}%"></div></div>
@@ -572,7 +573,7 @@
       {% if team_day3 %}{% for lead in team_day3 %}
       <div class="wk-lead-card" id="lead-{{ lead.id }}" data-member="{{ lead.assigned_to }}">
         <div style="background:#fef2f2;border-radius:4px;padding:2px 6px;font-size:0.62rem;color:#dc2626;font-weight:700;display:inline-block;margin-bottom:4px;">
-          <i class="bi bi-person-fill me-1"></i>{{ lead.assigned_to }}
+          <i class="bi bi-person-fill me-1"></i>Member: {{ lead.assigned_to }}
         </div>
         <div class="fw-semibold text-truncate mb-1">{{ lead.name }}</div>
         <span class="badge bg-danger rounded-pill small mb-2">{{ lead.status }}</span>
@@ -701,12 +702,12 @@
     </div>
     {% if enrollment_video_url %}
     <div class="wk-lead-card mb-2" style="background:#f5f3ff;">
-      <a href="{{ enrollment_video_url }}" class="video-in-app d-flex align-items-center gap-2 text-decoration-none" style="color:#6366f1;">
+      <a href="{{ enrollment_watch_url or enrollment_video_url }}" class="video-in-app d-flex align-items-center gap-2 text-decoration-none" style="color:#6366f1;">
         <i class="bi bi-play-circle-fill fs-5 flex-shrink-0"></i>
         <span class="fw-semibold small">{{ enrollment_video_title|default('Enrollment Video') }}</span>
         <i class="bi bi-play-btn ms-auto small"></i>
       </a>
-      <div class="small text-muted mt-1">Share with leads; plays in-app</div>
+      <div class="small text-muted mt-1">Ye link WhatsApp pe bhejo — prospect ko humari site pe video dikhegi, YouTube nahi</div>
     </div>
     {% endif %}
     {% if stage1_leads %}
@@ -1532,6 +1533,14 @@ const BATCH_VIDEOS = {
   d2_afternoon: { v1: "{{ batch_videos.d2_afternoon_v1|default('') }}", v2: "{{ batch_videos.d2_afternoon_v2|default('') }}" },
   d2_evening:   { v1: "{{ batch_videos.d2_evening_v1|default('') }}", v2: "{{ batch_videos.d2_evening_v2|default('') }}" },
 };
+const BATCH_WATCH_URLS = {
+  d1_morning:   { v1: "{{ batch_watch_urls.d1_morning.v1|default('') }}", v2: "{{ batch_watch_urls.d1_morning.v2|default('') }}" },
+  d1_afternoon: { v1: "{{ batch_watch_urls.d1_afternoon.v1|default('') }}", v2: "{{ batch_watch_urls.d1_afternoon.v2|default('') }}" },
+  d1_evening:   { v1: "{{ batch_watch_urls.d1_evening.v1|default('') }}", v2: "{{ batch_watch_urls.d1_evening.v2|default('') }}" },
+  d2_morning:   { v1: "{{ batch_watch_urls.d2_morning.v1|default('') }}", v2: "{{ batch_watch_urls.d2_morning.v2|default('') }}" },
+  d2_afternoon: { v1: "{{ batch_watch_urls.d2_afternoon.v1|default('') }}", v2: "{{ batch_watch_urls.d2_afternoon.v2|default('') }}" },
+  d2_evening:   { v1: "{{ batch_watch_urls.d2_evening.v1|default('') }}", v2: "{{ batch_watch_urls.d2_evening.v2|default('') }}" },
+};
 
 const BATCH_LABELS = {
   d1_morning:   '🌅 Day 1 — Morning Batch',
@@ -1555,23 +1564,26 @@ function openBatchPopup(leadId, batchKey, phone, leadName, btnEl) {
   document.getElementById('popupLeadName').textContent = leadName;
 
   const videos = BATCH_VIDEOS[batchKey] || {};
-  const hasLinks = videos.v1 || videos.v2;
+  const watchUrls = (typeof BATCH_WATCH_URLS !== 'undefined' && BATCH_WATCH_URLS[batchKey]) ? BATCH_WATCH_URLS[batchKey] : {};
+  const link1 = watchUrls.v1 || videos.v1 || '';
+  const link2 = watchUrls.v2 || videos.v2 || '';
+  const hasLinks = link1 || link2;
   const linksDiv = document.getElementById('popupVideoLinks');
 
   if (hasLinks) {
-    linksDiv.dataset.v1 = videos.v1 || '';
-    linksDiv.dataset.v2 = videos.v2 || '';
+    linksDiv.dataset.v1 = link1;
+    linksDiv.dataset.v2 = link2;
     linksDiv.innerHTML = `
       <div style="font-size:0.75rem;font-weight:700;color:#6b7280;margin-bottom:8px;">
-        Watch in-app (no YouTube suggestions) or copy link for WhatsApp:
+        Prospect ko ye link bhejoge — video humari site pe open hogi, YouTube nahi. Nice focus! 🎯
       </div>
-      ${videos.v1 ? `<div style="font-size:0.8rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+      ${link1 ? `<div style="font-size:0.8rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <button type="button" class="btn btn-sm btn-primary py-1 btn-watch-batch" data-video-key="v1"><i class="bi bi-play-fill me-1"></i>Watch 1</button>
-        <span style="word-break:break-all;color:#6366f1;">${videos.v1}</span>
+        <span style="word-break:break-all;color:#6366f1;">${link1}</span>
       </div>` : ''}
-      ${videos.v2 ? `<div style="font-size:0.8rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+      ${link2 ? `<div style="font-size:0.8rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <button type="button" class="btn btn-sm btn-primary py-1 btn-watch-batch" data-video-key="v2"><i class="bi bi-play-fill me-1"></i>Watch 2</button>
-        <span style="word-break:break-all;color:#6366f1;">${videos.v2}</span>
+        <span style="word-break:break-all;color:#6366f1;">${link2}</span>
       </div>` : ''}
     `;
     linksDiv.querySelectorAll('.btn-watch-batch').forEach(function(btn) {
@@ -1603,32 +1615,28 @@ function closeBatchPopup() {
 
 async function sendAndMark() {
   const { leadId, batchKey, phone } = _popupState;
-  const videos = BATCH_VIDEOS[batchKey] || {};
+  var watchUrls = (typeof BATCH_WATCH_URLS !== 'undefined' && BATCH_WATCH_URLS[batchKey]) ? BATCH_WATCH_URLS[batchKey] : {};
+  var videos = BATCH_VIDEOS[batchKey] || {};
+  var link1 = (watchUrls.v1 || videos.v1) || '';
+  var link2 = (watchUrls.v2 || videos.v2) || '';
+
+  await _markBatchDone(leadId, batchKey);
 
   const label = BATCH_LABELS[batchKey];
   const msg = `${label}\n\n` +
-    (videos.v1 ? `📹 Video 1:\n${videos.v1}\n` : '') +
-    (videos.v2 ? `📹 Video 2:\n${videos.v2}\n` : '') +
+    (link1 ? `📹 Video 1:\n${link1}\n` : '') +
+    (link2 ? `📹 Video 2:\n${link2}\n` : '') +
     `\nDono videos dekho aur reply karo ✅`;
 
-  // Clean phone number with country code logic (same as wa_phone filter)
   let cleanPhone = phone.replace(/[^\d]/g, '');
   if (cleanPhone.length === 10 && '6789'.includes(cleanPhone[0])) {
     cleanPhone = '91' + cleanPhone;
   } else if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
     cleanPhone = '91' + cleanPhone.substring(1);
   }
-
   const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
-
   closeBatchPopup();
-
-  // Open WhatsApp in new tab FIRST (synchronously, within user-gesture context)
-  // — must happen BEFORE any await so popup blocker doesn't fire
   window.open(waUrl, '_blank');
-
-  // THEN mark the batch (async, page stays open so UI updates work)
-  await _markBatchDone(leadId, batchKey);
 }
 
 async function alreadySentMark() {

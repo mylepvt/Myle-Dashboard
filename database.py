@@ -756,6 +756,21 @@ def migrate_db():
         except Exception:
             pass
 
+    # --- batch_share_links: token per (lead_id, slot) so prospect open = auto-mark batch ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS batch_share_links (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                token      TEXT NOT NULL UNIQUE,
+                lead_id    INTEGER NOT NULL,
+                slot       TEXT NOT NULL,
+                used       INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+        """)
+    except Exception:
+        pass
+
     # --- bonus_videos table ---
     try:
         cursor.execute("""

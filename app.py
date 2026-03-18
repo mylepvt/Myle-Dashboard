@@ -1654,6 +1654,87 @@ def enroll_generate_link():
     return jsonify({'ok': True, 'token': token, 'watch_url': watch_url})
 
 
+@app.route('/watch/enrollment')
+def watch_enrollment():
+    """Public page: enrollment video in minimal embed (no YouTube UI). Share this link so prospect opens our page, not YouTube."""
+    db = get_db()
+    enrollment_video_url = _get_setting(db, 'enrollment_video_url', '')
+    enrollment_video_title = _get_setting(db, 'enrollment_video_title', 'Enrollment Video')
+    db.close()
+    embed_url = ''
+    if enrollment_video_url:
+        m = _re.search(r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]{11})', enrollment_video_url)
+        if m:
+            embed_url = 'https://www.youtube.com/embed/' + m.group(1) + '?rel=0&modestbranding=1'
+    if not embed_url:
+        return render_template('watch_video.html', error='Video not configured', title='Enrollment Video'), 404
+    return render_template('watch_video.html', embed_url=embed_url, title=enrollment_video_title or 'Enrollment Video', error=None)
+
+
+_BATCH_SLOTS = ('d1_morning', 'd1_afternoon', 'd1_evening', 'd2_morning', 'd2_afternoon', 'd2_evening')
+_BATCH_LABELS = {
+    'd1_morning': 'Day 1 — Morning Batch', 'd1_afternoon': 'Day 1 — Afternoon Batch', 'd1_evening': 'Day 1 — Evening Batch',
+    'd2_morning': 'Day 2 — Morning Batch', 'd2_afternoon': 'Day 2 — Afternoon Batch', 'd2_evening': 'Day 2 — Evening Batch',
+}
+
+
+def _batch_watch_urls():
+    """In-app watch URLs for each batch slot (v1, v2). Prospect opens our page, not YouTube."""
+    return {
+        slot: {'v1': url_for('watch_batch', slot=slot, v=1, _external=True),
+               'v2': url_for('watch_batch', slot=slot, v=2, _external=True)}
+        for slot in _BATCH_SLOTS
+    }
+
+
+def _mark_batch_done_for_lead(db, lead_id, slot):
+    """When prospect opens batch link with token: mark that slot done, update day1_done/day2_done, add points for owner."""
+    row = db.execute("SELECT * FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''", (lead_id,)).fetchone()
+    if not row:
+        return
+    owner = row['assigned_to']
+    now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
+    current = row[slot] if slot in row.keys() else 0
+    if current:
+        return
+    db.execute(f"UPDATE leads SET {slot}=?, updated_at=? WHERE id=?", (1, now_str, lead_id))
+    day_prefix = slot[:2]
+    if day_prefix == 'd1':
+        m = 1 if slot == 'd1_morning' else (row.get('d1_morning') or 0)
+        a = 1 if slot == 'd1_afternoon' else (row.get('d1_afternoon') or 0)
+        e = 1 if slot == 'd1_evening' else (row.get('d1_evening') or 0)
+        all_done = bool(m and a and e)
+        db.execute("UPDATE leads SET day1_done=? WHERE id=?", (1 if all_done else 0, lead_id))
+    else:
+        m = 1 if slot == 'd2_morning' else (row.get('d2_morning') or 0)
+        a = 1 if slot == 'd2_afternoon' else (row.get('d2_afternoon') or 0)
+        e = 1 if slot == 'd2_evening' else (row.get('d2_evening') or 0)
+        all_done = bool(m and a and e)
+        db.execute("UPDATE leads SET day2_done=? WHERE id=?", (1 if all_done else 0, lead_id))
+    _upsert_daily_score(db, owner, 15, delta_batches=1)
+    db.commit()
+
+
+@app.route('/watch/batch/<slot>/<int:v>')
+def watch_batch(slot, v):
+    """Public page: 3-day batch video in minimal embed."""
+    if slot not in _BATCH_SLOTS or v not in (1, 2):
+        return render_template('watch_video.html', error='Invalid link', title='Batch Video'), 404
+    db = get_db()
+    setting_key = f'batch_{slot}_v{v}'
+    yt_url = _get_setting(db, setting_key, '')
+    db.close()
+    embed_url = ''
+    if yt_url:
+        m = _re.search(r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]{11})', yt_url)
+        if m:
+            embed_url = 'https://www.youtube.com/embed/' + m.group(1) + '?rel=0&modestbranding=1'
+    if not embed_url:
+        return render_template('watch_video.html', error='Video not configured', title=_BATCH_LABELS.get(slot, 'Batch Video')), 404
+    title = _BATCH_LABELS.get(slot, 'Batch Video') + ' — Video ' + str(v)
+    return render_template('watch_batch.html', embed_url=embed_url, title=title, slot=slot, v=v)
+
+
 @app.route('/watch/<token>')
 def watch_video(token):
     """Public watch page; first view syncs to lead (Video Watched) and notifies sharer."""
@@ -2639,7 +2720,9 @@ def team_dashboard():
                            today_streak=today_streak,
                            pending_batches=pending_batches,
                            batch_videos=batch_videos,
+                           batch_watch_urls=_batch_watch_urls(),
                            enrollment_video_url=enrollment_video_url,
+                           enrollment_watch_url=url_for('watch_enrollment', _external=True) if enrollment_video_url else '',
                            enrollment_video_title=enrollment_video_title,
                            show_day1_batches=show_day1_batches,
                            user_role=session.get('role', 'team'),
@@ -7601,7 +7684,9 @@ def working():
             batch_completion=batch_completion,
             tracks=TRACKS,
             batch_videos=admin_batch_videos,
+            batch_watch_urls=_batch_watch_urls(),
             enrollment_video_url=enrollment_video_url,
+            enrollment_watch_url=url_for('watch_enrollment', _external=True) if enrollment_video_url else '',
             enrollment_video_title=enrollment_video_title,
             show_day1_batches=True,
             user_role='admin',
@@ -7850,7 +7935,9 @@ def working():
             enroll_pdfs=enroll_pdfs,
             recent_shares=recent_shares,
             team_leads=team_leads_for_enroll,
+            batch_watch_urls=_batch_watch_urls(),
             enrollment_video_url=enrollment_video_url,
+            enrollment_watch_url=url_for('watch_enrollment', _external=True) if enrollment_video_url else '',
             enrollment_video_title=enrollment_video_title,
             show_day1_batches=True,
         )
@@ -7961,13 +8048,63 @@ def working():
         tracks=TRACKS,
         statuses=STATUSES,
         batch_videos=team_batch_videos,
+        batch_watch_urls=_batch_watch_urls(),
         enrollment_video_url=enrollment_video_url,
+        enrollment_watch_url=url_for('watch_enrollment', _external=True) if enrollment_video_url else '',
         enrollment_video_title=enrollment_video_title,
         show_day1_batches=show_day1_batches,
         user_role=role or 'team',
         call_status_values=CALL_STATUS_VALUES,
         csrf_token=session.get('_csrf_token', ''),
     )
+
+
+@app.route('/leads/<int:lead_id>/batch-share-url', methods=['POST'])
+@login_required
+def batch_share_url(lead_id):
+    """Get tokenized watch URLs for this lead+slot. When prospect opens link, batch is auto-marked. No WhatsApp check needed."""
+    data = request.get_json(silent=True) or {}
+    slot = (data.get('slot') or '').strip()
+    if slot not in _BATCH_SLOTS:
+        return {'ok': False, 'error': 'Invalid slot'}, 400
+    db = get_db()
+    row = db.execute(
+        "SELECT * FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''", (lead_id,)
+    ).fetchone()
+    if not row:
+        db.close()
+        return {'ok': False, 'error': 'Not found'}, 404
+    role = session.get('role', 'team')
+    owner = row['assigned_to']
+    if slot.startswith('d1_'):
+        if role not in ('leader', 'admin'):
+            db.close()
+            return {'ok': False, 'error': 'Only leader/admin can share Day 1 batch links'}, 403
+        if role == 'leader':
+            downline = _get_network_usernames(db, session['username'])
+            if owner != session['username'] and owner not in downline:
+                db.close()
+                return {'ok': False, 'error': 'Forbidden'}, 403
+    else:
+        if role != 'admin':
+            db.close()
+            return {'ok': False, 'error': 'Only admin can share Day 2 batch links'}, 403
+    existing = db.execute(
+        "SELECT token FROM batch_share_links WHERE lead_id=? AND slot=? AND used=0", (lead_id, slot)
+    ).fetchone()
+    if existing:
+        token = existing['token']
+    else:
+        token = secrets.token_urlsafe(16)
+        db.execute(
+            "INSERT INTO batch_share_links (token, lead_id, slot) VALUES (?, ?, ?)",
+            (token, lead_id, slot)
+        )
+        db.commit()
+    db.close()
+    watch_url_v1 = url_for('watch_batch', slot=slot, v=1, _external=True) + '?token=' + token
+    watch_url_v2 = url_for('watch_batch', slot=slot, v=2, _external=True) + '?token=' + token
+    return {'ok': True, 'watch_url_v1': watch_url_v1, 'watch_url_v2': watch_url_v2}
 
 
 @app.route('/leads/<int:lead_id>/batch-toggle', methods=['POST'])

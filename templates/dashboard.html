@@ -250,12 +250,12 @@
 {% if enrollment_video_url %}
 <div class="card border-0 shadow-sm mb-2">
   <div class="card-body p-2">
-    <a href="{{ enrollment_video_url }}" class="video-in-app d-flex align-items-center gap-2 text-decoration-none" style="color:#6366f1;">
+    <a href="{{ enrollment_watch_url or enrollment_video_url }}" class="video-in-app d-flex align-items-center gap-2 text-decoration-none" style="color:#6366f1;">
       <i class="bi bi-play-circle-fill fs-5 flex-shrink-0"></i>
       <span class="fw-semibold small">{{ enrollment_video_title|default('Enrollment Video') }}</span>
       <i class="bi bi-play-btn ms-auto small"></i>
     </a>
-    <div class="small text-muted mt-1">Stage 1 — share with leads; plays in-app (no YouTube suggestions)</div>
+    <div class="small text-muted mt-1">Stage 1 — ye link prospect ko bhejo, video humari site pe open hogi (YouTube distract nahi karega)</div>
   </div>
 </div>
 {% endif %}
@@ -1337,6 +1337,14 @@ const BATCH_VIDEOS = {
   d2_afternoon: { v1: "{{ batch_videos.d2_afternoon_v1 }}", v2: "{{ batch_videos.d2_afternoon_v2 }}" },
   d2_evening:   { v1: "{{ batch_videos.d2_evening_v1 }}", v2: "{{ batch_videos.d2_evening_v2 }}" },
 };
+const BATCH_WATCH_URLS = {
+  d1_morning:   { v1: "{{ batch_watch_urls.d1_morning.v1 }}", v2: "{{ batch_watch_urls.d1_morning.v2 }}" },
+  d1_afternoon: { v1: "{{ batch_watch_urls.d1_afternoon.v1 }}", v2: "{{ batch_watch_urls.d1_afternoon.v2 }}" },
+  d1_evening:   { v1: "{{ batch_watch_urls.d1_evening.v1 }}", v2: "{{ batch_watch_urls.d1_evening.v2 }}" },
+  d2_morning:   { v1: "{{ batch_watch_urls.d2_morning.v1 }}", v2: "{{ batch_watch_urls.d2_morning.v2 }}" },
+  d2_afternoon: { v1: "{{ batch_watch_urls.d2_afternoon.v1 }}", v2: "{{ batch_watch_urls.d2_afternoon.v2 }}" },
+  d2_evening:   { v1: "{{ batch_watch_urls.d2_evening.v1 }}", v2: "{{ batch_watch_urls.d2_evening.v2 }}" },
+};
 
 const BATCH_LABELS = {
   d1_morning:   '🌅 Day 1 — Morning Batch',
@@ -1360,19 +1368,22 @@ function openBatchPopup(leadId, batchKey, phone, leadName, btnEl) {
   document.getElementById('popupLeadName').textContent = leadName;
 
   const videos = BATCH_VIDEOS[batchKey] || {};
-  const hasLinks = videos.v1 || videos.v2;
+  const watchUrls = (typeof BATCH_WATCH_URLS !== 'undefined' && BATCH_WATCH_URLS[batchKey]) ? BATCH_WATCH_URLS[batchKey] : {};
+  const link1 = watchUrls.v1 || videos.v1 || '';
+  const link2 = watchUrls.v2 || videos.v2 || '';
+  const hasLinks = link1 || link2;
   const linksDiv = document.getElementById('popupVideoLinks');
 
   if (hasLinks) {
     linksDiv.innerHTML = `
       <div style="font-size:0.75rem;font-weight:700;color:#6b7280;margin-bottom:8px;">
-        WhatsApp message mein yeh jayega:
+        Prospect ko ye link jayega — video humari site pe open hogi (YouTube nahi):
       </div>
-      ${videos.v1 ? `<div style="font-size:0.8rem;margin-bottom:4px;word-break:break-all;">
-        📹 Video 1: <span style="color:#6366f1">${videos.v1}</span>
+      ${link1 ? `<div style="font-size:0.8rem;margin-bottom:4px;word-break:break-all;">
+        📹 Video 1: <span style="color:#6366f1">${link1}</span>
       </div>` : ''}
-      ${videos.v2 ? `<div style="font-size:0.8rem;word-break:break-all;">
-        📹 Video 2: <span style="color:#6366f1">${videos.v2}</span>
+      ${link2 ? `<div style="font-size:0.8rem;word-break:break-all;">
+        📹 Video 2: <span style="color:#6366f1">${link2}</span>
       </div>` : ''}
     `;
     document.getElementById('popupSendBtn').style.display = 'flex';
@@ -1397,14 +1408,17 @@ function closeBatchPopup() {
 
 async function sendAndMark() {
   const { leadId, batchKey, phone } = _popupState;
-  const videos = BATCH_VIDEOS[batchKey] || {};
+  var watchUrls = (typeof BATCH_WATCH_URLS !== 'undefined' && BATCH_WATCH_URLS[batchKey]) ? BATCH_WATCH_URLS[batchKey] : {};
+  var videos = BATCH_VIDEOS[batchKey] || {};
+  var link1 = (watchUrls.v1 || videos.v1) || '';
+  var link2 = (watchUrls.v2 || videos.v2) || '';
 
   await _markBatchDone(leadId, batchKey);
 
   const label = BATCH_LABELS[batchKey];
   const msg = `${label}\n\n` +
-    (videos.v1 ? `📹 Video 1:\n${videos.v1}\n` : '') +
-    (videos.v2 ? `📹 Video 2:\n${videos.v2}\n` : '') +
+    (link1 ? `📹 Video 1:\n${link1}\n` : '') +
+    (link2 ? `📹 Video 2:\n${link2}\n` : '') +
     `\nDono videos dekho aur reply karo ✅`;
 
   let cleanPhone = phone.replace(/[^\d]/g, '');

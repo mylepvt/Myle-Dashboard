@@ -11,10 +11,10 @@
     {% if enrollment_video_url %}
     <div class="alert alert-light border d-flex align-items-center gap-2 py-2 mb-3">
       <i class="bi bi-play-circle-fill text-primary"></i>
-      <a href="{{ enrollment_video_url }}" class="video-in-app text-decoration-none fw-semibold">
+      <a href="{{ enrollment_watch_url or enrollment_video_url }}" class="video-in-app text-decoration-none fw-semibold">
         {{ enrollment_video_title|default('Enrollment Video') }}
       </a>
-      <span class="ms-auto small text-muted">Stage 1 · in-app</span>
+      <span class="ms-auto small text-muted">Stage 1 — prospect ko ye link bhejo, humari site pe open hogi</span>
     </div>
     {% endif %}
 
