@@ -1,13 +1,12 @@
 /* ── Myle Community Service Worker ──────────────────────── */
-const CACHE   = 'myle-v5';
+const CACHE   = 'myle-v6';
 const STATIC  = [
-  '/static/css/style.css',
   '/static/icon-192.png',
   '/static/icon-512.png',
   '/static/manifest.json',
 ];
 
-/* Install: cache static assets */
+/* Install: cache only icons/manifest — NOT css (always fetch fresh) */
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE).then(c => c.addAll(STATIC))
@@ -15,7 +14,7 @@ self.addEventListener('install', e => {
   self.skipWaiting();
 });
 
-/* Activate: clear old caches */
+/* Activate: clear ALL old caches immediately */
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
@@ -25,14 +24,20 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-/* Fetch: network-first for pages, cache-first for static */
+/* Fetch: network-first for everything; cache fallback only for icons */
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
   /* Only handle same-origin requests */
   if (url.origin !== location.origin) return;
 
-  /* Static assets → cache first */
+  /* CSS → always network, no caching */
+  if (url.pathname.endsWith('.css')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
+
+  /* Icons/manifest → cache first */
   if (url.pathname.startsWith('/static/')) {
     e.respondWith(
       caches.match(e.request).then(cached =>
