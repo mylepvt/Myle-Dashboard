@@ -785,6 +785,15 @@
 
   </div>{# /histTabContent #}
 
+  {% if has_more_hist %}
+  <div class="text-center my-3">
+    <a href="{{ url_for('leads', page=page+1, status=selected_status, q=search) }}#pane-history"
+       class="btn btn-outline-primary btn-sm fw-semibold px-4">
+      <i class="bi bi-arrow-down-circle me-1"></i>Load More Leads
+    </a>
+  </div>
+  {% endif %}
+
   {% endif %}{# /hist_leads check #}
 </div>{# /pane-history #}
 
@@ -904,7 +913,7 @@
 <div class="modal fade" id="quickAddModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow">
-      <form method="post" action="{{ url_for('add_lead') }}">
+      <form id="quickAddForm">
         <div class="modal-header border-0 pb-0" style="background:#d1fae5;border-radius:12px 12px 0 0;">
           <h5 class="modal-title fw-bold" style="color:#065f46;">
             <i class="bi bi-person-plus-fill me-2"></i>Quick Add Lead
@@ -958,7 +967,7 @@
         </div>
         <div class="modal-footer border-0 pt-0">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-success px-4 fw-semibold">
+          <button type="submit" class="btn btn-success px-4 fw-semibold" id="quickAddBtn">
             <i class="bi bi-plus-circle-fill me-1"></i>Add Lead
           </button>
         </div>
@@ -1096,6 +1105,69 @@ function setBatch(leadId, day, batchVal) {
   .catch(() => showToast('Network error', 'danger'));
 }
 
+/* ── Quick Add AJAX ────────────────────────────────────── */
+(function() {
+  var qf = document.getElementById('quickAddForm');
+  if (!qf) return;
+  qf.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var btn = document.getElementById('quickAddBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Adding…';
+    var fd = new FormData(qf);
+    fd.append('csrf_token', '{{ csrf_token }}');
+    fetch('{{ url_for("add_lead") }}', {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      body: fd
+    })
+    .then(function(r) { return r.json().then(function(d) { return {status: r.status, data: d}; }); })
+    .then(function(res) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-plus-circle-fill me-1"></i>Add Lead';
+      if (res.data.ok) {
+        showToast('Lead "' + res.data.name + '" added ✅', 'success');
+        qf.reset();
+        var modal = bootstrap.Modal.getInstance(document.getElementById('quickAddModal'));
+        if (modal) modal.hide();
+        var container = document.querySelector('#dpane-active .row.g-2') ||
+                        document.querySelector('#pane-working');
+        if (container && container.classList.contains('row')) {
+          var col = document.createElement('div');
+          col.className = 'col-sm-6 col-lg-4';
+          col.innerHTML = '<div class="wl-card" style="border-left:3px solid #10b981;">' +
+            '<div class="d-flex align-items-start justify-content-between gap-2 mb-1">' +
+              '<div><div class="wl-name">' + res.data.name + '</div>' +
+              (res.data.city ? '<div class="wl-city"><i class="bi bi-geo-alt-fill me-1"></i>' + res.data.city + '</div>' : '') +
+              '</div>' +
+              '<span class="wl-status-badge">New</span>' +
+            '</div>' +
+            '<div class="d-flex align-items-center gap-2 mb-2">' +
+              '<span class="wl-phone">' + res.data.phone + '</span>' +
+              '<a href="tel:' + res.data.phone + '" class="wl-action-btn call"><i class="bi bi-telephone-fill"></i></a>' +
+              '<a href="https://wa.me/' + res.data.phone + '" target="_blank" class="wl-action-btn wa"><i class="bi bi-whatsapp"></i></a>' +
+            '</div></div>';
+          container.prepend(col);
+          col.style.opacity = '0'; col.style.transform = 'translateY(-10px)';
+          requestAnimationFrame(function() {
+            col.style.transition = 'opacity .3s, transform .3s';
+            col.style.opacity = '1'; col.style.transform = 'none';
+          });
+        }
+        var countEl = document.querySelector('#outerTabs .nav-link.active .badge');
+        if (countEl) countEl.textContent = (parseInt(countEl.textContent)||0) + 1;
+      } else {
+        showToast(res.data.error || 'Could not add lead', 'danger');
+      }
+    })
+    .catch(function() {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-plus-circle-fill me-1"></i>Add Lead';
+      showToast('Network error — try again', 'danger');
+    });
+  });
+})();
+
 /* ── Call status update — Android + iOS compatible ────────── */
 const _leadsPageCsrf = '{{ session.get("_csrf_token", "") }}';
 
@@ -1136,6 +1208,17 @@ const _leadsPageCsrf = '{{ session.get("_csrf_token", "") }}';
   }
   document.addEventListener('change', onCallStatusChange, true);
 })();
+
+/* ── Import form loading state ─────────────────────────── */
+document.querySelectorAll('#importModal form').forEach(function(form) {
+  form.addEventListener('submit', function() {
+    var btn = form.querySelector('button[type="submit"]');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Importing…';
+    }
+  });
+});
 </script>
 
 <style>

@@ -2842,22 +2842,22 @@ def leads():
         return redirect(url_for('dashboard'))
 
 def _leads_inner():
-    from datetime import datetime as _dt
+    from datetime import datetime as _dt, timedelta as _td
     db     = get_db()
     status = request.args.get('status', '')
     search = request.args.get('q', '').strip()
-    today  = _dt.now().strftime('%Y-%m-%d')
+    page   = max(1, int(request.args.get('page', 1)))
+    today      = _dt.now().strftime('%Y-%m-%d')
+    today_lo   = today + ' 00:00:00'
+    tomorrow_lo = (_dt.now() + _td(days=1)).strftime('%Y-%m-%d') + ' 00:00:00'
 
-    # Base filter
     base   = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at=''"
     role   = session.get('role')
     uname  = session.get('username')
 
-    # Today condition: created today OR claimed today
-    today_cond = ("(date(created_at,'localtime')=? "
-                  "OR (claimed_at!='' AND date(claimed_at,'localtime')=?))")
+    today_cond = ("(created_at >= ? AND created_at < ?"
+                  " OR (claimed_at != '' AND claimed_at >= ? AND claimed_at < ?))")
 
-    # Build today params and hist params
     def _apply_filters(base_q, base_p, extra_cond, extra_p):
         q = base_q + f" AND {extra_cond}"
         p = list(base_p) + list(extra_p)
@@ -2879,26 +2879,30 @@ def _leads_inner():
 
     today_q, today_p = _apply_filters(
         base, base_params,
-        today_cond, [today, today]
+        today_cond, [today_lo, tomorrow_lo, today_lo, tomorrow_lo]
     )
     hist_q, hist_p = _apply_filters(
         base, base_params,
-        f"NOT {today_cond}", [today, today]
+        f"NOT {today_cond}", [today_lo, tomorrow_lo, today_lo, tomorrow_lo]
     )
 
-    # Limit rows for fast page load; pagination can be added later via ?page=
-    _today_limit = 150
-    _hist_limit  = 300
+    _today_limit = 60
+    _hist_limit  = 80
+    _hist_offset = (page - 1) * _hist_limit
     try:
         today_leads_raw = db.execute(
             today_q + " ORDER BY created_at DESC LIMIT " + str(_today_limit), today_p
         ).fetchall()
         hist_leads_raw  = db.execute(
-            hist_q  + " ORDER BY created_at DESC LIMIT " + str(_hist_limit), hist_p
+            hist_q  + " ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            hist_p + [_hist_limit + 1, _hist_offset]
         ).fetchall()
     except Exception as e:
         app.logger.error(f"leads() query failed: {e}")
         today_leads_raw, hist_leads_raw = [], []
+    has_more_hist = len(hist_leads_raw) > _hist_limit
+    if has_more_hist:
+        hist_leads_raw = hist_leads_raw[:_hist_limit]
     team            = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
     db.close()
 
@@ -2925,7 +2929,6 @@ def _leads_inner():
     hist_day3_leads   = [l for l in hist_leads if l.get('status') == 'Interview']
 
     return render_template('leads.html',
-                           # legacy key kept for any other templates that reference it
                            leads=hist_leads,
                            today_leads=today_leads,
                            hist_leads=hist_leads,
@@ -2944,7 +2947,9 @@ def _leads_inner():
                            sources=SOURCES,
                            selected_status=status,
                            search=search,
-                           team=team)
+                           team=team,
+                           page=page,
+                           has_more_hist=has_more_hist)
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -2986,6 +2991,8 @@ def add_lead():
     db   = get_db()
     team = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
 
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
     if request.method == 'POST':
         name           = request.form.get('name', '').strip()
         phone          = request.form.get('phone', '').strip()
@@ -3010,6 +3017,9 @@ def add_lead():
             assigned_to = session['username']
 
         if not name or not phone:
+            if is_ajax:
+                db.close()
+                return {'ok': False, 'error': 'Name and Phone are required.'}, 400
             flash('Name and Phone are required.', 'danger')
             db.close()
             return render_template('add_lead.html',
@@ -3020,7 +3030,11 @@ def add_lead():
             "SELECT name FROM leads WHERE phone=? AND in_pool=0 AND deleted_at=''", (phone,)
         ).fetchone()
         if dup:
-            flash(f'A lead with phone {phone} already exists ({dup["name"]}). Duplicate entries are not allowed.', 'danger')
+            msg = f'A lead with phone {phone} already exists ({dup["name"]}).'
+            if is_ajax:
+                db.close()
+                return {'ok': False, 'error': msg}, 409
+            flash(msg + ' Duplicate entries are not allowed.', 'danger')
             db.close()
             return render_template('add_lead.html',
                                    statuses=STATUSES, sources=SOURCES, team=team,
@@ -3041,8 +3055,14 @@ def add_lead():
               status, payment_done, payment_amount, revenue,
               follow_up_date, call_result, notes, city,
               pipeline_stage, assigned_to))
+        new_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
         db.commit()
         db.close()
+
+        if is_ajax:
+            return {'ok': True, 'id': new_id, 'name': name, 'phone': phone,
+                    'city': city, 'status': status, 'source': source}
+
         flash(f'Lead "{name}" added successfully.', 'success')
         return redirect(url_for('leads'))
 
@@ -5612,6 +5632,7 @@ def import_leads():
     }
 
     imported = skipped = 0
+    batch_values = []
     for row in rows_list:
         name  = row.get('name', '').strip()
         phone = row.get('phone', '').strip()
@@ -5630,16 +5651,20 @@ def import_leads():
             skipped += 1
             continue
         existing_phones.add(phone)
+        batch_values.append((name, phone, email, assigned_to, src, city))
+        imported += 1
 
-        db.execute("""
+    _BATCH_SZ = 50
+    for i in range(0, len(batch_values), _BATCH_SZ):
+        chunk = batch_values[i:i + _BATCH_SZ]
+        db.executemany("""
             INSERT INTO leads
                 (name, phone, email, assigned_to, source, status,
                  in_pool, pool_price, claimed_at, city, notes)
             VALUES (?, ?, ?, ?, ?, 'New', 0, 0, '', ?, '')
-        """, (name, phone, email, assigned_to, src, city))
-        imported += 1
+        """, chunk)
+        db.commit()
 
-    db.commit()
     db.close()
     flash(f'Import complete: {imported} leads added, {skipped} skipped (duplicates/empty).', 'success')
     return redirect(url_for('leads'))

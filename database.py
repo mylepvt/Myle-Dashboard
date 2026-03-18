@@ -818,6 +818,8 @@ def migrate_db():
         "CREATE INDEX IF NOT EXISTS idx_lead_notes_lead ON lead_notes(lead_id, created_at)",
         "CREATE INDEX IF NOT EXISTS idx_leads_followup ON leads(follow_up_date, assigned_to)",
         "CREATE INDEX IF NOT EXISTS idx_leads_contacted ON leads(last_contacted, assigned_to)",
+        "CREATE INDEX IF NOT EXISTS idx_leads_created ON leads(created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_leads_deleted_pool ON leads(in_pool, deleted_at, assigned_to, created_at)",
     ]
     for idx in indexes:
         try:
