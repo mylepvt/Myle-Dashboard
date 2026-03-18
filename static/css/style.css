@@ -221,7 +221,9 @@ body {
 /* ── Layout ─────────────────────────────────────────────────────── */
 #wrapper {
   min-height: 100vh;
+  min-height: 100dvh;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   display: flex;
   width: 100%;
@@ -1221,24 +1223,25 @@ p,span,td,li { color: inherit; }
 /* ── Mobile / Tablet: overlay sidebar, full-width content ─────────── */
 /* Use 991px so admin panel and all app look like mobile UI on tablet + phone */
 @media (max-width:991px) {
-  /* Navbar above closed sidebar so hamburger is always clickable */
-  .navbar { z-index: 1060 !important; }
+  /* Sidebar is highest — above navbar, bottom-nav, and backdrop */
+  .navbar { z-index: 200; }
   #sidebar {
     position:fixed!important;top:0;left:0;height:100vh;height:100dvh;width:min(320px,85vw)!important;
     padding-top:env(safe-area-inset-top,0)!important;
-    z-index:1055;transform:translateX(-100%);
+    z-index:1060;transform:translateX(-100%);
     transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);
     overflow-y:auto;overflow-x:hidden;
     box-shadow:var(--shadow-lg);
     pointer-events:none;
   }
-  #sidebar.mobile-open { transform:translateX(0);pointer-events:auto; }
-  #sidebar.collapsed { width:min(320px,85vw)!important;overflow:visible; }
+  #sidebar.mobile-open { transform:translateX(0);pointer-events:auto;overflow-y:auto; }
+  /* On mobile, .collapsed is meaningless — sidebar is either open or hidden off-screen */
+  #sidebar.collapsed { width:min(320px,85vw)!important;overflow:hidden; }
   #sidebar.collapsed span,#sidebar.collapsed .fs-5,#sidebar.collapsed small,#sidebar.collapsed .badge { display:inline!important; }
   #sidebar.collapsed .nav-link { text-align:left!important;padding:9px 11px!important;justify-content:flex-start!important; }
   #sidebarBackdrop {
     display:none;position:fixed;inset:0;top:0;left:0;right:0;bottom:0;
-    background:rgba(0,0,0,0.45);z-index:1040;
+    background:rgba(0,0,0,0.45);z-index:1053;
     backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
     pointer-events:none;
   }

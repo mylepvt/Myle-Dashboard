@@ -650,9 +650,10 @@ if (!window.CSS || !window.CSS.supports) {
 
   /* ── Sidebar ────────────────────────────────────────── */
   function initSidebar() {
-    const sidebar  = document.getElementById('sidebar');
-    const backdrop = document.getElementById('sidebarBackdrop');
-    const toggle   = document.getElementById('sidebarToggle');
+    const sidebar      = document.getElementById('sidebar');
+    const backdrop     = document.getElementById('sidebarBackdrop');
+    const toggle       = document.getElementById('sidebarToggle');
+    const pageWrapper  = document.getElementById('page-content-wrapper');
     if (!sidebar || !backdrop || !toggle) return;
 
     function isMobile() { return window.innerWidth <= 991; }
@@ -661,6 +662,7 @@ if (!window.CSS || !window.CSS.supports) {
       sidebar.classList.remove('mobile-open');
       backdrop.classList.remove('show');
       document.body.style.overflow = '';
+      if (pageWrapper) pageWrapper.style.overflowY = '';
     }
 
     toggle.addEventListener('click', () => {
@@ -671,10 +673,9 @@ if (!window.CSS || !window.CSS.supports) {
           sidebar.classList.add('mobile-open');
           backdrop.classList.add('show');
           document.body.style.overflow = 'hidden';
+          if (pageWrapper) pageWrapper.style.overflowY = 'hidden';
         } else {
-          sidebar.classList.remove('mobile-open');
-          backdrop.classList.remove('show');
-          document.body.style.overflow = '';
+          closeMobileSidebar();
         }
       } else {
         sidebar.classList.toggle('collapsed');
@@ -688,10 +689,15 @@ if (!window.CSS || !window.CSS.supports) {
     });
 
     window.addEventListener('resize', () => {
-      if (!isMobile()) {
+      if (isMobile()) {
+        /* Switching from desktop → mobile: clear collapsed state */
+        sidebar.classList.remove('collapsed');
+      } else {
+        /* Switching from mobile → desktop: clean up any open mobile state */
         sidebar.classList.remove('mobile-open');
         backdrop.classList.remove('show');
         document.body.style.overflow = '';
+        if (pageWrapper) pageWrapper.style.overflowY = '';
       }
     });
   }
