@@ -401,7 +401,7 @@ button, .btn, .nav-link, .mbn-item {
   -webkit-backdrop-filter: saturate(200%) blur(28px) !important;
   border-bottom: 1px solid var(--sep) !important;
   box-shadow: 0 1px 0 var(--glass-border), 0 2px 16px rgba(0,0,0,0.06);
-  padding: 0.65rem 1.25rem !important;
+  padding: calc(0.65rem + env(safe-area-inset-top, 0px)) 1.25rem 0.65rem !important;
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
@@ -1222,22 +1222,29 @@ p,span,td,li { color: inherit; }
 /* Use 991px so admin panel and all app look like mobile UI on tablet + phone */
 @media (max-width:991px) {
   #sidebar {
-    position:fixed!important;top:0;left:0;height:100vh;width:min(320px,85vw)!important;
+    position:fixed!important;top:0;left:0;height:100vh;height:100dvh;width:min(320px,85vw)!important;
+    padding-top:env(safe-area-inset-top,0)!important;
     z-index:1055;transform:translateX(-100%);
     transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);
     overflow-y:auto;overflow-x:hidden;
     box-shadow:var(--shadow-lg);
+    pointer-events:none;
   }
-  #sidebar.mobile-open { transform:translateX(0); }
+  #sidebar.mobile-open { transform:translateX(0);pointer-events:auto; }
   #sidebar.collapsed { width:min(320px,85vw)!important;overflow:visible; }
   #sidebar.collapsed span,#sidebar.collapsed .fs-5,#sidebar.collapsed small,#sidebar.collapsed .badge { display:inline!important; }
   #sidebar.collapsed .nav-link { text-align:left!important;padding:9px 11px!important;justify-content:flex-start!important; }
-  #sidebarBackdrop { display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1040;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px); }
-  #sidebarBackdrop.show { display:block; }
+  #sidebarBackdrop {
+    display:none;position:fixed;inset:0;top:0;left:0;right:0;bottom:0;
+    background:rgba(0,0,0,0.45);z-index:1040;
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    pointer-events:none;
+  }
+  #sidebarBackdrop.show { display:block!important;pointer-events:auto; }
   #page-content-wrapper { width:100%!important;min-width:0!important;flex:1 1 0!important;overflow-x:hidden; }
   .container-fluid { padding:0.75rem 1rem!important;max-width:100%; }
   .card,.table-responsive { max-width:100%; }
-  .navbar { padding:0.5rem 0.75rem!important;align-items:center!important; }
+  .navbar { padding:calc(0.5rem + env(safe-area-inset-top,0px)) 0.75rem 0.5rem!important;align-items:center!important; }
   .navbar .navbar-page-title { font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:50vw; }
   .kpi-card { margin-bottom:0.5rem; }
   .mobile-hide-table { display:none!important; }

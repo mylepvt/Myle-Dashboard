@@ -219,12 +219,6 @@
         </a>
       </li>
       <li class="nav-item">
-        <a href="{{ url_for('admin_settings') }}#batch-video-links"
-           class="nav-link {% if request.endpoint == 'admin_settings' %}active{% endif %}">
-          <i class="bi bi-youtube me-2 text-danger"></i><span>YouTube / Batch Videos</span>
-        </a>
-      </li>
-      <li class="nav-item">
         <a href="{{ url_for('admin_targets') }}"
            class="nav-link {% if request.endpoint == 'admin_targets' %}active{% endif %}">
           <i class="bi bi-bullseye me-2"></i><span>Monthly Targets</span>
@@ -655,37 +649,57 @@ if (!window.CSS || !window.CSS.supports) {
   }
 
   /* ── Sidebar ────────────────────────────────────────── */
-  const sidebar  = document.getElementById('sidebar');
-  const backdrop = document.getElementById('sidebarBackdrop');
+  function initSidebar() {
+    const sidebar  = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    const toggle   = document.getElementById('sidebarToggle');
+    if (!sidebar || !backdrop || !toggle) return;
 
-  function isMobile() { return window.innerWidth <= 991; }
+    function isMobile() { return window.innerWidth <= 991; }
 
-  function closeMobileSidebar() {
-    sidebar.classList.remove('mobile-open');
-    backdrop.classList.remove('show');
-    document.body.style.overflow = '';
-  }
-
-  document.getElementById('sidebarToggle').addEventListener('click', () => {
-    if (isMobile()) {
-      const opening = !sidebar.classList.contains('mobile-open');
-      sidebar.classList.toggle('mobile-open');
-      backdrop.classList.toggle('show');
-      document.body.style.overflow = opening ? 'hidden' : '';
-    } else {
-      sidebar.classList.toggle('collapsed');
+    function closeMobileSidebar() {
+      sidebar.classList.remove('mobile-open');
+      backdrop.classList.remove('show');
+      document.body.style.overflow = '';
     }
-  });
 
-  backdrop.addEventListener('click', closeMobileSidebar);
+    toggle.addEventListener('click', () => {
+      if (isMobile()) {
+        const opening = !sidebar.classList.contains('mobile-open');
+        if (opening) {
+          sidebar.classList.remove('collapsed');
+          sidebar.classList.add('mobile-open');
+          backdrop.classList.add('show');
+          document.body.style.overflow = 'hidden';
+        } else {
+          sidebar.classList.remove('mobile-open');
+          backdrop.classList.remove('show');
+          document.body.style.overflow = '';
+        }
+      } else {
+        sidebar.classList.toggle('collapsed');
+      }
+    });
 
-  document.querySelectorAll('#sidebar .nav-link').forEach(link => {
-    link.addEventListener('click', () => { if (isMobile()) closeMobileSidebar(); });
-  });
+    backdrop.addEventListener('click', closeMobileSidebar);
 
-  window.addEventListener('resize', () => {
-    if (!isMobile()) { backdrop.classList.remove('show'); document.body.style.overflow = ''; }
-  });
+    document.querySelectorAll('#sidebar .nav-link').forEach(link => {
+      link.addEventListener('click', () => { if (isMobile()) closeMobileSidebar(); });
+    });
+
+    window.addEventListener('resize', () => {
+      if (!isMobile()) {
+        sidebar.classList.remove('mobile-open');
+        backdrop.classList.remove('show');
+        document.body.style.overflow = '';
+      }
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSidebar);
+  } else {
+    initSidebar();
+  }
 
   /* ── Auto-dismiss flash alerts after 4s ─────────────── */
   document.querySelectorAll('.js-autodismiss').forEach(el => {
