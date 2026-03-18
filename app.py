@@ -7381,6 +7381,30 @@ ENROLLMENT_STATUSES = ('New Lead', 'New', 'Contacted', 'Invited',
 PAST_STATUSES   = ('Fully Converted', 'Converted', 'Lost')
 
 
+def _working_assigned_where(db, role, username, scope='all', downline_usernames=None):
+    """
+    Returns (sql_fragment, params) for WHERE clause in working() lead queries.
+    scope: 'all' = admin sees all (assigned_to != ''); 'own' = leader/team own leads;
+           'downline' = leader sees downline's leads (excludes self).
+    downline_usernames: optional pre-fetched list for scope='downline' to avoid refetch.
+    """
+    if role == 'admin':
+        return "AND assigned_to != ''", [] if scope == 'all' else (None, None)
+    if role == 'leader':
+        if scope == 'own':
+            return "AND assigned_to=?", [username]
+        if scope == 'downline':
+            usernames = downline_usernames if downline_usernames is not None else [
+                u for u in _get_network_usernames(db, username) if u != username
+            ]
+            if not usernames:
+                return "AND 1=0", []
+            ph = ','.join('?' * len(usernames))
+            return f"AND assigned_to IN ({ph})", usernames
+    # team
+    return "AND assigned_to=?", [username]
+
+
 def _upsert_daily_score(db, username, delta_pts,
                         delta_calls=0, delta_videos=0,
                         delta_batches=0, delta_payments=0):
@@ -7450,24 +7474,27 @@ def working():
     _check_seat_hold_expiry(db, username)
 
     if role == 'admin':
-        # ── Admin view ─────────────────────────────────────────────
+        # ── Admin view (all leads with assigned_to set) ─────────────
+        _admin_where, _admin_params = _working_assigned_where(db, 'admin', username, 'all')
+        _admin_base = "FROM leads WHERE in_pool=0 AND deleted_at='' " + _admin_where + " "
         stage_placeholders = ','.join('?' * len(STAGE1_STATUSES))
 
-        stage_counts = db.execute(f"""
-            SELECT
-                SUM(CASE WHEN status IN ({stage_placeholders}) THEN 1 ELSE 0 END) AS stage1,
-                SUM(CASE WHEN status IN ('Day 1','Paid ₹196') THEN 1 ELSE 0 END) AS day1,
-                SUM(CASE WHEN status='Day 2'             THEN 1 ELSE 0 END) AS day2,
-                SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3,
-                SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS pending,
-                SUM(CASE WHEN status IN ('Fully Converted','Converted') THEN 1 ELSE 0 END) AS converted
-            FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to != ''
-        """, list(STAGE1_STATUSES)).fetchone()
+        stage_counts = db.execute(
+            "SELECT "
+            "SUM(CASE WHEN status IN (" + stage_placeholders + ") THEN 1 ELSE 0 END) AS stage1, "
+            "SUM(CASE WHEN status IN ('Day 1','Paid ₹196') THEN 1 ELSE 0 END) AS day1, "
+            "SUM(CASE WHEN status='Day 2' THEN 1 ELSE 0 END) AS day2, "
+            "SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3, "
+            "SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS pending, "
+            "SUM(CASE WHEN status IN ('Fully Converted','Converted') THEN 1 ELSE 0 END) AS converted "
+            + _admin_base,
+            list(STAGE1_STATUSES) + _admin_params
+        ).fetchone()
 
-        total_pipeline_value = db.execute("""
-            SELECT COALESCE(SUM(track_price), 0) FROM leads
-            WHERE in_pool=0 AND deleted_at='' AND status IN ('Seat Hold Confirmed','Track Selected')
-        """).fetchone()[0] or 0
+        total_pipeline_value = db.execute(
+            "SELECT COALESCE(SUM(track_price), 0) " + _admin_base + "AND status IN ('Seat Hold Confirmed','Track Selected')",
+            _admin_params
+        ).fetchone()[0] or 0
 
         # Team pipeline per member
         members = db.execute(
@@ -7485,7 +7512,7 @@ def working():
                     SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS pending,
                     SUM(CASE WHEN status IN ('Fully Converted','Converted') THEN 1 ELSE 0 END) AS converted
                 FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
-            """, list(STAGE1_STATUSES) + [uname]).fetchone()
+            """, (uname,)).fetchone()
             score_pts, streak = _get_today_score(db, uname)
             team_pipeline[uname] = {
                 'stage1': row['stage1'] or 0,
@@ -7500,33 +7527,29 @@ def working():
 
         # Stale leads (not updated in 48h, not closed/lost)
         stale_cutoff = (_now_ist() - datetime.timedelta(hours=48)).strftime('%Y-%m-%d %H:%M:%S')
-        stale_leads  = db.execute("""
-            SELECT id, name, phone, assigned_to, status, updated_at
-            FROM leads
-            WHERE in_pool=0 AND deleted_at=''
-              AND assigned_to != ''
-              AND status NOT IN ('Fully Converted','Converted','Lost','Seat Hold Confirmed')
-              AND updated_at < ?
-            ORDER BY updated_at ASC
-        """, (stale_cutoff,)).fetchall()
+        stale_leads  = db.execute(
+            "SELECT id, name, phone, assigned_to, status, updated_at "
+            + _admin_base + "AND status NOT IN ('Fully Converted','Converted','Lost','Seat Hold Confirmed') AND updated_at < ? ORDER BY updated_at ASC",
+            _admin_params + [stale_cutoff]
+        ).fetchall()
 
         # Day 1/2 batch completion rate
         d1_total = db.execute(
-            "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND status IN ('Day 1','Paid ₹196')"
+            "SELECT COUNT(*) " + _admin_base + "AND status IN ('Day 1','Paid ₹196')",
+            _admin_params
         ).fetchone()[0] or 0
-        d1_done  = db.execute("""
-            SELECT COUNT(*) FROM leads
-            WHERE in_pool=0 AND deleted_at='' AND status IN ('Day 1','Paid ₹196')
-              AND d1_morning=1 AND d1_afternoon=1 AND d1_evening=1
-        """).fetchone()[0] or 0
+        d1_done  = db.execute(
+            "SELECT COUNT(*) " + _admin_base + "AND status IN ('Day 1','Paid ₹196') AND d1_morning=1 AND d1_afternoon=1 AND d1_evening=1",
+            _admin_params
+        ).fetchone()[0] or 0
         d2_total = db.execute(
-            "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND status='Day 2'"
+            "SELECT COUNT(*) " + _admin_base + "AND status='Day 2'",
+            _admin_params
         ).fetchone()[0] or 0
-        d2_done  = db.execute("""
-            SELECT COUNT(*) FROM leads
-            WHERE in_pool=0 AND deleted_at='' AND status='Day 2'
-              AND d2_morning=1 AND d2_afternoon=1 AND d2_evening=1
-        """).fetchone()[0] or 0
+        d2_done  = db.execute(
+            "SELECT COUNT(*) " + _admin_base + "AND status='Day 2' AND d2_morning=1 AND d2_afternoon=1 AND d2_evening=1",
+            _admin_params
+        ).fetchone()[0] or 0
 
         batch_completion = {
             'd1_total': d1_total, 'd1_done': d1_done,
@@ -7572,101 +7595,73 @@ def working():
         )
 
     if role == 'leader':
-        # ── Get downline (excludes self) ────────────────────────
-        _all_network = _get_network_usernames(db, username)
-        _downline_only = [u for u in _all_network if u != username]
+        # Assigned filter: own = leader's leads, downline = team's leads (excludes self)
+        _own_where, _own_params = _working_assigned_where(db, 'leader', username, 'own')
+        _downline_only = [u for u in _get_network_usernames(db, username) if u != username]
+        _team_where, _team_params = _working_assigned_where(db, 'leader', username, 'downline', _downline_only)
+
+        _base = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' "
+        _s1_ph = ','.join('?' * len(STAGE1_STATUSES))
 
         # ── OWN LEADS (leader's personal work) ──────────────────
-        own_stage1 = db.execute(f"""
-            SELECT * FROM leads
-            WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
-              AND status IN ({','.join('?'*len(STAGE1_STATUSES))})
-            ORDER BY updated_at DESC
-        """, [username] + list(STAGE1_STATUSES)).fetchall()
-
-        own_day1 = db.execute("""
-            SELECT * FROM leads
-            WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status IN ('Day 1','Paid ₹196')
-            ORDER BY updated_at DESC
-        """, (username,)).fetchall()
-
-        own_day2 = db.execute("""
-            SELECT * FROM leads
-            WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 2'
-            ORDER BY updated_at DESC
-        """, (username,)).fetchall()
-
-        own_day3 = db.execute("""
-            SELECT * FROM leads
-            WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
-              AND status IN ('Interview','Track Selected')
-            ORDER BY updated_at DESC
-        """, (username,)).fetchall()
-
-        own_pending = db.execute("""
-            SELECT * FROM leads
-            WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
-              AND status='Seat Hold Confirmed'
-            ORDER BY updated_at DESC
-        """, (username,)).fetchall()
-
-        own_past = db.execute("""
-            SELECT * FROM leads
-            WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
-              AND status IN ('Fully Converted','Converted','Lost')
-            ORDER BY updated_at DESC LIMIT 20
-        """, (username,)).fetchall()
+        own_stage1 = db.execute(
+            _base + _own_where + f" AND status IN ({_s1_ph}) ORDER BY updated_at DESC",
+            _own_params + list(STAGE1_STATUSES)
+        ).fetchall()
+        own_day1 = db.execute(
+            _base + _own_where + " AND status IN ('Day 1','Paid ₹196') ORDER BY updated_at DESC",
+            _own_params
+        ).fetchall()
+        own_day2 = db.execute(
+            _base + _own_where + " AND status='Day 2' ORDER BY updated_at DESC",
+            _own_params
+        ).fetchall()
+        own_day3 = db.execute(
+            _base + _own_where + " AND status IN ('Interview','Track Selected') ORDER BY updated_at DESC",
+            _own_params
+        ).fetchall()
+        own_pending = db.execute(
+            _base + _own_where + " AND status='Seat Hold Confirmed' ORDER BY updated_at DESC",
+            _own_params
+        ).fetchall()
+        own_past = db.execute(
+            _base + _own_where + " AND status IN ('Fully Converted','Converted','Lost') ORDER BY updated_at DESC LIMIT 20",
+            _own_params
+        ).fetchall()
 
         # ── TEAM LEADS (downline's work) ─────────────────────────
-        if _downline_only:
+        if _team_params:
+            _t_ph = ','.join('?' * len(_team_params))
+            _team_base = f"SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to IN ({_t_ph}) "
+            team_stage1 = db.execute(
+                _team_base + f"AND status IN ({_s1_ph}) ORDER BY assigned_to, updated_at DESC",
+                _team_params + list(STAGE1_STATUSES)
+            ).fetchall()
+            team_day1 = db.execute(
+                _team_base + "AND status IN ('Day 1','Paid ₹196') ORDER BY assigned_to, updated_at DESC",
+                _team_params
+            ).fetchall()
+            team_day2 = db.execute(
+                _team_base + "AND status='Day 2' ORDER BY assigned_to, updated_at DESC",
+                _team_params
+            ).fetchall()
+            team_day3 = db.execute(
+                _team_base + "AND status IN ('Interview','Track Selected') ORDER BY assigned_to, updated_at DESC",
+                _team_params
+            ).fetchall()
+            team_pending = db.execute(
+                _team_base + "AND status='Seat Hold Confirmed' ORDER BY assigned_to, updated_at DESC",
+                _team_params
+            ).fetchall()
+            team_past = db.execute(
+                _team_base + "AND status IN ('Fully Converted','Converted','Lost') ORDER BY assigned_to, updated_at DESC LIMIT 50",
+                _team_params
+            ).fetchall()
             _d_phs = ','.join('?' * len(_downline_only))
-
-            team_stage1 = db.execute(f"""
-                SELECT * FROM leads
-                WHERE assigned_to IN ({_d_phs}) AND in_pool=0 AND deleted_at=''
-                  AND status IN ({','.join('?'*len(STAGE1_STATUSES))})
-                ORDER BY assigned_to, updated_at DESC
-            """, _downline_only + list(STAGE1_STATUSES)).fetchall()
-
-            team_day1 = db.execute(f"""
-                SELECT * FROM leads
-                WHERE assigned_to IN ({_d_phs}) AND in_pool=0 AND deleted_at='' AND status IN ('Day 1','Paid ₹196')
-                ORDER BY assigned_to, updated_at DESC
-            """, _downline_only).fetchall()
-
-            team_day2 = db.execute(f"""
-                SELECT * FROM leads
-                WHERE assigned_to IN ({_d_phs}) AND in_pool=0 AND deleted_at='' AND status='Day 2'
-                ORDER BY assigned_to, updated_at DESC
-            """, _downline_only).fetchall()
-
-            team_day3 = db.execute(f"""
-                SELECT * FROM leads
-                WHERE assigned_to IN ({_d_phs}) AND in_pool=0 AND deleted_at=''
-                  AND status IN ('Interview','Track Selected')
-                ORDER BY assigned_to, updated_at DESC
-            """, _downline_only).fetchall()
-
-            team_pending = db.execute(f"""
-                SELECT * FROM leads
-                WHERE assigned_to IN ({_d_phs}) AND in_pool=0 AND deleted_at=''
-                  AND status='Seat Hold Confirmed'
-                ORDER BY assigned_to, updated_at DESC
-            """, _downline_only).fetchall()
-
-            team_past = db.execute(f"""
-                SELECT * FROM leads
-                WHERE assigned_to IN ({_d_phs}) AND in_pool=0 AND deleted_at=''
-                  AND status IN ('Fully Converted','Converted','Lost')
-                ORDER BY assigned_to, updated_at DESC LIMIT 50
-            """, _downline_only).fetchall()
-
-            # Downline member info for filter buttons
-            downline_members = db.execute(f"""
-                SELECT username, fbo_id FROM users
-                WHERE username IN ({_d_phs}) AND status='approved'
-                ORDER BY username
-            """, _downline_only).fetchall()
+            downline_members = db.execute(
+                f"SELECT username, fbo_id FROM users WHERE username IN ({_d_phs}) AND status='approved' ORDER BY username",
+                _downline_only
+            ).fetchall()
         else:
             team_stage1 = team_day1 = team_day2 = team_day3 = []
             team_pending = team_past = []
@@ -7813,84 +7808,64 @@ def working():
             show_day1_batches=True,
         )
 
-    # ── Team member view ───────────────────────────────────────────
-    stage1_leads = db.execute(f"""
-        SELECT * FROM leads
-        WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
-          AND status IN ({','.join('?'*len(STAGE1_STATUSES))})
-        ORDER BY updated_at DESC
-    """, [username] + list(STAGE1_STATUSES)).fetchall()
+    # ── Team member view (own leads only) ───────────────────────────
+    _tw, _tp = _working_assigned_where(db, 'team', username, 'own')
+    _base_team = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' " + _tw + " "
+    _s1_ph = ','.join('?' * len(STAGE1_STATUSES))
+    _e_ph = ','.join('?' * len(ENROLLMENT_STATUSES))
 
-    day1_leads = db.execute("""
-        SELECT * FROM leads
-        WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status IN ('Day 1','Paid ₹196')
-        ORDER BY updated_at DESC
-    """, (username,)).fetchall()
-
-    day2_leads = db.execute("""
-        SELECT * FROM leads
-        WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 2'
-        ORDER BY updated_at DESC
-    """, (username,)).fetchall()
-
-    day3_leads = db.execute("""
-        SELECT * FROM leads
-        WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
-          AND status IN ('Interview','Track Selected')
-        ORDER BY updated_at DESC
-    """, (username,)).fetchall()
-
-    pending_leads = db.execute("""
-        SELECT * FROM leads
-        WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
-          AND status='Seat Hold Confirmed'
-        ORDER BY updated_at DESC
-    """, (username,)).fetchall()
-
-    past_leads = db.execute("""
-        SELECT * FROM leads
-        WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
-          AND status IN ('Fully Converted','Converted','Lost')
-        ORDER BY updated_at DESC
-        LIMIT 30
-    """, (username,)).fetchall()
+    stage1_leads = db.execute(
+        _base_team + f"AND status IN ({_s1_ph}) ORDER BY updated_at DESC",
+        _tp + list(STAGE1_STATUSES)
+    ).fetchall()
+    day1_leads = db.execute(
+        _base_team + "AND status IN ('Day 1','Paid ₹196') ORDER BY updated_at DESC",
+        _tp
+    ).fetchall()
+    day2_leads = db.execute(
+        _base_team + "AND status='Day 2' ORDER BY updated_at DESC",
+        _tp
+    ).fetchall()
+    day3_leads = db.execute(
+        _base_team + "AND status IN ('Interview','Track Selected') ORDER BY updated_at DESC",
+        _tp
+    ).fetchall()
+    pending_leads = db.execute(
+        _base_team + "AND status='Seat Hold Confirmed' ORDER BY updated_at DESC",
+        _tp
+    ).fetchall()
+    past_leads = db.execute(
+        _base_team + "AND status IN ('Fully Converted','Converted','Lost') ORDER BY updated_at DESC LIMIT 30",
+        _tp
+    ).fetchall()
 
     today_score, streak = _get_today_score(db, username)
 
-    # Pending action counts
-    pending_calls = db.execute(f"""
-        SELECT COUNT(*) FROM leads
-        WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
-          AND status IN ({','.join('?'*len(ENROLLMENT_STATUSES))})
-          AND (call_result='' OR call_result='Follow Up Later' OR call_result='Callback Requested')
-    """, [username] + list(ENROLLMENT_STATUSES)).fetchone()[0] or 0
-
-    videos_to_send = db.execute("""
-        SELECT COUNT(*) FROM leads
-        WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
-          AND status = 'Contacted'
-          AND (call_status IS NULL OR call_status = '' OR call_status NOT IN ('Video Sent', 'Video Watched', 'Payment Done'))
-    """, (username,)).fetchone()[0] or 0
-
+    # Pending action counts (same assigned_to filter)
+    _count_base = "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' " + _tw + " "
+    pending_calls = db.execute(
+        _count_base + f"AND status IN ({_e_ph}) AND (call_result='' OR call_result='Follow Up Later' OR call_result='Callback Requested')",
+        _tp + list(ENROLLMENT_STATUSES)
+    ).fetchone()[0] or 0
+    videos_to_send = db.execute(
+        _count_base + "AND status='Contacted' AND (call_status IS NULL OR call_status='' OR call_status NOT IN ('Video Sent','Video Watched','Payment Done'))",
+        _tp
+    ).fetchone()[0] or 0
     batches_due = (
-        db.execute("""
-            SELECT COUNT(*) FROM leads
-            WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status IN ('Day 1','Paid ₹196')
-              AND (d1_morning+d1_afternoon+d1_evening) < 3
-        """, (username,)).fetchone()[0] or 0
+        db.execute(
+            _count_base + "AND status IN ('Day 1','Paid ₹196') AND (d1_morning+d1_afternoon+d1_evening) < 3",
+            _tp
+        ).fetchone()[0] or 0
     ) + (
-        db.execute("""
-            SELECT COUNT(*) FROM leads
-            WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 2'
-              AND (d2_morning+d2_afternoon+d2_evening) < 3
-        """, (username,)).fetchone()[0] or 0
+        db.execute(
+            _count_base + "AND status='Day 2' AND (d2_morning+d2_afternoon+d2_evening) < 3",
+            _tp
+        ).fetchone()[0] or 0
     )
-
-    closings_due = db.execute("""
-        SELECT COUNT(*) FROM leads
-        WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
-          AND status IN ('Interview','Track Selected','Seat Hold Confirmed')
-    """, (username,)).fetchone()[0] or 0
+    closings_due = db.execute(
+        _count_base + "AND status IN ('Interview','Track Selected','Seat Hold Confirmed')",
+        _tp
+    ).fetchone()[0] or 0
 
     today_actions = {
         'pending_calls':  pending_calls,
