@@ -1280,7 +1280,7 @@ def _check_and_award_badges(db, username):
 
     # money_maker: 5+ payments
     payments = db.execute(
-        "SELECT COUNT(*) as cnt FROM leads WHERE assigned_to=? AND payment_done=1 AND in_pool=0",
+        "SELECT COUNT(*) as cnt FROM leads WHERE assigned_to=? AND payment_done=1 AND in_pool=0 AND deleted_at=''",
         (username,)
     ).fetchone()
     if payments and (payments['cnt'] or 0) >= 5 and not _already_has('money_maker'):
@@ -2233,7 +2233,7 @@ def admin_dashboard():
         SELECT strftime('%Y-%m', created_at) as month,
                SUM(payment_amount) as total
         FROM leads
-        WHERE payment_done=1 AND in_pool=0
+        WHERE payment_done=1 AND in_pool=0 AND deleted_at=''
         GROUP BY month
         ORDER BY month DESC
         LIMIT 6
@@ -2274,7 +2274,7 @@ def admin_dashboard():
 
     _verif_rows = db.execute("""
         SELECT assigned_to, COUNT(*) as cnt FROM leads
-        WHERE payment_done=1 AND date(updated_at)=? AND in_pool=0
+        WHERE payment_done=1 AND date(updated_at)=? AND in_pool=0 AND deleted_at=''
         GROUP BY assigned_to
     """, (today,)).fetchall()
     report_verification = {r['assigned_to']: r['cnt'] for r in _verif_rows}
@@ -2384,7 +2384,7 @@ def team_dashboard():
     _today_stats = db.execute("""
         SELECT COUNT(*) as cnt, COALESCE(SUM(payment_amount),0) as total
         FROM leads
-        WHERE assigned_to=? AND payment_done=1 AND in_pool=0
+        WHERE assigned_to=? AND payment_done=1 AND in_pool=0 AND deleted_at=''
           AND date(updated_at)=?
     """, (username, today)).fetchone()
     today_paid     = _today_stats['cnt'] or 0
@@ -2392,7 +2392,7 @@ def team_dashboard():
 
     followups = db.execute("""
         SELECT id, name, phone, follow_up_date FROM leads
-        WHERE assigned_to=? AND in_pool=0
+        WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
           AND follow_up_date != ''
           AND follow_up_date <= ?
           AND status NOT IN ('Converted','Fully Converted','Lost')
@@ -5191,7 +5191,7 @@ def earnings():
     # My own payments
     my_paid = db.execute(
         "SELECT COALESCE(SUM(payment_amount),0) as total FROM leads "
-        "WHERE assigned_to=? AND payment_done=1 AND in_pool=0",
+        "WHERE assigned_to=? AND payment_done=1 AND in_pool=0 AND deleted_at=''",
         (username,)
     ).fetchone()['total']
 
@@ -5221,7 +5221,7 @@ def earnings():
         ph = ','.join('?' * len(users))
         return db.execute(
             f"SELECT COALESCE(SUM(payment_amount),0) as t FROM leads "
-            f"WHERE assigned_to IN ({ph}) AND payment_done=1 AND in_pool=0",
+            f"WHERE assigned_to IN ({ph}) AND payment_done=1 AND in_pool=0 AND deleted_at=''",
             users
         ).fetchone()['t']
 
