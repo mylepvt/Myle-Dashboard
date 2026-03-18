@@ -1537,11 +1537,6 @@ def _sync_watch_event_to_lead(db, token):
             "updated_at=? WHERE id=?",
             (now_str, lead_id)
         )
-    elif current_idx == watched_idx - 1:
-        db.execute(
-            "UPDATE leads SET status='Video Watched', call_status='Video Watched', updated_at=? WHERE id=?",
-            (now_str, lead_id)
-        )
 
     content_id = link.get('content_id')
     video_name = 'Video'
@@ -1643,7 +1638,7 @@ def enroll_generate_link():
         db.close()
         return jsonify({'ok': False, 'error': 'Failed to create link'}), 400
 
-        _sync_enroll_share_to_lead(db, token, username)
+    _sync_enroll_share_to_lead(db, token, username)
     today = _today_ist().strftime('%Y-%m-%d')
     try:
         db.execute("""
@@ -1749,6 +1744,7 @@ def _check_seat_hold_expiry(db, username):
     expired = db.execute("""
         SELECT * FROM leads
         WHERE current_owner=? AND pipeline_stage='seat_hold'
+        AND in_pool=0 AND deleted_at=''
         AND seat_hold_expiry != '' AND seat_hold_expiry < ?
     """, (username, now_str)).fetchall()
     for lead in expired:
@@ -2531,7 +2527,6 @@ def team_dashboard():
     recent_e        = _enrich_leads(recent)
 
     # Leader-specific: team snapshot data (downline pipeline + report compliance)
-    fresh_role = db.execute("SELECT role FROM users WHERE username=?", (username,)).fetchone()
     show_day1_batches = session.get('role') in ('leader', 'admin')
     team_snapshot = []
     leader_report_stats = {}
@@ -3116,7 +3111,7 @@ def follow_up_queue():
 @login_required
 def mark_called(lead_id):
     db   = get_db()
-    lead = db.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone()
+    lead = db.execute("SELECT * FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''", (lead_id,)).fetchone()
     if not lead:
         db.close()
         return {'ok': False, 'error': 'not found'}, 404
@@ -3238,7 +3233,7 @@ def update_status(lead_id):
         return redirect(url_for('leads'))
 
     db = get_db()
-    lead = db.execute("SELECT * FROM leads WHERE id=? AND in_pool=0", (lead_id,)).fetchone()
+    lead = db.execute("SELECT * FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''", (lead_id,)).fetchone()
     if not lead:
         db.close()
         if is_ajax:
