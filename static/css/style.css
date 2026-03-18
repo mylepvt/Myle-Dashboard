@@ -1467,3 +1467,128 @@ p,span,td,li { color: inherit; }
   padding: 3px 10px; border-radius: 99px;
   font-size: 0.65rem; font-weight: 700;
 }
+
+/* ══════════════════════════════════════════════════════
+   OLD ANDROID COMPATIBILITY
+   Graceful degradation for Chrome < 76 / Android < 10
+   ══════════════════════════════════════════════════════ */
+
+/* ── No backdrop-filter support ─────────────────────── */
+.no-backdrop #sidebar {
+  background: rgba(255,255,255,0.98) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.no-backdrop .navbar {
+  background: #F2F2F7 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.no-backdrop .mobile-bottom-nav {
+  background: #F2F2F7 !important;
+  backdrop-filter: none !important;
+}
+.no-backdrop .card {
+  background: #FFFFFF !important;
+  backdrop-filter: none !important;
+}
+.no-backdrop .toast {
+  backdrop-filter: none !important;
+  background: #1C1C1E !important;
+}
+.no-backdrop .modal-content {
+  backdrop-filter: none !important;
+  background: #FFFFFF !important;
+}
+
+/* Dark mode + no backdrop */
+[data-theme="dark"].no-backdrop #sidebar,
+[data-theme="dark"] .no-backdrop #sidebar {
+  background: #1C1C20 !important;
+}
+[data-theme="dark"].no-backdrop .navbar,
+[data-theme="dark"] .no-backdrop .navbar {
+  background: #050507 !important;
+}
+[data-theme="dark"].no-backdrop .mobile-bottom-nav,
+[data-theme="dark"] .no-backdrop .mobile-bottom-nav {
+  background: #0A0A0E !important;
+}
+[data-theme="dark"].no-backdrop .card,
+[data-theme="dark"] .no-backdrop .card {
+  background: #1C1C20 !important;
+}
+
+/* ── Low-end device — disable heavy animations ───────── */
+.low-end-device * {
+  animation: none !important;
+  transition: none !important;
+}
+/* Keep only essential transitions */
+.low-end-device .btn { transition: background 0.1s !important; }
+.low-end-device .nav-link { transition: color 0.1s !important; }
+
+/* Disable blur everywhere on low-end */
+.low-end-device [style*="backdrop-filter"],
+.low-end-device [style*="-webkit-backdrop-filter"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Disable confetti/float animations on low-end */
+.low-end-device .confetti-piece { display: none !important; }
+.low-end-device .float-badge { display: none !important; }
+
+/* ── CSS Variables fallback ──────────────────────────── */
+/* For browsers that don't support CSS variables at all */
+.no-css-vars body { background: #F2F2F7; color: #1C1C1E; font-family: sans-serif; }
+.no-css-vars .card { background: #fff; border: 1px solid #ddd; border-radius: 12px; }
+.no-css-vars #sidebar { background: #fff; border-right: 1px solid #eee; }
+.no-css-vars .navbar { background: #F2F2F7; border-bottom: 1px solid #eee; }
+.no-css-vars .btn-primary { background: #007AFF; color: #fff; border: none; }
+.no-css-vars .btn-outline-secondary { border: 1px solid #999; color: #666; }
+.no-css-vars .badge { background: #007AFF; color: #fff; }
+.no-css-vars .mobile-bottom-nav { background: #F2F2F7; border-top: 1px solid #eee; }
+.no-css-vars .wk-lead-card { background: #fff; border: 1px solid #eee; border-radius: 12px; }
+
+/* ── Performance: Reduce paint on scroll ─────────────── */
+#sidebar,
+.navbar,
+.mobile-bottom-nav {
+  will-change: auto; /* don't force GPU on old devices */
+}
+/* Only use will-change on things that actually animate */
+.wk-lead-card { will-change: transform; }
+
+/* ── Font size — prevent tiny text on old phones ──────── */
+@media screen and (max-width: 380px) {
+  /* Very small old phones */
+  body { font-size: 13px !important; }
+  .small, small { font-size: 0.78rem !important; }
+  .btn-sm { font-size: 0.75rem !important; padding: 4px 8px !important; }
+  .badge { font-size: 0.65rem !important; }
+  .wk-lead-card { padding: 10px !important; }
+  .container-fluid { padding: 12px !important; }
+}
+
+/* ── Fix flex gap on Android 8 and below ─────────────── */
+/* gap in flex doesn't work on Android < 9 */
+@supports not (gap: 1px) {
+  .d-flex { margin: -4px; }
+  .d-flex > * { margin: 4px; }
+  .gap-1 > * { margin: 0.25rem !important; }
+  .gap-2 > * { margin: 0.5rem !important; }
+  .gap-3 > * { margin: 0.75rem !important; }
+}
+
+/* ── Touch target size — minimum 44px (Apple/Google guideline) ── */
+.btn, .nav-link, .mbn-item, .wk-batch-btn {
+  min-height: 44px;
+  min-width: 44px;
+}
+.btn-sm { min-height: 36px; } /* small buttons exception */
+.badge  { min-height: auto; min-width: auto; } /* badges exception */
+
+/* ── Overflow fix for old Android WebView ────────────── */
+.table-responsive { -webkit-overflow-scrolling: touch; overflow-x: auto; }
+.wk-kanban-tabs   { -webkit-overflow-scrolling: touch; overflow-x: auto; }
