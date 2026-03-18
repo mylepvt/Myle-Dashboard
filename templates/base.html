@@ -23,7 +23,7 @@
   <!-- Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
   <!-- Custom -->
-  <link href="{{ url_for('static', filename='css/style.css') }}?v=20260317" rel="stylesheet" />
+  <link href="{{ url_for('static', filename='css/style.css') }}?v=20260318" rel="stylesheet" />
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -349,7 +349,7 @@
 
   <!-- ── Page content ─────────────────────────────────────── -->
   <div id="page-content-wrapper" class="w-100">
-    <nav class="navbar border-bottom px-4 py-2">
+    <nav class="navbar border-bottom px-3 py-2 d-flex align-items-center">
       <button class="btn btn-sm btn-outline-secondary me-3" id="sidebarToggle" aria-label="Toggle sidebar">
         <i class="bi bi-list fs-5"></i>
       </button>
@@ -520,7 +520,7 @@
   const sidebar  = document.getElementById('sidebar');
   const backdrop = document.getElementById('sidebarBackdrop');
 
-  function isMobile() { return window.innerWidth <= 768; }
+  function isMobile() { return window.innerWidth <= 991; }
 
   function closeMobileSidebar() {
     sidebar.classList.remove('mobile-open');

@@ -219,7 +219,7 @@ body {
 @keyframes topbarGrow { from{width:0%} to{width:85%} }
 
 /* ── Layout ─────────────────────────────────────────────────────── */
-#wrapper { min-height:100vh;overflow-x:hidden; }
+#wrapper { min-height: 100vh; overflow-x: hidden; width: 100%; }
 #page-content-wrapper {
   min-width:0!important;
   flex:1 1 0!important;
@@ -264,6 +264,7 @@ body {
   color: var(--sidebar-text) !important;
   border-radius: var(--r-sm);
   padding: 9px 11px;
+  min-height: 42px;
   font-size: 0.875rem;
   font-weight: 500;
   transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s;
@@ -272,6 +273,7 @@ body {
   gap: 10px;
   letter-spacing: -0.01em;
 }
+#sidebar .nav-link > span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 #sidebar .nav-link i {
   font-size: 1.05rem;
@@ -301,7 +303,7 @@ body {
 /* Brand */
 .sidebar-brand {
   color: var(--label-1) !important;
-  text-decoration: none;
+  text-decoration: none !important;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -309,7 +311,8 @@ body {
   border-radius: var(--r-md);
   transition: opacity 0.15s;
 }
-.sidebar-brand:hover { opacity: 0.75; }
+.sidebar-brand:hover { opacity: 0.75; color: var(--label-1) !important; text-decoration: none !important; }
+.sidebar-brand:focus { text-decoration: none !important; }
 .sidebar-brand i { color: var(--ios-blue); font-size: 1.5rem; }
 .sidebar-brand span { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.025em; color: var(--label-1); }
 
@@ -350,7 +353,9 @@ body {
   border-bottom: 1px solid var(--sep) !important;
   box-shadow: 0 1px 0 var(--glass-border), 0 2px 12px rgba(0,0,0,0.05);
   padding: 0.65rem 1.25rem !important;
+  display: flex;
   align-items: center;
+  flex-wrap: nowrap;
 }
 [data-theme="dark"] .navbar {
   background: rgba(5,5,7,0.78) !important;
@@ -390,7 +395,8 @@ body {
 
 /* ── Mobile Bottom Nav ──────────────────────────────────────────── */
 .mobile-bottom-nav {
-  position: fixed; bottom:0; left:0; right:0; height:68px;
+  position: fixed; bottom:0; left:0; right:0; height: 68px;
+  padding-bottom: env(safe-area-inset-bottom, 0);
   background: rgba(242,242,247,0.78);
   backdrop-filter: saturate(200%) blur(28px);
   -webkit-backdrop-filter: saturate(200%) blur(28px);
@@ -418,9 +424,9 @@ body {
 .mbn-badge-dot { position:absolute;top:-4px;right:-6px;background:var(--ios-red);color:#fff;font-size:0.55rem;font-weight:700;border-radius:99px;padding:0 4px;min-width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center; }
 
 @media (max-width:767px) {
-  #page-content-wrapper .container-fluid { padding-bottom:80px!important; }
-  #toastContainer { bottom:74px; }
-  #bulkBar { bottom:68px!important; }
+  #page-content-wrapper .container-fluid { padding-bottom: 80px !important; }
+  #toastContainer { bottom: 74px; }
+  #bulkBar { bottom: 68px!important; }
 }
 
 /* ── CARDS — Glossy glass surfaces ─────────────────────────────── */
@@ -998,30 +1004,47 @@ p,span,td,li { color: inherit; }
 @keyframes feedIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
 @keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:.5} }
 
-/* ── Mobile Sidebar ─────────────────────────────────────────────── */
-@media (max-width:768px) {
+/* ── Mobile / Tablet: overlay sidebar, full-width content ─────────── */
+/* Use 991px so admin panel and all app look like mobile UI on tablet + phone */
+@media (max-width:991px) {
   #sidebar {
-    position:fixed!important;top:0;left:0;height:100vh;width:280px!important;
+    position:fixed!important;top:0;left:0;height:100vh;width:min(320px,85vw)!important;
     z-index:1055;transform:translateX(-100%);
     transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);
-    overflow-y:auto;box-shadow:var(--shadow-lg);
+    overflow-y:auto;overflow-x:hidden;
+    box-shadow:var(--shadow-lg);
   }
   #sidebar.mobile-open { transform:translateX(0); }
-  #sidebar.collapsed { width:280px!important;overflow:visible; }
+  #sidebar.collapsed { width:min(320px,85vw)!important;overflow:visible; }
   #sidebar.collapsed span,#sidebar.collapsed .fs-5,#sidebar.collapsed small,#sidebar.collapsed .badge { display:inline!important; }
   #sidebar.collapsed .nav-link { text-align:left!important;padding:9px 11px!important;justify-content:flex-start!important; }
   #sidebarBackdrop { display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1040;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px); }
   #sidebarBackdrop.show { display:block; }
-  #page-content-wrapper { width:100%!important;overflow-x:hidden; }
-  .container-fluid { padding:0.9rem!important; }
+  #page-content-wrapper { width:100%!important;min-width:0!important;flex:1 1 0!important;overflow-x:hidden; }
+  .container-fluid { padding:0.75rem 1rem!important;max-width:100%; }
   .card,.table-responsive { max-width:100%; }
-  .navbar { padding-left:0.75rem!important;padding-right:0.75rem!important; }
+  .navbar { padding:0.5rem 0.75rem!important;align-items:center!important; }
+  .navbar .navbar-page-title { font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:50vw; }
   .kpi-card { margin-bottom:0.5rem; }
   .mobile-hide-table { display:none!important; }
   .btn-xs { padding:0.35rem 0.7rem;font-size:0.8rem; }
-  /* Working section mobile */
   .wk-kanban-grid { flex-direction:column; }
   .wk-kanban-col { min-width:100%; }
+}
+
+@media (max-width:768px) {
+  .container-fluid { padding:0.6rem 0.75rem!important; }
+  .navbar { padding:0.5rem 0.6rem!important; }
+  .navbar .navbar-page-title { max-width:45vw; }
+  /* Touch target for sidebar toggle (mobile) */
+  #sidebarToggle { min-width: 44px; min-height: 44px; padding: 0.5rem; }
+}
+
+/* Admin / Settings: consistent card accent, mobile-friendly forms */
+.settings-jump-card { border-left: 3px solid var(--ios-red) !important; }
+@media (max-width:991px) {
+  .settings-jump-card .card-body { padding: 0.75rem 1rem !important; }
+  input.form-control[type="url"], input.form-control[type="text"] { min-width: 0; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
