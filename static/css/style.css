@@ -900,7 +900,12 @@ p,span,td,li { color: inherit; }
 [data-theme="dark"] .wk-lead-card .small { color: var(--label-3) !important; }
 [data-theme="dark"] .wk-col-header { color: var(--label-1) !important; background: transparent !important; }
 [data-theme="dark"] .wk-col-title { color: var(--label-1) !important; }
-[data-theme="dark"] .wk-empty-state { color: var(--label-3) !important; }
+[data-theme="dark"] .wk-empty-state { color: var(--label-3) !important; border-color: var(--sep) !important; }
+[data-theme="dark"] .wk-empty-state .text-muted { color: var(--label-3) !important; }
+[data-theme="dark"] .wk-kanban-col > .small.text-muted { color: var(--label-3) !important; }
+[data-theme="dark"] .wk-lead-card [style*="color:#9ca3af"] { color: var(--label-3) !important; }
+[data-theme="dark"] .wk-lead-card .wk-batch-count { color: var(--label-3) !important; }
+[data-theme="dark"] .wk-lead-card .d-flex[style*="font-size:0.6rem"] { color: var(--label-3) !important; }
 [data-theme="dark"] .wl-card {
   background: var(--bg-card) !important;
   border-color: var(--sep) !important;
@@ -955,8 +960,8 @@ p,span,td,li { color: inherit; }
   color: var(--label-1) !important;
   border-color: var(--sep) !important;
 }
-[data-theme="dark"] .wk-tab { color: var(--label-2) !important; }
-[data-theme="dark"] .wk-tab.active { color: var(--ios-blue) !important; }
+[data-theme="dark"] .wk-tab { color: var(--label-2) !important; background: var(--fill-3) !important; border-color: var(--sep) !important; }
+[data-theme="dark"] .wk-tab.active { background: var(--ios-blue) !important; border-color: var(--ios-blue) !important; color: #fff !important; }
 [data-theme="dark"] .pipeline-step {
   /* overridden by pipeline indicator block below */
 }
@@ -1001,7 +1006,7 @@ p,span,td,li { color: inherit; }
 [data-theme="dark"] [style*="color:#1f2937"] { color: var(--label-1) !important; }
 [data-theme="dark"] [style*="color:#111827"] { color: var(--label-1) !important; }
 [data-theme="dark"] [style*="color:#6b7280"] { color: var(--label-3) !important; }
-[data-theme="dark"] [style*="color:#9ca3af"] { color: var(--label-4) !important; }
+[data-theme="dark"] [style*="color:#9ca3af"] { color: var(--label-3) !important; }
 [data-theme="dark"] [style*="color:#333"]    { color: var(--label-1) !important; }
 [data-theme="dark"] [style*="color:#1C1C1E"] { color: var(--label-1) !important; }
 [data-theme="dark"] [style*="color:#1c1c1e"] { color: var(--label-1) !important; }
