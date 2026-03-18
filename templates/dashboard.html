@@ -281,10 +281,19 @@
           <div class="fw-semibold small text-truncate">{{ lead.name }}</div>
           <div class="pipeline-indicator mt-1 mb-1">
             {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-            <div class="d-flex align-items-center" style="gap:2px;">
+            {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+            {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
+            <div class="d-flex align-items-center" style="gap:3px;">
               {% for stage_id, stage_short in stages %}
-              <div class="pipeline-step {% if lead.pipeline_stage == stage_id %}active{% endif %}" title="{{ stage_id }}">{{ stage_short }}</div>
-              {% if not loop.last %}<div class="pipeline-connector"></div>{% endif %}
+              {% set s_idx = loop.index0 %}
+              <div class="pipeline-step
+                {% if s_idx == current_idx %}active
+                {% elif s_idx < current_idx %}completed
+                {% endif %}"
+                title="{{ stage_id }}">{{ stage_short }}</div>
+              {% if not loop.last %}
+              <div class="pipeline-connector {% if s_idx < current_idx %}completed{% endif %}"></div>
+              {% endif %}
               {% endfor %}
             </div>
           </div>
@@ -353,10 +362,19 @@
         </div>
         <div class="pipeline-indicator mb-1">
           {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-          <div class="d-flex align-items-center" style="gap:2px;">
+          {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+          {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
+          <div class="d-flex align-items-center" style="gap:3px;">
             {% for stage_id, stage_short in stages %}
-            <div class="pipeline-step {% if lead.pipeline_stage == stage_id %}active{% endif %}" title="{{ stage_id }}">{{ stage_short }}</div>
-            {% if not loop.last %}<div class="pipeline-connector"></div>{% endif %}
+            {% set s_idx = loop.index0 %}
+            <div class="pipeline-step
+              {% if s_idx == current_idx %}active
+              {% elif s_idx < current_idx %}completed
+              {% endif %}"
+              title="{{ stage_id }}">{{ stage_short }}</div>
+            {% if not loop.last %}
+            <div class="pipeline-connector {% if s_idx < current_idx %}completed{% endif %}"></div>
+            {% endif %}
             {% endfor %}
           </div>
         </div>
@@ -441,10 +459,19 @@
         </div>
         <div class="pipeline-indicator mb-1">
           {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-          <div class="d-flex align-items-center" style="gap:2px;">
+          {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+          {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
+          <div class="d-flex align-items-center" style="gap:3px;">
             {% for stage_id, stage_short in stages %}
-            <div class="pipeline-step {% if lead.pipeline_stage == stage_id %}active{% endif %}" title="{{ stage_id }}">{{ stage_short }}</div>
-            {% if not loop.last %}<div class="pipeline-connector"></div>{% endif %}
+            {% set s_idx = loop.index0 %}
+            <div class="pipeline-step
+              {% if s_idx == current_idx %}active
+              {% elif s_idx < current_idx %}completed
+              {% endif %}"
+              title="{{ stage_id }}">{{ stage_short }}</div>
+            {% if not loop.last %}
+            <div class="pipeline-connector {% if s_idx < current_idx %}completed{% endif %}"></div>
+            {% endif %}
             {% endfor %}
           </div>
         </div>
@@ -513,10 +540,19 @@
           <div class="text-muted" style="font-size:0.7rem;">Seat Hold Confirmed</div>
           <div class="pipeline-indicator mt-1">
             {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-            <div class="d-flex align-items-center" style="gap:2px;">
+            {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+            {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
+            <div class="d-flex align-items-center" style="gap:3px;">
               {% for stage_id, stage_short in stages %}
-              <div class="pipeline-step {% if lead.pipeline_stage == stage_id %}active{% endif %}" title="{{ stage_id }}">{{ stage_short }}</div>
-              {% if not loop.last %}<div class="pipeline-connector"></div>{% endif %}
+              {% set s_idx = loop.index0 %}
+              <div class="pipeline-step
+                {% if s_idx == current_idx %}active
+                {% elif s_idx < current_idx %}completed
+                {% endif %}"
+                title="{{ stage_id }}">{{ stage_short }}</div>
+              {% if not loop.last %}
+              <div class="pipeline-connector {% if s_idx < current_idx %}completed{% endif %}"></div>
+              {% endif %}
               {% endfor %}
             </div>
           </div>
@@ -559,10 +595,19 @@
           <span class="badge" style="background:#eef2ff;color:#6366f1;font-size:0.65rem;">{{ lead.status }}</span>
           <div class="pipeline-indicator mt-1">
             {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-            <div class="d-flex align-items-center" style="gap:2px;">
+            {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+            {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
+            <div class="d-flex align-items-center" style="gap:3px;">
               {% for stage_id, stage_short in stages %}
-              <div class="pipeline-step {% if lead.pipeline_stage == stage_id %}active{% endif %}" title="{{ stage_id }}">{{ stage_short }}</div>
-              {% if not loop.last %}<div class="pipeline-connector"></div>{% endif %}
+              {% set s_idx = loop.index0 %}
+              <div class="pipeline-step
+                {% if s_idx == current_idx %}active
+                {% elif s_idx < current_idx %}completed
+                {% endif %}"
+                title="{{ stage_id }}">{{ stage_short }}</div>
+              {% if not loop.last %}
+              <div class="pipeline-connector {% if s_idx < current_idx %}completed{% endif %}"></div>
+              {% endif %}
               {% endfor %}
             </div>
           </div>
@@ -695,10 +740,19 @@
           <span class="badge" style="background:#eef2ff;color:#6366f1;font-size:0.65rem;">{{ lead.status }}</span>
           <div class="pipeline-indicator mt-1">
             {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-            <div class="d-flex align-items-center" style="gap:2px;">
+            {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+            {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
+            <div class="d-flex align-items-center" style="gap:3px;">
               {% for stage_id, stage_short in stages %}
-              <div class="pipeline-step {% if lead.pipeline_stage == stage_id %}active{% endif %}" title="{{ stage_id }}">{{ stage_short }}</div>
-              {% if not loop.last %}<div class="pipeline-connector"></div>{% endif %}
+              {% set s_idx = loop.index0 %}
+              <div class="pipeline-step
+                {% if s_idx == current_idx %}active
+                {% elif s_idx < current_idx %}completed
+                {% endif %}"
+                title="{{ stage_id }}">{{ stage_short }}</div>
+              {% if not loop.last %}
+              <div class="pipeline-connector {% if s_idx < current_idx %}completed{% endif %}"></div>
+              {% endif %}
               {% endfor %}
             </div>
           </div>
@@ -770,10 +824,19 @@
         </div>
         <div class="pipeline-indicator mb-1">
           {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-          <div class="d-flex align-items-center" style="gap:2px;">
+          {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+          {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
+          <div class="d-flex align-items-center" style="gap:3px;">
             {% for stage_id, stage_short in stages %}
-            <div class="pipeline-step {% if lead.pipeline_stage == stage_id %}active{% endif %}" title="{{ stage_id }}">{{ stage_short }}</div>
-            {% if not loop.last %}<div class="pipeline-connector"></div>{% endif %}
+            {% set s_idx = loop.index0 %}
+            <div class="pipeline-step
+              {% if s_idx == current_idx %}active
+              {% elif s_idx < current_idx %}completed
+              {% endif %}"
+              title="{{ stage_id }}">{{ stage_short }}</div>
+            {% if not loop.last %}
+            <div class="pipeline-connector {% if s_idx < current_idx %}completed{% endif %}"></div>
+            {% endif %}
             {% endfor %}
           </div>
         </div>
@@ -863,10 +926,19 @@
         </div>
         <div class="pipeline-indicator mb-1">
           {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-          <div class="d-flex align-items-center" style="gap:2px;">
+          {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+          {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
+          <div class="d-flex align-items-center" style="gap:3px;">
             {% for stage_id, stage_short in stages %}
-            <div class="pipeline-step {% if lead.pipeline_stage == stage_id %}active{% endif %}" title="{{ stage_id }}">{{ stage_short }}</div>
-            {% if not loop.last %}<div class="pipeline-connector"></div>{% endif %}
+            {% set s_idx = loop.index0 %}
+            <div class="pipeline-step
+              {% if s_idx == current_idx %}active
+              {% elif s_idx < current_idx %}completed
+              {% endif %}"
+              title="{{ stage_id }}">{{ stage_short }}</div>
+            {% if not loop.last %}
+            <div class="pipeline-connector {% if s_idx < current_idx %}completed{% endif %}"></div>
+            {% endif %}
             {% endfor %}
           </div>
         </div>
@@ -941,10 +1013,19 @@
           <div class="fw-semibold small text-truncate">{{ lead.name }}</div>
           <div class="pipeline-indicator mt-1 mb-1">
             {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-            <div class="d-flex align-items-center" style="gap:2px;">
+            {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+            {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
+            <div class="d-flex align-items-center" style="gap:3px;">
               {% for stage_id, stage_short in stages %}
-              <div class="pipeline-step {% if lead.pipeline_stage == stage_id %}active{% endif %}" title="{{ stage_id }}">{{ stage_short }}</div>
-              {% if not loop.last %}<div class="pipeline-connector"></div>{% endif %}
+              {% set s_idx = loop.index0 %}
+              <div class="pipeline-step
+                {% if s_idx == current_idx %}active
+                {% elif s_idx < current_idx %}completed
+                {% endif %}"
+                title="{{ stage_id }}">{{ stage_short }}</div>
+              {% if not loop.last %}
+              <div class="pipeline-connector {% if s_idx < current_idx %}completed{% endif %}"></div>
+              {% endif %}
               {% endfor %}
             </div>
           </div>
@@ -1012,10 +1093,19 @@
           <div class="text-muted" style="font-size:0.7rem;">Seat Hold Confirmed</div>
           <div class="pipeline-indicator mt-1">
             {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-            <div class="d-flex align-items-center" style="gap:2px;">
+            {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+            {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
+            <div class="d-flex align-items-center" style="gap:3px;">
               {% for stage_id, stage_short in stages %}
-              <div class="pipeline-step {% if lead.pipeline_stage == stage_id %}active{% endif %}" title="{{ stage_id }}">{{ stage_short }}</div>
-              {% if not loop.last %}<div class="pipeline-connector"></div>{% endif %}
+              {% set s_idx = loop.index0 %}
+              <div class="pipeline-step
+                {% if s_idx == current_idx %}active
+                {% elif s_idx < current_idx %}completed
+                {% endif %}"
+                title="{{ stage_id }}">{{ stage_short }}</div>
+              {% if not loop.last %}
+              <div class="pipeline-connector {% if s_idx < current_idx %}completed{% endif %}"></div>
+              {% endif %}
               {% endfor %}
             </div>
           </div>
