@@ -1654,6 +1654,22 @@ def enroll_generate_link():
     return jsonify({'ok': True, 'token': token, 'watch_url': watch_url})
 
 
+def _youtube_embed_url(raw_url):
+    """Extract YouTube video ID from any common URL and return embed URL. Returns '' if not valid."""
+    if not raw_url or not isinstance(raw_url, str):
+        return ''
+    s = raw_url.strip()
+    # Support: watch?v=, youtu.be/, embed/, shorts/
+    m = _re.search(
+        r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/|youtube\.com/shorts/)([a-zA-Z0-9_-]{11})',
+        s
+    )
+    if m:
+        vid = m.group(1)
+        return 'https://www.youtube.com/embed/' + vid + '?rel=0&modestbranding=1'
+    return ''
+
+
 @app.route('/watch/enrollment')
 def watch_enrollment():
     """Public page: enrollment video in minimal embed (no YouTube UI). Share this link so prospect opens our page, not YouTube."""
@@ -1661,11 +1677,7 @@ def watch_enrollment():
     enrollment_video_url = _get_setting(db, 'enrollment_video_url', '')
     enrollment_video_title = _get_setting(db, 'enrollment_video_title', 'Enrollment Video')
     db.close()
-    embed_url = ''
-    if enrollment_video_url:
-        m = _re.search(r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]{11})', enrollment_video_url)
-        if m:
-            embed_url = 'https://www.youtube.com/embed/' + m.group(1) + '?rel=0&modestbranding=1'
+    embed_url = _youtube_embed_url(enrollment_video_url)
     if not embed_url:
         return render_template('watch_video.html', error='Video not configured', title='Enrollment Video'), 404
     return render_template('watch_video.html', embed_url=embed_url, title=enrollment_video_title or 'Enrollment Video', error=None)
@@ -1724,11 +1736,7 @@ def watch_batch(slot, v):
     setting_key = f'batch_{slot}_v{v}'
     yt_url = _get_setting(db, setting_key, '')
     db.close()
-    embed_url = ''
-    if yt_url:
-        m = _re.search(r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]{11})', yt_url)
-        if m:
-            embed_url = 'https://www.youtube.com/embed/' + m.group(1) + '?rel=0&modestbranding=1'
+    embed_url = _youtube_embed_url(yt_url)
     if not embed_url:
         return render_template('watch_video.html', error='Video not configured', title=_BATCH_LABELS.get(slot, 'Batch Video')), 404
     title = _BATCH_LABELS.get(slot, 'Batch Video') + ' — Video ' + str(v)
@@ -1780,11 +1788,7 @@ def watch_video(token):
     enrollment_video_url = _get_setting(db, 'enrollment_video_url', '') if db else ''
     db.close()
     title = (content['curiosity_title'] or content['title']) if content else 'Video'
-    yt_id = None
-    if enrollment_video_url:
-        m = _re.search(r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]{11})', enrollment_video_url)
-        yt_id = m.group(1) if m else None
-    embed_url = ('https://www.youtube.com/embed/' + yt_id + '?rel=0&modestbranding=1') if yt_id else ''
+    embed_url = _youtube_embed_url(enrollment_video_url)
     return render_template('watch_video.html', token=token, title=title,
                            enrollment_video_url=enrollment_video_url or '', embed_url=embed_url, error=None)
 
@@ -3590,6 +3594,46 @@ def report_submit():
     username = session['username']
     today    = _today_ist().isoformat()
     db       = get_db()
+    def _debug_post(_payload):
+        try:
+            # Also emit to server console logs so we can read in Render logs.
+            try:
+                app.logger.info('debug-31fa06 ' + json.dumps(_payload, ensure_ascii=False))
+            except Exception:
+                pass
+            import urllib.request as _u
+            req = _u.Request(
+                'http://127.0.0.1:7580/ingest/8c20c5c3-d4fe-4238-8ce5-4d4b6328e630',
+                data=json.dumps(_payload).encode('utf-8'),
+                headers={'Content-Type': 'application/json'},
+                method='POST'
+            )
+            _u.urlopen(req, timeout=1.5)
+        except Exception:
+            pass
+    # #region agent log report_submit entry
+    try:
+        _payload = {
+            'sessionId': '31fa06',
+            'runId': 'pre-debug',
+            'hypothesisId': 'H1_server_route_hit',
+            'location': 'app.py:report_submit',
+            'message': 'report_submit_enter',
+            'data': {
+                'method': request.method,
+                'username': username,
+                'today': today,
+            },
+            'timestamp': int(datetime.datetime.now().timestamp() * 1000),
+        }
+        try:
+            app.logger.info('debug-31fa06 ' + json.dumps(_payload, ensure_ascii=False))
+        except Exception:
+            pass
+        _debug_post(_payload)
+    except Exception:
+        pass
+    # #endregion
 
     existing = db.execute(
         "SELECT * FROM daily_reports WHERE username=? AND report_date=?",
@@ -3599,6 +3643,31 @@ def report_submit():
     actual_counts = _get_actual_daily_counts(db, username)
 
     if request.method == 'POST':
+        # #region agent log report_submit POST received
+        try:
+            _payload = {
+                'sessionId': '31fa06',
+                'runId': 'pre-debug',
+                'hypothesisId': 'H2_post_received',
+                'location': 'app.py:report_submit',
+                'message': 'report_submit_post_enter',
+                'data': {
+                    'report_date': request.form.get('report_date', today),
+                    'upline_name_present': bool((request.form.get('upline_name') or '').strip()),
+                    # Only raw values; server will parse/validate next.
+                    'total_calling_raw': request.form.get('total_calling'),
+                    'pdf_covered_raw': request.form.get('pdf_covered'),
+                },
+                'timestamp': int(datetime.datetime.now().timestamp() * 1000),
+            }
+            try:
+                app.logger.info('debug-31fa06 ' + json.dumps(_payload, ensure_ascii=False))
+            except Exception:
+                pass
+            _debug_post(_payload)
+        except Exception:
+            pass
+        # #endregion
         report_date      = request.form.get('report_date', today)
         upline_name      = request.form.get('upline_name', '').strip()
         try:
@@ -3633,6 +3702,28 @@ def report_submit():
                 f"You cannot enter more than that."
             )
         if inflation_errors:
+            # #region agent log report_submit inflation validation failed
+            try:
+                _payload = {
+                    'sessionId': '31fa06',
+                    'runId': 'pre-debug',
+                    'hypothesisId': 'H3_inflation_rejected',
+                    'location': 'app.py:report_submit',
+                    'message': 'report_submit_inflation_rejected',
+                    'data': {
+                        'errors_count': len(inflation_errors),
+                        'first_error': inflation_errors[0] if inflation_errors else '',
+                    },
+                    'timestamp': int(datetime.datetime.now().timestamp() * 1000),
+                }
+                try:
+                    app.logger.info('debug-31fa06 ' + json.dumps(_payload, ensure_ascii=False))
+                except Exception:
+                    pass
+                _debug_post(_payload)
+            except Exception:
+                pass
+            # #endregion
             for err in inflation_errors:
                 flash(err, 'danger')
             db.close()
@@ -3675,6 +3766,28 @@ def report_submit():
         db.commit()
         _log_activity(db, username, 'report_submit', f"Date: {today}")
         db.close()
+        # #region agent log report_submit success redirect
+        try:
+            _payload = {
+                'sessionId': '31fa06',
+                'runId': 'pre-debug',
+                'hypothesisId': 'H4_insert_success_redirect',
+                'location': 'app.py:report_submit',
+                'message': 'report_submit_success',
+                'data': {
+                    'report_date': report_date,
+                    'username': username,
+                },
+                'timestamp': int(datetime.datetime.now().timestamp() * 1000),
+            }
+            try:
+                app.logger.info('debug-31fa06 ' + json.dumps(_payload, ensure_ascii=False))
+            except Exception:
+                pass
+            _debug_post(_payload)
+        except Exception:
+            pass
+        # #endregion
         flash('Daily report submitted successfully!', 'success')
         return redirect(url_for('team_dashboard'))
 
