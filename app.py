@@ -1539,7 +1539,7 @@ def _sync_watch_event_to_lead(db, token):
         )
     elif current_idx == watched_idx - 1:
         db.execute(
-            "UPDATE leads SET call_status='Video Watched', updated_at=? WHERE id=?",
+            "UPDATE leads SET status='Video Watched', call_status='Video Watched', updated_at=? WHERE id=?",
             (now_str, lead_id)
         )
 
@@ -1643,7 +1643,7 @@ def enroll_generate_link():
         db.close()
         return jsonify({'ok': False, 'error': 'Failed to create link'}), 400
 
-    _sync_enroll_share_to_lead(db, token, username)
+        _sync_enroll_share_to_lead(db, token, username)
     today = _today_ist().strftime('%Y-%m-%d')
     try:
         db.execute("""
