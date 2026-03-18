@@ -8277,6 +8277,11 @@ def update_call_status(lead_id):
         if lead_stage == 'enrollment':
             _transition_stage(db, lead_id, 'day1', username)
             stage_advanced = True
+            # Ensure lead shows in Working Day 1: status and payment must be set (leader/team Day 1 lists filter by status='Day 1')
+            db.execute(
+                "UPDATE leads SET status='Day 1', payment_done=1, payment_amount=?, updated_at=? WHERE id=?",
+                (PAYMENT_AMOUNT, now_str, lead_id)
+            )
 
     db.commit()
     # Defer badge check so API returns immediately (no 3s wait for user)
