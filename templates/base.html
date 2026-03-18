@@ -1555,59 +1555,57 @@ window.mayaSend=function(){};window.mayaClear=function(){};window.mayaToggle=fun
   transform: translateY(-2px) scale(1.02);
 }
 @keyframes bounceIn {
-  0%   { opacity:0; transform: scale(0.3) translateY(20px); }
-  50%  { opacity:1; transform: scale(1.05) translateY(-5px); }
-  70%  { transform: scale(0.95) translateY(2px); }
+  0%   { opacity:0; transform: scale(0.92) translateY(8px); }
+  60%  { opacity:1; transform: scale(1.02) translateY(-1px); }
   100% { transform: scale(1) translateY(0); }
 }
-.bounce-in { animation: bounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+.bounce-in { animation: bounceIn 0.4s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
 @keyframes checkBounce {
-  0%   { transform: scale(0) rotate(-10deg); }
-  50%  { transform: scale(1.3) rotate(5deg); }
-  75%  { transform: scale(0.9) rotate(-3deg); }
-  100% { transform: scale(1) rotate(0deg); }
+  0%   { transform: scale(0.5); opacity: 0.6; }
+  60%  { transform: scale(1.06); opacity: 1; }
+  80%  { transform: scale(0.97); }
+  100% { transform: scale(1); }
 }
-.check-bounce { animation: checkBounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+.check-bounce { animation: checkBounce 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
 @keyframes scorePop {
   0%   { transform: scale(1); color: inherit; }
-  30%  { transform: scale(1.4); color: #6366f1; }
-  60%  { transform: scale(0.95); }
+  40%  { transform: scale(1.15); color: #6366f1; }
+  70%  { transform: scale(0.97); }
   100% { transform: scale(1); color: inherit; }
 }
-.score-pop { animation: scorePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.score-pop { animation: scorePop 0.4s cubic-bezier(0.32, 0.72, 0, 1); }
 @keyframes streakPulse {
-  0%   { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.5); }
-  50%  { box-shadow: 0 0 0 8px rgba(234, 88, 12, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.35); }
+  50%  { box-shadow: 0 0 0 6px rgba(234, 88, 12, 0); }
   100% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0); }
 }
-.streak-pulse { animation: streakPulse 2s ease-in-out infinite; border-radius: 20px; }
+.streak-pulse { animation: streakPulse 2.5s ease-in-out infinite; border-radius: 20px; }
 @keyframes shakeX {
   0%, 100% { transform: translateX(0); }
-  20%  { transform: translateX(-8px); }
-  40%  { transform: translateX(8px); }
-  60%  { transform: translateX(-5px); }
-  80%  { transform: translateX(5px); }
+  25%  { transform: translateX(-4px); }
+  50%  { transform: translateX(4px); }
+  75%  { transform: translateX(-2px); }
 }
-.shake { animation: shakeX 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+.shake { animation: shakeX 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
 @keyframes slideUpCard {
-  from { opacity:0; transform: translateY(30px); }
+  from { opacity:0; transform: translateY(12px); }
   to   { opacity:1; transform: translateY(0); }
 }
-.wk-lead-card, .card { animation: slideUpCard 0.3s ease forwards; }
+.wk-lead-card { animation: slideUpCard 0.35s cubic-bezier(0.32, 0.72, 0, 1) both; }
 @keyframes glowGreen {
-  0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
-  50%  { box-shadow: 0 0 20px 5px rgba(34, 197, 94, 0.3); }
+  0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  50%  { box-shadow: 0 0 12px 3px rgba(34, 197, 94, 0.2); }
   100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
 }
-.glow-green { animation: glowGreen 0.8s ease forwards; }
+.glow-green { animation: glowGreen 0.6s ease forwards; }
 @keyframes floatUp {
   0%   { opacity:1; transform: translateY(0) scale(1); }
-  100% { opacity:0; transform: translateY(-60px) scale(1.3); }
+  100% { opacity:0; transform: translateY(-40px) scale(1.1); }
 }
 .float-badge {
   position: fixed; z-index: 1000; pointer-events: none;
   font-weight: 800; font-size: 1.1rem; color: #6366f1;
-  animation: floatUp 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  animation: floatUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .btn-ripple { position: relative; overflow: hidden; }
 .ripple-effect {
@@ -1618,7 +1616,7 @@ window.mayaSend=function(){};window.mayaClear=function(){};window.mayaToggle=fun
   pointer-events: none;
 }
 @keyframes ripple { to { transform: scale(4); opacity: 0; } }
-.wk-batch-btn.wk-batch-done { animation: checkBounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.wk-batch-btn.wk-batch-done { animation: checkBounce 0.35s cubic-bezier(0.32, 0.72, 0, 1); }
 .wk-lead-card:nth-child(1) { animation-delay: 0.0s; }
 .wk-lead-card:nth-child(2) { animation-delay: 0.05s; }
 .wk-lead-card:nth-child(3) { animation-delay: 0.1s; }
@@ -1627,17 +1625,12 @@ window.mayaSend=function(){};window.mayaClear=function(){};window.mayaToggle=fun
 .wk-lead-card:nth-child(6) { animation-delay: 0.25s; }
 .wk-lead-card:nth-child(7) { animation-delay: 0.3s; }
 .wk-lead-card:nth-child(8) { animation-delay: 0.35s; }
-.wk-tab.active { animation: bounceIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.toast { animation: toastSlide 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important; }
+.wk-tab.active { animation: bounceIn 0.3s cubic-bezier(0.32, 0.72, 0, 1); }
+.toast { animation: toastSlide 0.4s cubic-bezier(0.32, 0.72, 0, 1) forwards !important; }
 @keyframes toastSlide {
-  from { opacity:0; transform: translateX(60px) scale(0.9); }
+  from { opacity:0; transform: translateX(20px) scale(0.96); }
   to   { opacity:1; transform: translateX(0) scale(1); }
 }
-@keyframes scoreFloat {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-3px); }
-}
-#scorePill, #liveScore { animation: scoreFloat 3s ease-in-out infinite; }
 @keyframes confetti-fall {
   0%   { transform: translateY(-20px) rotate(0deg); opacity:1; }
   100% { transform: translateY(80px) rotate(360deg); opacity:0; }
