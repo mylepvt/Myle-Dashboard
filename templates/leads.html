@@ -456,6 +456,25 @@
           <div class="d-flex flex-column align-items-end gap-1">
             <span class="badge rounded-pill status-{{ lead.status|replace(' ','') }}"
                   style="font-size:0.7rem;padding:3px 8px;">{{ lead.status }}</span>
+            {# Pipeline stage indicator — shows which stage and with whom #}
+            {% if lead.pipeline_stage and lead.pipeline_stage != 'enrollment' %}
+            <div style="font-size:0.63rem;background:#f0f4ff;color:#6366f1;
+                        border-radius:4px;padding:2px 7px;display:inline-block;
+                        margin-top:3px;font-weight:600;">
+              {% if lead.pipeline_stage == 'day1' %}📚 Day 1 — Leader ke paas
+              {% elif lead.pipeline_stage == 'day2' %}🎓 Day 2 — Admin conduct kar raha hai
+              {% elif lead.pipeline_stage == 'day3' %}🏁 Day 3 — Interview stage
+              {% elif lead.pipeline_stage == 'seat_hold' %}💰 Seat Hold confirmed
+              {% elif lead.pipeline_stage == 'closing' %}🎉 Fully Converted!
+              {% elif lead.pipeline_stage == 'training' %}📖 Training
+              {% elif lead.pipeline_stage == 'complete' %}✅ Converted
+              {% elif lead.pipeline_stage == 'lost' %}❌ Lost
+              {% else %}{{ lead.pipeline_stage }}{% endif %}
+              {% if lead.current_owner and lead.current_owner != lead.assigned_to %}
+              <span class="ms-1" style="color:#9ca3af;">({{ lead.current_owner }})</span>
+              {% endif %}
+            </div>
+            {% endif %}
             <span class="text-muted" style="font-size:0.68rem;">{{ lead.created_at[:10] }}</span>
           </div>
         </div>
@@ -642,7 +661,35 @@
               <td><span class="small">{{ lead.phone }}</span> <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-success px-1 py-0"><i class="bi bi-telephone-fill"></i></a> <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" rel="noopener" class="btn btn-xs px-1 py-0" style="background:#25D366;color:#fff;"><i class="bi bi-whatsapp"></i></a></td>
               <td class="text-muted small">{{ lead.referred_by or '—' }}</td>
               {% if session.get('role') == 'admin' %}<td><span class="badge rounded-pill px-2 py-1" style="background:#eef2ff;color:#4f46e5;font-size:0.72rem;">{{ lead.assigned_to or '—' }}</span></td>{% endif %}
-              <td><form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="d-inline"><select name="status" class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}" data-lead-id="{{ lead.id }}" style="min-width:120px;font-size:0.78rem;">{% for s in statuses %}<option value="{{ s }}" {% if s == lead.status %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></form></td>
+              <td>
+                <form method="post" action="{{ url_for('update_status', lead_id=lead.id) }}" class="d-inline">
+                  <select name="status" class="form-select form-select-sm status-select status-{{ lead.status|replace(' ','') }}"
+                          data-lead-id="{{ lead.id }}" style="min-width:120px;font-size:0.78rem;">
+                    {% for s in statuses %}
+                    <option value="{{ s }}" {% if s == lead.status %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                  </select>
+                </form>
+                {# Pipeline stage indicator — shows which stage and with whom #}
+                {% if lead.pipeline_stage and lead.pipeline_stage != 'enrollment' %}
+                <div style="font-size:0.63rem;background:#f0f4ff;color:#6366f1;
+                            border-radius:4px;padding:2px 7px;display:inline-block;
+                            margin-top:3px;font-weight:600;">
+                  {% if lead.pipeline_stage == 'day1' %}📚 Day 1 — Leader ke paas
+                  {% elif lead.pipeline_stage == 'day2' %}🎓 Day 2 — Admin conduct kar raha hai
+                  {% elif lead.pipeline_stage == 'day3' %}🏁 Day 3 — Interview stage
+                  {% elif lead.pipeline_stage == 'seat_hold' %}💰 Seat Hold confirmed
+                  {% elif lead.pipeline_stage == 'closing' %}🎉 Fully Converted!
+                  {% elif lead.pipeline_stage == 'training' %}📖 Training
+                  {% elif lead.pipeline_stage == 'complete' %}✅ Converted
+                  {% elif lead.pipeline_stage == 'lost' %}❌ Lost
+                  {% else %}{{ lead.pipeline_stage }}{% endif %}
+                  {% if lead.current_owner and lead.current_owner != lead.assigned_to %}
+                  <span class="ms-1" style="color:#9ca3af;">({{ lead.current_owner }})</span>
+                  {% endif %}
+                </div>
+                {% endif %}
+              </td>
               <td class="text-center">{% if lead.day1_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td>
               <td class="text-center">{% if lead.day2_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td>
               <td class="text-center">{% if lead.interview_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td>

@@ -351,7 +351,9 @@
         </thead>
         <tbody>
           {% for r in reports %}
-          <tr>
+          {% set actual_v = r.videos_sent_actual if r.videos_sent_actual is defined else -1 %}
+          {% set inflated = actual_v >= 0 and (r.pdf_covered or 0) > actual_v + 5 %}
+          <tr {% if inflated %}style="background:#fffbeb;" title="Videos mismatch detected"{% endif %}>
             <td class="fw-semibold text-nowrap">{{ r.report_date }}</td>
             <td>
               <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
@@ -382,8 +384,8 @@
               {% if r.system_verified is defined and r.system_verified %}
               <span class="badge bg-success" title="System tracked actuals match">
                 <i class="bi bi-shield-check"></i> Verified
-                {% if r.videos_sent_actual is defined and r.videos_sent_actual >= 0 %}
-                <small>({{ r.videos_sent_actual }} actual)</small>
+                {% if actual_v >= 0 %}
+                <small>({{ actual_v }} actual)</small>
                 {% endif %}
               </span>
               {% else %}
@@ -404,6 +406,21 @@
     </div>
   </div>
 </div>
+{% if view != 'monthly' %}
+<div class="alert alert-light border d-flex align-items-center gap-3 mt-3">
+  <div class="small">
+    <strong>System Total:</strong> {{ system_total_videos or 0 }} videos
+    <span class="text-muted">/</span> {{ totals.total_calling or 0 }} calls
+  </div>
+  <div class="small">
+    <strong>Reported Total:</strong> {{ reported_total_videos or 0 }} videos
+    <span class="text-muted">/</span> {{ totals.total_calling or 0 }} calls
+  </div>
+  {% if (reported_total_videos or 0) > (system_total_videos or 0) * 1.2 and (system_total_videos or 0) > 0 %}
+  <span class="badge bg-warning text-dark ms-auto"><i class="bi bi-exclamation-triangle me-1"></i>Discrepancy detected</span>
+  {% endif %}
+</div>
+{% endif %}
 {% endif %}
 
 {% endblock %}

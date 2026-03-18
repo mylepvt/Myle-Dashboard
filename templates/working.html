@@ -92,6 +92,7 @@
         <thead class="table-light">
           <tr>
             <th>Member</th>
+            <th class="text-muted" style="font-size:0.7rem;">FBO ID</th>
             <th class="text-center">Today Score</th>
             <th class="text-center">Stage 1</th>
             <th class="text-center">Day 1</th>
@@ -106,6 +107,9 @@
           {% set score = data.today_score %}
           <tr class="{% if score >= 50 %}table-success{% elif score >= 10 %}table-warning{% else %}{% endif %}">
             <td class="fw-semibold">{{ uname }}</td>
+            <td class="text-muted small" style="font-size:0.72rem;">
+              {{ data.fbo_id or '—' }}
+            </td>
             <td class="text-center">
               <span class="badge {% if score >= 50 %}bg-success{% elif score >= 10 %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
                 {{ score }} pts
@@ -119,7 +123,7 @@
             <td class="text-center text-success fw-semibold">{{ data.converted or '—' }}</td>
           </tr>
           {% else %}
-          <tr><td colspan="8" class="text-center text-muted py-3">No team members yet.</td></tr>
+          <tr><td colspan="9" class="text-center text-muted py-3">No team members yet.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -148,6 +152,452 @@
   </div>
 </div>
 {% endif %}
+
+{% elif is_leader %}
+{# ═══════════════════════════════════════
+   LEADER VIEW — My Work + My Team tabs
+   ═══════════════════════════════════════ #}
+
+{# Score + Quick Stats bar #}
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+  <span class="badge rounded-pill px-3 py-2 fw-bold"
+        style="background:#eef2ff;color:#6366f1;font-size:0.82rem;">
+    <i class="bi bi-trophy-fill me-1"></i>{{ today_score }} pts
+  </span>
+  {% if streak > 0 %}
+  <span class="badge rounded-pill px-3 py-2 fw-bold"
+        style="background:#fff7ed;color:#d97706;font-size:0.82rem;">
+    🔥 {{ streak }}-day streak
+  </span>
+  {% endif %}
+  {% if own_pending_calls > 0 %}
+  <span class="badge rounded-pill px-3 py-2"
+        style="background:#fee2e2;color:#dc2626;font-size:0.75rem;">
+    <i class="bi bi-telephone-fill me-1"></i>{{ own_pending_calls }} apne calls
+  </span>
+  {% endif %}
+  {% if team_pending_calls > 0 %}
+  <span class="badge rounded-pill px-3 py-2"
+        style="background:#fef9c3;color:#854d0e;font-size:0.75rem;">
+    <i class="bi bi-people-fill me-1"></i>{{ team_pending_calls }} team calls
+  </span>
+  {% endif %}
+  {% if own_batches_due + team_batches_due > 0 %}
+  <span class="badge rounded-pill px-3 py-2"
+        style="background:#f0fdf4;color:#16a34a;font-size:0.75rem;">
+    <i class="bi bi-check-square-fill me-1"></i>{{ own_batches_due + team_batches_due }} batches due
+  </span>
+  {% endif %}
+</div>
+
+{# Main Tab Switcher: My Work | My Team | Enroll To #}
+<div class="d-flex gap-2 mb-3">
+  <button class="btn btn-primary leader-main-tab active"
+          data-section="own" onclick="switchLeaderTab('own', this)"
+          style="flex:1;border-radius:10px;font-weight:700;font-size:0.85rem;">
+    <i class="bi bi-person-fill me-1"></i>My Work
+    <span class="badge bg-white text-primary ms-1" style="font-size:0.7rem;">
+      {{ own_stage1|length + own_day1|length + own_day3|length }}
+    </span>
+  </button>
+  {% if has_team %}
+  <button class="btn btn-outline-success leader-main-tab"
+          data-section="team" onclick="switchLeaderTab('team', this)"
+          style="flex:1;border-radius:10px;font-weight:700;font-size:0.85rem;">
+    <i class="bi bi-people-fill me-1"></i>My Team
+    <span class="badge bg-success ms-1" style="font-size:0.7rem;">
+      {{ team_stage1|length + team_day1|length + team_day3|length }}
+    </span>
+  </button>
+  {% endif %}
+  <button class="btn btn-outline-secondary leader-main-tab"
+          data-section="enroll" onclick="switchLeaderTab('enroll', this)"
+          style="border-radius:10px;font-weight:700;font-size:0.85rem;padding:8px 14px;">
+    🎬
+  </button>
+</div>
+
+{# ══════════════════════════════════
+   MY WORK SECTION
+   ══════════════════════════════════ #}
+<div id="leader-section-own">
+
+  <div class="wk-kanban-tabs mb-3">
+    <button class="wk-tab active" data-col="own-stage1">
+      Enrollment <span class="badge bg-primary ms-1">{{ own_stage1|length }}</span>
+    </button>
+    <button class="wk-tab" data-col="own-day1">
+      Day 1 <span class="badge bg-info ms-1">{{ own_day1|length }}</span>
+    </button>
+    <button class="wk-tab" data-col="own-day2">
+      Day 2 <span class="badge bg-warning text-dark ms-1">{{ own_day2|length }}</span>
+    </button>
+    <button class="wk-tab" data-col="own-day3">
+      Day 3 <span class="badge bg-danger ms-1">{{ own_day3|length }}</span>
+    </button>
+  </div>
+
+  <div class="wk-kanban-grid">
+
+    {# Own Stage 1 — full control #}
+    <div class="wk-kanban-col" id="zone-own-stage1" data-col="own-stage1">
+      <div class="wk-col-header">
+        <span class="wk-col-title"><i class="bi bi-funnel me-2 text-primary"></i>My Enrollment</span>
+        <span class="badge bg-primary">{{ own_stage1|length }}</span>
+      </div>
+      {% if own_stage1 %}{% for lead in own_stage1 %}
+      <div class="wk-lead-card" id="lead-{{ lead.id }}">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+          <div class="fw-semibold text-truncate" style="max-width:160px;">{{ lead.name }}</div>
+          <span class="badge rounded-pill small wk-status-badge-{{ lead.status|lower|replace(' ','_')|replace('₹','') }}">{{ lead.status }}</span>
+        </div>
+        {% if lead.city %}<div class="small text-muted mb-1"><i class="bi bi-geo-alt me-1"></i>{{ lead.city }}</div>{% endif %}
+        <select class="form-select form-select-sm mb-1" style="font-size:0.72rem;"
+                onchange="updateCallStatus({{ lead.id }}, this.value, this)">
+          <option value="">— Call Status —</option>
+          {% for cs in call_status_values %}
+          <option value="{{ cs }}" {% if lead.call_status == cs %}selected{% endif %}>{{ cs }}</option>
+          {% endfor %}
+        </select>
+        {% if lead.call_status == 'Video Watched' %}
+        <div style="background:#dcfce7;border-radius:5px;padding:2px 7px;font-size:0.67rem;font-weight:600;color:#16a34a;margin-bottom:4px;">👀 Video dekha — call karo!</div>
+        {% elif lead.call_status == 'Video Sent' %}
+        <div style="background:#dbeafe;border-radius:5px;padding:2px 7px;font-size:0.67rem;color:#1d4ed8;margin-bottom:4px;">📤 Video bheji — response pending</div>
+        {% endif %}
+        {% if lead.heat is defined %}
+        <div class="d-flex justify-content-between" style="font-size:0.6rem;color:#9ca3af;">
+          <span>HEAT</span>
+          <span style="color:{% if lead.heat >= 75 %}#dc2626{% elif lead.heat >= 40 %}#d97706{% else %}#9ca3af{% endif %};">
+            {% if lead.heat >= 75 %}🔥{% elif lead.heat >= 40 %}🌤{% else %}❄{% endif %} {{ lead.heat }}
+          </span>
+        </div>
+        <div class="progress mb-2" style="height:3px;">
+          <div class="progress-bar {% if lead.heat >= 75 %}bg-danger{% elif lead.heat >= 40 %}bg-warning{% else %}bg-secondary{% endif %}" style="width:{{ lead.heat }}%;"></div>
+        </div>
+        {% endif %}
+        <div class="d-flex gap-2">
+          <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
+          <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+        </div>
+      </div>
+      {% endfor %}{% else %}
+      <div class="wk-empty-state"><i class="bi bi-person-plus fs-2 text-muted mb-2 d-block"></i><div class="text-muted small">Koi apna enrollment lead nahi.</div></div>
+      {% endif %}
+    </div>
+
+    {# Own Day 1 — leader marks batches #}
+    <div class="wk-kanban-col d-none d-md-block" id="zone-own-day1" data-col="own-day1">
+      <div class="wk-col-header">
+        <span class="wk-col-title"><i class="bi bi-1-circle me-2 text-info"></i>My Day 1</span>
+        <span class="badge bg-info">{{ own_day1|length }}</span>
+      </div>
+      {% if own_day1 %}{% for lead in own_day1 %}
+      {% set bd = lead.d1_morning + lead.d1_afternoon + lead.d1_evening %}
+      {% set all_done = bd == 3 %}
+      <div class="wk-lead-card {% if all_done %}wk-lead-complete{% endif %}" id="lead-{{ lead.id }}">
+        <div class="fw-semibold text-truncate mb-1">{{ lead.name }}</div>
+        <div class="wk-batch-progress mb-2"><div class="wk-batch-bar" style="width:{{ (bd/3*100)|int }}%"></div></div>
+        <div class="small text-muted mb-2 wk-batch-count">{{ bd }}/3 batches done</div>
+        <div class="d-flex gap-2 mb-2">
+          <button class="wk-batch-btn {% if lead.d1_morning %}wk-batch-done{% endif %}" data-batch="d1_morning" onclick="openBatchPopup('{{ lead.id }}','d1_morning','{{ lead.phone }}','{{ lead.name }}',this)"><i class="bi bi-sunrise-fill"></i> M</button>
+          <button class="wk-batch-btn {% if lead.d1_afternoon %}wk-batch-done{% endif %}" data-batch="d1_afternoon" onclick="openBatchPopup('{{ lead.id }}','d1_afternoon','{{ lead.phone }}','{{ lead.name }}',this)"><i class="bi bi-sun-fill"></i> A</button>
+          <button class="wk-batch-btn {% if lead.d1_evening %}wk-batch-done{% endif %}" data-batch="d1_evening" onclick="openBatchPopup('{{ lead.id }}','d1_evening','{{ lead.phone }}','{{ lead.name }}',this)"><i class="bi bi-moon-fill"></i> E</button>
+        </div>
+        <div class="d-flex gap-2">
+          <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
+          <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+          {% if all_done %}<button class="btn btn-sm btn-success wk-btn ms-auto" onclick="stageAdvance({{ lead.id }},'day1_complete',this)"><i class="bi bi-arrow-right me-1"></i>Day 2</button>{% endif %}
+        </div>
+      </div>
+      {% endfor %}{% else %}
+      <div class="wk-empty-state"><i class="bi bi-1-circle fs-2 text-muted mb-2 d-block"></i><div class="text-muted small">Koi apna Day 1 lead nahi.</div></div>
+      {% endif %}
+    </div>
+
+    {# Own Day 2 — view only #}
+    <div class="wk-kanban-col d-none d-md-block" id="zone-own-day2" data-col="own-day2">
+      <div class="wk-col-header">
+        <span class="wk-col-title"><i class="bi bi-2-circle me-2 text-warning"></i>My Day 2</span>
+        <span class="badge bg-warning text-dark">{{ own_day2|length }}</span>
+      </div>
+      <div class="text-center mb-2" style="font-size:0.68rem;background:#fef9c3;border-radius:6px;padding:4px 8px;color:#92400e;">
+        <i class="bi bi-lock-fill me-1"></i>Admin conduct kar raha hai
+      </div>
+      {% if own_day2 %}{% for lead in own_day2 %}
+      {% set bd = lead.d2_morning + lead.d2_afternoon + lead.d2_evening %}
+      <div class="wk-lead-card" id="lead-{{ lead.id }}">
+        <div class="fw-semibold text-truncate mb-1">{{ lead.name }}</div>
+        <div class="wk-batch-progress mb-1"><div class="wk-batch-bar wk-batch-bar-d2" style="width:{{ (bd/3*100)|int }}%"></div></div>
+        <div class="small text-muted mb-2">{{ bd }}/3 admin batches</div>
+        <div class="d-flex gap-2 mb-2">
+          <span class="wk-batch-btn {% if lead.d2_morning %}wk-batch-done{% endif %}" style="pointer-events:none;opacity:0.7;"><i class="bi bi-sunrise-fill"></i> M</span>
+          <span class="wk-batch-btn {% if lead.d2_afternoon %}wk-batch-done{% endif %}" style="pointer-events:none;opacity:0.7;"><i class="bi bi-sun-fill"></i> A</span>
+          <span class="wk-batch-btn {% if lead.d2_evening %}wk-batch-done{% endif %}" style="pointer-events:none;opacity:0.7;"><i class="bi bi-moon-fill"></i> E</span>
+        </div>
+        <div class="d-flex gap-2">
+          <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
+          <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+        </div>
+      </div>
+      {% endfor %}{% else %}
+      <div class="wk-empty-state"><i class="bi bi-2-circle fs-2 text-muted mb-2 d-block"></i><div class="text-muted small">Admin Day 2 conduct karega.</div></div>
+      {% endif %}
+    </div>
+
+    {# Own Day 3 — leader marks interview/seat hold #}
+    <div class="wk-kanban-col d-none d-md-block" id="zone-own-day3" data-col="own-day3">
+      <div class="wk-col-header">
+        <span class="wk-col-title"><i class="bi bi-3-circle me-2 text-danger"></i>My Day 3</span>
+        <span class="badge bg-danger">{{ own_day3|length }}</span>
+      </div>
+      {% if own_day3 %}{% for lead in own_day3 %}
+      <div class="wk-lead-card" id="lead-{{ lead.id }}">
+        <div class="fw-semibold text-truncate mb-1">{{ lead.name }}</div>
+        <span class="badge bg-danger rounded-pill small mb-2">{{ lead.status }}</span>
+        {% if lead.track_selected %}<div class="small text-muted mb-1">Track: <strong>{{ lead.track_selected }}</strong></div>{% endif %}
+        <div class="d-flex gap-2 flex-wrap">
+          <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
+          <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+          {% if lead.status == 'Interview' %}
+          <button class="btn btn-sm btn-danger wk-btn ms-auto" onclick="stageAdvance({{ lead.id }},'interview_done',this)"><i class="bi bi-arrow-right me-1"></i>Track</button>
+          {% elif lead.status == 'Track Selected' %}
+          <button class="btn btn-sm btn-danger wk-btn ms-auto" onclick="stageAdvance({{ lead.id }},'seat_hold_done',this)"><i class="bi bi-arrow-right me-1"></i>Seat Hold</button>
+          {% endif %}
+          <a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-sm btn-outline-secondary wk-btn"><i class="bi bi-pencil"></i></a>
+        </div>
+      </div>
+      {% endfor %}{% else %}
+      <div class="wk-empty-state"><i class="bi bi-3-circle fs-2 text-muted mb-2 d-block"></i><div class="text-muted small">Koi apna Day 3 lead nahi.</div></div>
+      {% endif %}
+    </div>
+
+  </div>{# end own kanban grid #}
+
+  {# Own Pending — collapsed #}
+  {% if own_pending %}
+  <div class="mb-3 mt-2">
+    <button class="btn btn-outline-secondary w-100 text-start d-flex justify-content-between align-items-center mb-2"
+            onclick="toggleZone('zone-own-pending', this)">
+      <span><i class="bi bi-hourglass-split me-2"></i><strong>My Pending — Seat Hold</strong>
+      <span class="badge bg-secondary ms-2">{{ own_pending|length }}</span></span>
+      <i class="bi bi-chevron-down"></i>
+    </button>
+    <div id="zone-own-pending" class="d-none row g-3">
+      {% for lead in own_pending %}
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body">
+            <div class="fw-semibold mb-1">{{ lead.name }}</div>
+            <div class="small text-muted mb-1">Track: {{ lead.track_selected or 'TBD' }}</div>
+            <div class="d-flex gap-2">
+              <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-telephone-fill"></i></a>
+              <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-success"><i class="bi bi-whatsapp me-1"></i>Follow Up</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>{# end leader-section-own #}
+
+{# ══════════════════════════════════
+   MY TEAM SECTION
+   ══════════════════════════════════ #}
+<div id="leader-section-team" style="display:none;">
+
+  {% if not has_team %}
+  <div class="text-muted text-center py-4">
+    <i class="bi bi-people fs-2 d-block mb-2 opacity-50"></i>
+    <div class="small">Koi downline member nahi mila.</div>
+    <div class="small text-muted mt-1">Admin se upline_name set karwao.</div>
+  </div>
+  {% else %}
+
+  {# Member filter buttons #}
+  <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+    <span class="small text-muted fw-semibold">Filter:</span>
+    <button class="btn btn-sm btn-secondary active" id="team-filter-all"
+            onclick="filterTeamLeads('all')" style="border-radius:20px;font-size:0.75rem;">
+      All Team
+    </button>
+    {% for m in downline_members %}
+    <button class="btn btn-sm btn-outline-primary" id="team-filter-{{ m.username }}"
+            onclick="filterTeamLeads('{{ m.username }}')" style="border-radius:20px;font-size:0.75rem;">
+      {{ m.username }}
+      {% if m.fbo_id %}<span class="text-muted ms-1" style="font-size:0.62rem;">#{{ m.fbo_id }}</span>{% endif %}
+    </button>
+    {% endfor %}
+  </div>
+
+  {# Team sub-tabs #}
+  <div class="wk-kanban-tabs mb-3">
+    <button class="wk-tab active" data-col="team-stage1">
+      Enrollment <span class="badge bg-primary ms-1">{{ team_stage1|length }}</span>
+    </button>
+    <button class="wk-tab" data-col="team-day1">
+      Day 1 <span class="badge bg-info ms-1">{{ team_day1|length }}</span>
+    </button>
+    <button class="wk-tab" data-col="team-day2">
+      Day 2 <span class="badge bg-warning text-dark ms-1">{{ team_day2|length }}</span>
+    </button>
+    <button class="wk-tab" data-col="team-day3">
+      Day 3 <span class="badge bg-danger ms-1">{{ team_day3|length }}</span>
+    </button>
+  </div>
+
+  <div class="wk-kanban-grid">
+
+    {# Team Stage 1 #}
+    <div class="wk-kanban-col" id="zone-team-stage1" data-col="team-stage1">
+      <div class="wk-col-header">
+        <span class="wk-col-title"><i class="bi bi-funnel me-2 text-primary"></i>Team Enrollment</span>
+        <span class="badge bg-primary">{{ team_stage1|length }}</span>
+      </div>
+      {% if team_stage1 %}{% for lead in team_stage1 %}
+      <div class="wk-lead-card" id="lead-{{ lead.id }}" data-member="{{ lead.assigned_to }}">
+        <div style="background:#f0f4ff;border-radius:4px;padding:2px 6px;font-size:0.62rem;color:#6366f1;font-weight:700;display:inline-block;margin-bottom:4px;">
+          <i class="bi bi-person-fill me-1"></i>{{ lead.assigned_to }}
+        </div>
+        <div class="fw-semibold text-truncate mb-1">{{ lead.name }}</div>
+        <span class="badge rounded-pill small mb-2 wk-status-badge-{{ lead.status|lower|replace(' ','_')|replace('₹','') }}">{{ lead.status }}</span>
+        <select class="form-select form-select-sm mb-1" style="font-size:0.72rem;"
+                onchange="updateCallStatus({{ lead.id }}, this.value, this)">
+          <option value="">— Call Status —</option>
+          {% for cs in call_status_values %}
+          <option value="{{ cs }}" {% if lead.call_status == cs %}selected{% endif %}>{{ cs }}</option>
+          {% endfor %}
+        </select>
+        {% if lead.call_status == 'Video Watched' %}
+        <div style="background:#dcfce7;border-radius:5px;padding:2px 7px;font-size:0.67rem;font-weight:600;color:#16a34a;margin-bottom:4px;">👀 Video dekha — call karo!</div>
+        {% elif lead.call_status == 'Video Sent' %}
+        <div style="background:#dbeafe;border-radius:5px;padding:2px 7px;font-size:0.67rem;color:#1d4ed8;margin-bottom:4px;">📤 Video bheji — response pending</div>
+        {% endif %}
+        {% if lead.heat is defined %}
+        <div class="d-flex justify-content-between mb-1" style="font-size:0.6rem;color:#9ca3af;">
+          <span>HEAT</span>
+          <span style="color:{% if lead.heat >= 75 %}#dc2626{% elif lead.heat >= 40 %}#d97706{% else %}#9ca3af{% endif %};">{% if lead.heat >= 75 %}🔥{% elif lead.heat >= 40 %}🌤{% else %}❄{% endif %} {{ lead.heat }}</span>
+        </div>
+        <div class="progress mb-2" style="height:3px;"><div class="progress-bar {% if lead.heat >= 75 %}bg-danger{% elif lead.heat >= 40 %}bg-warning{% else %}bg-secondary{% endif %}" style="width:{{ lead.heat }}%;"></div></div>
+        {% endif %}
+        <div class="d-flex gap-2">
+          <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
+          <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+        </div>
+      </div>
+      {% endfor %}{% else %}
+      <div class="wk-empty-state"><i class="bi bi-funnel fs-2 text-muted mb-2 d-block"></i><div class="text-muted small">Team ka koi enrollment lead nahi.</div></div>
+      {% endif %}
+    </div>
+
+    {# Team Day 1 — leader marks batches #}
+    <div class="wk-kanban-col d-none d-md-block" id="zone-team-day1" data-col="team-day1">
+      <div class="wk-col-header">
+        <span class="wk-col-title"><i class="bi bi-1-circle me-2 text-info"></i>Team Day 1</span>
+        <span class="badge bg-info">{{ team_day1|length }}</span>
+      </div>
+      {% if team_day1 %}{% for lead in team_day1 %}
+      {% set bd = lead.d1_morning + lead.d1_afternoon + lead.d1_evening %}
+      {% set all_done = bd == 3 %}
+      <div class="wk-lead-card {% if all_done %}wk-lead-complete{% endif %}" id="lead-{{ lead.id }}" data-member="{{ lead.assigned_to }}">
+        <div style="background:#e0f2fe;border-radius:4px;padding:2px 6px;font-size:0.62rem;color:#0891b2;font-weight:700;display:inline-block;margin-bottom:4px;">
+          <i class="bi bi-person-fill me-1"></i>{{ lead.assigned_to }}
+        </div>
+        <div class="fw-semibold text-truncate mb-1">{{ lead.name }}</div>
+        <div class="wk-batch-progress mb-2"><div class="wk-batch-bar" style="width:{{ (bd/3*100)|int }}%"></div></div>
+        <div class="small text-muted mb-2 wk-batch-count">{{ bd }}/3 batches done</div>
+        <div class="d-flex gap-2 mb-2">
+          <button class="wk-batch-btn {% if lead.d1_morning %}wk-batch-done{% endif %}" data-batch="d1_morning" onclick="openBatchPopup('{{ lead.id }}','d1_morning','{{ lead.phone }}','{{ lead.name }}',this)"><i class="bi bi-sunrise-fill"></i> M</button>
+          <button class="wk-batch-btn {% if lead.d1_afternoon %}wk-batch-done{% endif %}" data-batch="d1_afternoon" onclick="openBatchPopup('{{ lead.id }}','d1_afternoon','{{ lead.phone }}','{{ lead.name }}',this)"><i class="bi bi-sun-fill"></i> A</button>
+          <button class="wk-batch-btn {% if lead.d1_evening %}wk-batch-done{% endif %}" data-batch="d1_evening" onclick="openBatchPopup('{{ lead.id }}','d1_evening','{{ lead.phone }}','{{ lead.name }}',this)"><i class="bi bi-moon-fill"></i> E</button>
+        </div>
+        <div class="d-flex gap-2">
+          <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
+          <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+          {% if all_done %}<button class="btn btn-sm btn-success wk-btn ms-auto" onclick="stageAdvance({{ lead.id }},'day1_complete',this)"><i class="bi bi-arrow-right me-1"></i>Day 2</button>{% endif %}
+        </div>
+      </div>
+      {% endfor %}{% else %}
+      <div class="wk-empty-state"><i class="bi bi-1-circle fs-2 text-muted mb-2 d-block"></i><div class="text-muted small">Team ka koi Day 1 lead nahi.</div></div>
+      {% endif %}
+    </div>
+
+    {# Team Day 2 — view only #}
+    <div class="wk-kanban-col d-none d-md-block" id="zone-team-day2" data-col="team-day2">
+      <div class="wk-col-header">
+        <span class="wk-col-title"><i class="bi bi-2-circle me-2 text-warning"></i>Team Day 2</span>
+        <span class="badge bg-warning text-dark">{{ team_day2|length }}</span>
+      </div>
+      <div class="text-center mb-2" style="font-size:0.68rem;background:#fef9c3;border-radius:6px;padding:4px 8px;color:#92400e;">
+        <i class="bi bi-lock-fill me-1"></i>Admin conduct kar raha hai
+      </div>
+      {% if team_day2 %}{% for lead in team_day2 %}
+      {% set bd = lead.d2_morning + lead.d2_afternoon + lead.d2_evening %}
+      <div class="wk-lead-card" id="lead-{{ lead.id }}" data-member="{{ lead.assigned_to }}">
+        <div style="background:#fef3c7;border-radius:4px;padding:2px 6px;font-size:0.62rem;color:#92400e;font-weight:700;display:inline-block;margin-bottom:4px;">
+          <i class="bi bi-person-fill me-1"></i>{{ lead.assigned_to }}
+        </div>
+        <div class="fw-semibold text-truncate mb-1">{{ lead.name }}</div>
+        <div class="wk-batch-progress mb-1"><div class="wk-batch-bar wk-batch-bar-d2" style="width:{{ (bd/3*100)|int }}%"></div></div>
+        <div class="small text-muted mb-2">{{ bd }}/3 admin batches</div>
+        <div class="d-flex gap-2 mb-2">
+          <span class="wk-batch-btn {% if lead.d2_morning %}wk-batch-done{% endif %}" style="pointer-events:none;opacity:0.7;"><i class="bi bi-sunrise-fill"></i> M</span>
+          <span class="wk-batch-btn {% if lead.d2_afternoon %}wk-batch-done{% endif %}" style="pointer-events:none;opacity:0.7;"><i class="bi bi-sun-fill"></i> A</span>
+          <span class="wk-batch-btn {% if lead.d2_evening %}wk-batch-done{% endif %}" style="pointer-events:none;opacity:0.7;"><i class="bi bi-moon-fill"></i> E</span>
+        </div>
+        <div class="d-flex gap-2">
+          <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
+          <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+        </div>
+      </div>
+      {% endfor %}{% else %}
+      <div class="wk-empty-state"><i class="bi bi-2-circle fs-2 text-muted mb-2 d-block"></i><div class="text-muted small">Admin se Day 2 wait karo.</div></div>
+      {% endif %}
+    </div>
+
+    {# Team Day 3 — leader marks interview/seat hold #}
+    <div class="wk-kanban-col d-none d-md-block" id="zone-team-day3" data-col="team-day3">
+      <div class="wk-col-header">
+        <span class="wk-col-title"><i class="bi bi-3-circle me-2 text-danger"></i>Team Day 3</span>
+        <span class="badge bg-danger">{{ team_day3|length }}</span>
+      </div>
+      {% if team_day3 %}{% for lead in team_day3 %}
+      <div class="wk-lead-card" id="lead-{{ lead.id }}" data-member="{{ lead.assigned_to }}">
+        <div style="background:#fef2f2;border-radius:4px;padding:2px 6px;font-size:0.62rem;color:#dc2626;font-weight:700;display:inline-block;margin-bottom:4px;">
+          <i class="bi bi-person-fill me-1"></i>{{ lead.assigned_to }}
+        </div>
+        <div class="fw-semibold text-truncate mb-1">{{ lead.name }}</div>
+        <span class="badge bg-danger rounded-pill small mb-2">{{ lead.status }}</span>
+        {% if lead.track_selected %}<div class="small text-muted mb-1">Track: <strong>{{ lead.track_selected }}</strong></div>{% endif %}
+        <div class="d-flex gap-2 flex-wrap">
+          <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
+          <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+          {% if lead.status == 'Interview' %}
+          <button class="btn btn-sm btn-danger wk-btn ms-auto" onclick="stageAdvance({{ lead.id }},'interview_done',this)"><i class="bi bi-arrow-right me-1"></i>Track</button>
+          {% elif lead.status == 'Track Selected' %}
+          <button class="btn btn-sm btn-danger wk-btn ms-auto" onclick="stageAdvance({{ lead.id }},'seat_hold_done',this)"><i class="bi bi-arrow-right me-1"></i>Seat Hold</button>
+          {% endif %}
+          <a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-sm btn-outline-secondary wk-btn"><i class="bi bi-pencil"></i></a>
+        </div>
+      </div>
+      {% endfor %}{% else %}
+      <div class="wk-empty-state"><i class="bi bi-3-circle fs-2 text-muted mb-2 d-block"></i><div class="text-muted small">Team ka koi Day 3 lead nahi.</div></div>
+      {% endif %}
+    </div>
+
+  </div>{# end team kanban grid #}
+  {% endif %}{# end has_team #}
+</div>{# end leader-section-team #}
+
+{# Enroll To section #}
+<div id="leader-section-enroll" style="display:none;padding:8px 0;">
+  {% include 'enroll_to.html' %}
+</div>
+
+{# Confetti container #}
+{# Confetti container is declared once at the end of the page #}
 
 {# ─── TEAM MEMBER VIEW ───────────────────────────────────────── #}
 {% else %}
@@ -243,6 +693,16 @@
       <span class="wk-col-title"><i class="bi bi-funnel me-2 text-primary"></i>Stage 1</span>
       <span class="badge bg-primary">{{ stage1_leads|length }}</span>
     </div>
+    {% if enrollment_video_url %}
+    <div class="wk-lead-card mb-2" style="background:#f5f3ff;">
+      <a href="{{ enrollment_video_url }}" target="_blank" rel="noopener" class="d-flex align-items-center gap-2 text-decoration-none" style="color:#6366f1;">
+        <i class="bi bi-play-circle-fill fs-5 flex-shrink-0"></i>
+        <span class="fw-semibold small">{{ enrollment_video_title|default('Enrollment Video') }}</span>
+        <i class="bi bi-box-arrow-up-right ms-auto small"></i>
+      </a>
+      <div class="small text-muted mt-1">Share with leads before payment</div>
+    </div>
+    {% endif %}
     {% if stage1_leads %}
     {% for lead in stage1_leads %}
     <div class="wk-lead-card" id="lead-{{ lead.id }}">
@@ -363,8 +823,8 @@
         <div class="wk-batch-bar" style="width:{{ (batches_done/3*100)|int }}%"></div>
       </div>
       <div class="small text-muted mb-2 wk-batch-count">{{ batches_done }}/3 batches done</div>
-      <!-- Batch toggles -->
-      {% if user_role in ('leader', 'admin') %}
+      <!-- Batch toggles (leader/admin only; team sees read-only) -->
+      {% if show_day1_batches %}
       <div class="d-flex gap-2 mb-2 align-items-center">
         <button class="wk-batch-btn {% if lead.d1_morning %}wk-batch-done{% endif %}"
                 data-lead-id="{{ lead.id }}" data-batch="d1_morning" title="Morning batch"
@@ -393,7 +853,7 @@
         <span class="wk-batch-btn {% if lead.d1_evening %}wk-batch-done{% endif %}" style="pointer-events:none;opacity:0.7;" title="Evening">
           <i class="bi bi-moon-fill"></i><span class="d-none d-sm-inline ms-1">E</span>
         </span>
-        <span class="text-muted ms-1" style="font-size:0.68rem;"><i class="bi bi-eye me-1"></i>View only</span>
+        <span class="text-muted ms-1" style="font-size:0.68rem;">Leader sends Day 1 batches</span>
       </div>
       {% endif %}
       <!-- Heat + Next Action for Day 1 -->
@@ -421,7 +881,7 @@
       <div class="d-flex gap-2 align-items-center flex-wrap mt-1">
         <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
         <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
-        {% if user_role in ('leader', 'admin') %}
+        {% if show_day1_batches %}
         <button class="btn btn-sm btn-success wk-btn wk-advance-btn ms-auto"
                 data-lead-id="{{ lead.id }}" data-status="Day 1"
                 onclick="stageAdvance({{ lead.id }}, 'day1_complete', this)"
@@ -770,14 +1230,90 @@ function toggleZone(id, btn) {
   icon.classList.toggle('bi-chevron-up');
 }
 
+// ── Leader Tab Switcher ────────────────────────────────────
+function switchLeaderTab(section, btn) {
+  // Hide all sections
+  ['own', 'team', 'enroll'].forEach(function(s) {
+    var el = document.getElementById('leader-section-' + s);
+    if (el) el.style.display = 'none';
+  });
+
+  // Show selected section
+  var target = document.getElementById('leader-section-' + section);
+  if (target) target.style.display = 'block';
+
+  // Update button styles
+  document.querySelectorAll('.leader-main-tab').forEach(function(b) {
+    b.classList.remove('active', 'btn-primary', 'btn-success', 'btn-secondary');
+    var sec = b.dataset.section;
+    if (sec === 'team') b.classList.add('btn-outline-success');
+    else if (sec === 'enroll') b.classList.add('btn-outline-secondary');
+    else b.classList.add('btn-outline-primary');
+  });
+
+  if (section === 'own') {
+    btn.classList.remove('btn-outline-primary');
+    btn.classList.add('active', 'btn-primary');
+  } else if (section === 'team') {
+    btn.classList.remove('btn-outline-success');
+    btn.classList.add('active', 'btn-success');
+  } else {
+    btn.classList.remove('btn-outline-secondary');
+    btn.classList.add('active', 'btn-secondary');
+  }
+
+  // Reset sub-tabs for that section
+  var prefix = section === 'team' ? 'team-' : 'own-';
+  var firstTab = document.querySelector('.wk-tab[data-col="' + prefix + 'stage1"]');
+  if (firstTab) firstTab.click();
+}
+
+// ── Team Member Filter ─────────────────────────────────────
+function filterTeamLeads(member) {
+  // Update filter buttons
+  document.querySelectorAll('[id^="team-filter-"]').forEach(function(b) {
+    b.classList.remove('active', 'btn-primary', 'btn-secondary');
+    b.classList.add('btn-outline-primary');
+  });
+  var activeBtn = document.getElementById('team-filter-' + member);
+  if (activeBtn) {
+    activeBtn.classList.remove('btn-outline-primary', 'btn-outline-secondary');
+    activeBtn.classList.add('active', 'btn-primary');
+  }
+
+  // Show/hide lead cards
+  document.querySelectorAll('[data-member]').forEach(function(card) {
+    if (member === 'all') {
+      card.style.display = '';
+    } else {
+      card.style.display = (card.dataset.member === member) ? '' : 'none';
+    }
+  });
+}
+
 // ── Mobile kanban tabs ─────────────────────────────────────────
-document.querySelectorAll('.wk-tab').forEach(tab => {
+document.querySelectorAll('.wk-tab').forEach(function(tab) {
   tab.addEventListener('click', function() {
-    const target = this.dataset.col;
-    document.querySelectorAll('.wk-tab').forEach(t => t.classList.remove('active'));
+    var target = this.dataset.col;
+
+    // Find parent tabs container to scope the switch
+    var tabsContainer = this.closest('.wk-kanban-tabs');
+    var kanbanGrid = tabsContainer ? tabsContainer.nextElementSibling : null;
+
+    // Deactivate sibling tabs only
+    if (tabsContainer) {
+      tabsContainer.querySelectorAll('.wk-tab').forEach(function(t) {
+        t.classList.remove('active');
+      });
+    }
     this.classList.add('active');
 
-    document.querySelectorAll('.wk-kanban-col').forEach(col => {
+    // Show/hide columns only within the adjacent kanban grid
+    var cols = kanbanGrid
+      ? kanbanGrid.querySelectorAll('.wk-kanban-col')
+      : document.querySelectorAll('.wk-kanban-col');
+
+    cols.forEach(function(col) {
       if (col.dataset.col === target) {
         col.classList.remove('d-none', 'd-md-block');
       } else {
@@ -786,6 +1322,18 @@ document.querySelectorAll('.wk-tab').forEach(tab => {
       }
     });
   });
+});
+
+// Initialize leader view on page load
+document.addEventListener('DOMContentLoaded', function() {
+  var ownSection = document.getElementById('leader-section-own');
+  if (ownSection) ownSection.style.display = 'block';
+
+  // Activate first sub-tab in own section
+  var firstOwnTab = document.querySelector('.wk-tab[data-col="own-stage1"]');
+  if (firstOwnTab && !firstOwnTab.classList.contains('active')) {
+    firstOwnTab.click();
+  }
 });
 
 // ── Quick advance ──────────────────────────────────────────────

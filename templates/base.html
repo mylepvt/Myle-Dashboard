@@ -129,6 +129,14 @@
           {% endif %}
         </a>
       </li>
+      {% if session.get('role') == 'leader' %}
+      <li class="nav-item">
+        <a href="{{ url_for('leader_team_reports') }}"
+           class="nav-link {% if request.endpoint == 'leader_team_reports' %}active{% endif %}">
+          <i class="bi bi-people-fill me-2"></i><span>My Team</span>
+        </a>
+      </li>
+      {% endif %}
       {% if session.get('role') != 'admin' %}
       <li class="nav-item">
         <a href="{{ url_for('retarget') }}"
@@ -428,6 +436,9 @@
   </a>
   <a href="{{ url_for('intelligence') }}" class="mbn-item {% if request.endpoint == 'intelligence' %}active{% endif %}">
     <i class="bi bi-lightning-charge-fill text-warning"></i><span>AI</span>
+  </a>
+  <a href="{{ url_for('admin_settings') }}#batch-video-links" class="mbn-item {% if request.endpoint == 'admin_settings' %}active{% endif %}">
+    <i class="bi bi-youtube text-danger"></i><span>Videos</span>
   </a>
   {% else %}
   <a href="{{ url_for('team_dashboard') }}" class="mbn-item {% if request.endpoint == 'team_dashboard' %}active{% endif %}">

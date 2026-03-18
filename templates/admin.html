@@ -68,6 +68,18 @@
 </div>
 {% endif %}
 
+{% if missing_reports %}
+<div class="alert alert-warning py-2 mb-3 d-flex align-items-center gap-2"
+     style="border-left:4px solid #f59e0b;border-radius:8px;">
+  <i class="bi bi-file-earmark-x-fill text-warning"></i>
+  <span class="small fw-semibold">
+    {{ missing_reports|length }} member{% if missing_reports|length > 1 %}s{% endif %} did not submit report today:
+    {{ missing_reports[:3]|join(', ') }}{% if missing_reports|length > 3 %} +{{ missing_reports|length - 3 }} more{% endif %}
+  </span>
+  <a href="{{ url_for('reports_admin') }}" class="btn btn-sm btn-warning ms-auto py-0">View Reports</a>
+  </div>
+{% endif %}
+
 <!-- ── Today's Reports Widget ────────────────────────────── -->
 <div class="card border-0 shadow-sm mb-4 card-accent-primary">
   <div class="card-header d-flex justify-content-between align-items-center">
@@ -109,6 +121,7 @@
                 <span class="text-muted fw-normal label-xs">In System</span>
               </div>
             </th>
+            <th class="text-center">Verified</th>
             <th class="text-center">
               <a href="{{ url_for('drilldown', metric='plan_2cc') }}" class="text-decoration-none text-dark">2CC</a>
             </th>
@@ -120,7 +133,8 @@
           {% for r in today_reports %}
           {% set actual = report_verification.get(r.username, 0) %}
           {% set mismatch = r.enrollments_done > actual %}
-          <tr {% if mismatch %}class="table-warning"{% endif %}>
+          {% set inflated = (r.videos_sent_actual is not none) and (r.pdf_covered or 0) > (r.videos_sent_actual or 0) + 5 %}
+          <tr {% if mismatch or inflated %}class="table-warning"{% endif %} {% if inflated %}title="Videos mismatch detected"{% endif %}>
             <td class="fw-semibold">
               {{ r.username }}
               {% if mismatch %}
@@ -137,6 +151,16 @@
               <span class="badge {% if actual > 0 %}bg-success{% else %}bg-secondary{% endif %}">
                 {{ actual }}
               </span>
+            </td>
+            <td class="text-center">
+              {% if r.system_verified %}
+                <span class="badge bg-success" style="font-size:0.65rem;">✅</span>
+                {% if r.videos_sent_actual is not none and r.videos_sent_actual >= 0 %}
+                <div style="font-size:0.6rem;color:#6b7280;">{{ r.videos_sent_actual }} actual</div>
+                {% endif %}
+              {% else %}
+                <span class="badge bg-light text-muted border" style="font-size:0.65rem;">Manual</span>
+              {% endif %}
             </td>
             <td class="text-center text-purple">{{ r.plan_2cc }}</td>
             <td class="text-center">

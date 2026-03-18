@@ -1,0 +1,118 @@
+{# Leader Enroll To — minimal safe include
+   Renders only what is available; avoids runtime errors if lists are empty. #}
+
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header bg-transparent border-0 py-2 d-flex align-items-center gap-2">
+    <i class="bi bi-camera-video-fill text-primary"></i>
+    <span class="fw-semibold small">Enroll To</span>
+    <span class="text-muted small ms-auto">Share content + track</span>
+  </div>
+  <div class="card-body">
+    {% if enrollment_video_url %}
+    <div class="alert alert-light border d-flex align-items-center gap-2 py-2 mb-3">
+      <i class="bi bi-play-circle-fill text-primary"></i>
+      <a href="{{ enrollment_video_url }}" target="_blank" rel="noopener" class="text-decoration-none fw-semibold">
+        {{ enrollment_video_title|default('Enrollment Video') }}
+      </a>
+      <span class="ms-auto small text-muted">Stage 1</span>
+    </div>
+    {% endif %}
+
+    <div class="row g-3">
+      <div class="col-12 col-lg-7">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-header bg-white border-0 py-2">
+            <span class="fw-semibold small">Content Library</span>
+          </div>
+          <div class="card-body">
+            {% if enroll_days %}
+              {% for day, items in enroll_days.items() %}
+              <div class="mb-3">
+                <div class="fw-semibold small mb-2">Day {{ day }}</div>
+                <div class="d-flex flex-column gap-2">
+                  {% for it in items %}
+                  <div class="d-flex align-items-center gap-2 p-2 border rounded" style="border-color:#eef2ff;">
+                    <div class="flex-grow-1 min-w-0">
+                      <div class="fw-semibold small text-truncate">{{ it.curiosity_title or it.title or 'Video' }}</div>
+                      <div class="text-muted" style="font-size:0.72rem;">{{ it.title or '—' }}</div>
+                    </div>
+                    <span class="badge bg-light text-dark border" style="font-size:0.65rem;">ID {{ it.id }}</span>
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endfor %}
+            {% else %}
+            <div class="text-muted small">No active enroll content found.</div>
+            {% endif %}
+
+            {% if enroll_pdfs %}
+            <hr class="my-3" />
+            <div class="fw-semibold small mb-2">PDFs</div>
+            <div class="d-flex flex-column gap-2">
+              {% for p in enroll_pdfs %}
+              <div class="d-flex align-items-center gap-2 p-2 border rounded">
+                <i class="bi bi-file-pdf-fill text-danger"></i>
+                <div class="flex-grow-1 min-w-0">
+                  <div class="small fw-semibold text-truncate">{{ p.title or 'PDF' }}</div>
+                  <div class="text-muted" style="font-size:0.72rem;">{{ p.url or '—' }}</div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-5">
+        <div class="card border-0 shadow-sm mb-3">
+          <div class="card-header bg-white border-0 py-2">
+            <span class="fw-semibold small">Recent Shares</span>
+          </div>
+          <div class="card-body">
+            {% if recent_shares %}
+            <div class="d-flex flex-column gap-2">
+              {% for s in recent_shares %}
+              <div class="p-2 border rounded">
+                <div class="d-flex justify-content-between gap-2">
+                  <div class="small fw-semibold text-truncate">{{ s.video_title or 'Video' }}</div>
+                  <span class="text-muted" style="font-size:0.7rem;">{{ (s.created_at or '')[:16] }}</span>
+                </div>
+                <div class="text-muted" style="font-size:0.72rem;">
+                  Day {{ s.video_day or '—' }} · Views {{ s.view_count or 0 }}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-muted small">No shares yet.</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+          <div class="card-header bg-white border-0 py-2">
+            <span class="fw-semibold small">Leads (Own + Team)</span>
+          </div>
+          <div class="card-body">
+            {% if team_leads %}
+            <div class="text-muted mb-2" style="font-size:0.72rem;">Select from this list when generating share links.</div>
+            <div class="d-flex flex-column gap-1" style="max-height:260px;overflow:auto;">
+              {% for l in team_leads %}
+              <div class="d-flex justify-content-between border rounded px-2 py-1">
+                <div class="small fw-semibold text-truncate" style="max-width:70%;">{{ l.name or '—' }}</div>
+                <div class="text-muted" style="font-size:0.7rem;">{{ l.assigned_to }}</div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-muted small">No eligible leads found.</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+

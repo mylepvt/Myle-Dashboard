@@ -138,13 +138,25 @@
 {# ════════════════════════════════════════════════════════════
    ZONE 2c · TEAM SNAPSHOT (Leader only)
    ════════════════════════════════════════════════════════════ #}
-{% if user_role == 'leader' and team_snapshot is defined and team_snapshot %}
+{% if user_role == 'leader' %}
 <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #0d6efd;">
-  <div class="card-header bg-transparent border-0 py-2 px-3 d-flex justify-content-between align-items-center">
+  <div class="card-header bg-transparent border-0 py-2 px-3 d-flex align-items-center gap-2">
     <span class="fw-semibold small text-primary"><i class="bi bi-people-fill me-2"></i>Team Snapshot</span>
-    <a href="{{ url_for('working') }}" class="btn btn-sm btn-outline-primary py-0">Working</a>
+    {% if leader_report_stats %}
+    <span class="badge ms-2
+      {% if leader_report_stats.submitted == leader_report_stats.total %}bg-success
+      {% elif leader_report_stats.submitted == 0 %}bg-danger
+      {% else %}bg-warning text-dark{% endif %}"
+      style="font-size:0.68rem;">
+      Reports: {{ leader_report_stats.submitted }}/{{ leader_report_stats.total }}
+    </span>
+    {% endif %}
+    <a href="{{ url_for('leader_team_reports') }}" class="btn btn-sm btn-outline-secondary ms-auto py-0 px-2"
+       style="font-size:0.72rem;">Team Reports →</a>
+    <a href="{{ url_for('working') }}" class="btn btn-sm btn-outline-primary py-0 ms-2">Working</a>
   </div>
   <div class="card-body p-0">
+    {% if team_snapshot %}
     <div class="table-responsive">
       <table class="table table-sm align-middle mb-0">
         <thead class="table-light">
@@ -154,7 +166,8 @@
             <th class="text-center small">D1</th>
             <th class="text-center small">D2</th>
             <th class="text-center small">D3</th>
-            <th class="text-center small">Conv.</th>
+            <th class="text-center small">Pend</th>
+            <th class="text-center small">Conv</th>
             <th class="text-center small">Pts</th>
             <th class="text-center small">Report</th>
           </tr>
@@ -167,16 +180,33 @@
             <td class="text-center">{{ m.day1 }}</td>
             <td class="text-center">{{ m.day2 }}</td>
             <td class="text-center">{{ m.day3 }}</td>
+            <td class="text-center">{{ m.pending }}</td>
             <td class="text-center">{{ m.converted }}</td>
-            <td class="text-center fw-bold text-primary">{{ m.today_score }}</td>
-            <td class="text-center">{% if m.report_submitted %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td class="text-center fw-bold text-primary">{{ m.today_pts }}</td>
+            <td class="text-center">{% if m.report_done %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle-fill text-danger"></i>{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+    {% else %}
+    <div class="text-muted text-center py-3 small">
+      <i class="bi bi-people fs-4 d-block mb-1 opacity-50"></i>
+      No downline members found.
+    </div>
+    {% endif %}
   </div>
 </div>
+{% if downline_missing_reports %}
+<div class="alert alert-warning py-2 mb-3 d-flex align-items-center gap-2"
+     style="border-radius:10px;border-left:4px solid #f59e0b;">
+  <i class="bi bi-exclamation-triangle-fill text-warning flex-shrink-0"></i>
+  <div class="small">
+    <span class="fw-semibold">Report missing:</span>
+    {{ downline_missing_reports | join(', ') }}
+  </div>
+</div>
+{% endif %}
 {% endif %}
 
 {# ════════════════════════════════════════════════════════════
@@ -215,6 +245,20 @@
 {% set has_any = stage1_leads|length > 0 or day1_leads|length > 0 or day2_leads|length > 0 or day3_leads|length > 0 or pending_leads|length > 0 %}
 
 {% if has_any %}
+
+{# ── Stage 1: Enrollment Video (all roles) ───────────────── #}
+{% if enrollment_video_url %}
+<div class="card border-0 shadow-sm mb-2">
+  <div class="card-body p-2">
+    <a href="{{ enrollment_video_url }}" target="_blank" rel="noopener" class="d-flex align-items-center gap-2 text-decoration-none" style="color:#6366f1;">
+      <i class="bi bi-play-circle-fill fs-5 flex-shrink-0"></i>
+      <span class="fw-semibold small">{{ enrollment_video_title|default('Enrollment Video') }}</span>
+      <i class="bi bi-box-arrow-up-right ms-auto small"></i>
+    </a>
+    <div class="small text-muted mt-1">Stage 1 — share with leads before payment</div>
+  </div>
+</div>
+{% endif %}
 
 {# ── 1. Day 3 / Interview — FIRST (most urgent) ───────── #}
 {% if day3_leads %}
@@ -332,7 +376,7 @@
                style="width:{{ (bd/3*100)|int }}%"></div>
         </div>
         <div class="d-flex align-items-center gap-2">
-          {% if user_role in ('leader', 'admin') %}
+          {% if show_day1_batches %}
           <button class="dash-mael-btn {% if lead.d1_morning %}dash-mael-done{% endif %}"
                   data-lead="{{ lead.id }}" data-b="d1_morning" data-batch="d1_morning"
                   onclick="openBatchPopup('{{ lead.id }}', 'd1_morning', '{{ lead.phone }}', '{{ lead.name }}', this)">M</button>
@@ -342,6 +386,8 @@
           <button class="dash-mael-btn {% if lead.d1_evening %}dash-mael-done{% endif %}"
                   data-lead="{{ lead.id }}" data-b="d1_evening" data-batch="d1_evening"
                   onclick="openBatchPopup('{{ lead.id }}', 'd1_evening', '{{ lead.phone }}', '{{ lead.name }}', this)">E</button>
+          {% else %}
+          <span class="small text-muted">Leader sends Day 1 batches</span>
           {% endif %}
           <div class="ms-auto d-flex gap-1 align-items-center" id="db-act-{{ lead.id }}">
             <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-outline-success px-2">
@@ -747,7 +793,7 @@
                style="width:{{ (bd/3*100)|int }}%"></div>
         </div>
         <div class="d-flex align-items-center gap-2">
-          {% if user_role in ('leader', 'admin') %}
+          {% if show_day1_batches %}
           <button class="dash-mael-btn {% if lead.d1_morning %}dash-mael-done{% endif %}"
                   data-lead="{{ lead.id }}" data-b="d1_morning" data-batch="d1_morning"
                   onclick="openBatchPopup('{{ lead.id }}', 'd1_morning', '{{ lead.phone }}', '{{ lead.name }}', this)">M</button>
@@ -757,6 +803,8 @@
           <button class="dash-mael-btn {% if lead.d1_evening %}dash-mael-done{% endif %}"
                   data-lead="{{ lead.id }}" data-b="d1_evening" data-batch="d1_evening"
                   onclick="openBatchPopup('{{ lead.id }}', 'd1_evening', '{{ lead.phone }}', '{{ lead.name }}', this)">E</button>
+          {% else %}
+          <span class="small text-muted">Leader sends Day 1 batches</span>
           {% endif %}
           <div class="ms-auto d-flex gap-1 align-items-center" id="db-act-{{ lead.id }}">
             <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-outline-success px-2">
@@ -766,7 +814,7 @@
                class="btn btn-xs px-2" style="background:#25D366;color:#fff;border-radius:4px;">
               <i class="bi bi-whatsapp"></i>
             </a>
-            {% if all_done and user_role in ('leader', 'admin') %}
+            {% if all_done and show_day1_batches %}
             <button class="btn btn-xs btn-success advance-btn px-2"
                     data-lead="{{ lead.id }}" data-status="Day 1"
                     onclick="stageAdvance({{ lead.id }}, 'day1_complete', this)"

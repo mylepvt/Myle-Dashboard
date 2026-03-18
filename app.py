@@ -2498,6 +2498,8 @@ def team_dashboard():
         'd2_evening_v1':   _get_setting(db, 'batch_d2_evening_v1', ''),
         'd2_evening_v2':   _get_setting(db, 'batch_d2_evening_v2', ''),
     }
+    enrollment_video_url   = _get_setting(db, 'enrollment_video_url', '')
+    enrollment_video_title  = _get_setting(db, 'enrollment_video_title', 'Enrollment Video')
 
     # Enrich leads with heat + next_action
     stage1_leads_e  = _enrich_leads(stage1_leads)
@@ -2507,44 +2509,67 @@ def team_dashboard():
     pending_leads_e = _enrich_leads(pending_leads)
     recent_e        = _enrich_leads(recent)
 
-    # Leader: team snapshot (downline pipeline + today score + report status)
+    # Leader-specific: team snapshot data (downline pipeline + report compliance)
     fresh_role = db.execute("SELECT role FROM users WHERE username=?", (username,)).fetchone()
+    show_day1_batches = session.get('role') in ('leader', 'admin')
     team_snapshot = []
-    if fresh_role and fresh_role['role'] == 'leader':
-        downline = db.execute(
-            "SELECT username FROM users WHERE (upline_username=? OR upline_name=?) AND role='team' AND status='approved' ORDER BY username",
-            (username, username)
-        ).fetchall()
+    leader_report_stats = {}
+    downline_missing_reports = []
+    if session.get('role') == 'leader':
+        # Get all direct + recursive downline usernames (excluding self)
+        try:
+            downline_usernames = _get_network_usernames(db, username)
+        except Exception:
+            downline_usernames = []
+        downline_usernames = [u for u in downline_usernames if u != username]
+
         stage_ph = ','.join('?' * len(STAGE1_STATUSES))
-        for row in downline:
-            uname = row['username']
+        for member in downline_usernames:
             counts = db.execute(f"""
                 SELECT
-                    SUM(CASE WHEN status IN ({stage_ph}) THEN 1 ELSE 0 END) AS stage1,
-                    SUM(CASE WHEN status='Day 1' THEN 1 ELSE 0 END) AS day1,
-                    SUM(CASE WHEN status='Day 2' THEN 1 ELSE 0 END) AS day2,
-                    SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3,
-                    SUM(CASE WHEN status IN ('Fully Converted','Converted') THEN 1 ELSE 0 END) AS converted
-                FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
-            """, (*STAGE1_STATUSES, uname)).fetchone()
+                    SUM(CASE WHEN status IN ({stage_ph}) THEN 1 ELSE 0 END) as stage1,
+                    SUM(CASE WHEN status='Day 1'   THEN 1 ELSE 0 END) as day1,
+                    SUM(CASE WHEN status='Day 2'   THEN 1 ELSE 0 END) as day2,
+                    SUM(CASE WHEN status IN ('Interview','Track Selected')
+                        THEN 1 ELSE 0 END) as day3,
+                    SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) as pending,
+                    SUM(CASE WHEN status IN ('Fully Converted','Converted')
+                        THEN 1 ELSE 0 END) as converted
+                FROM leads
+                WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
+            """, (*STAGE1_STATUSES, member)).fetchone()
+
             score_row = db.execute(
-                "SELECT total_points FROM daily_scores WHERE username=? AND score_date=?",
-                (uname, today)
+                "SELECT total_points, streak_days FROM daily_scores WHERE username=? AND score_date=?",
+                (member, today)
             ).fetchone()
+            today_pts = score_row['total_points'] if score_row else 0
+
             report_row = db.execute(
-                "SELECT 1 FROM daily_reports WHERE username=? AND report_date=?",
-                (uname, today)
+                "SELECT id FROM daily_reports WHERE username=? AND report_date=?",
+                (member, today)
             ).fetchone()
+            report_done = bool(report_row)
+
             team_snapshot.append({
-                'username': uname,
-                'stage1': counts['stage1'] or 0,
-                'day1': counts['day1'] or 0,
-                'day2': counts['day2'] or 0,
-                'day3': counts['day3'] or 0,
-                'converted': counts['converted'] or 0,
-                'today_score': score_row['total_points'] if score_row else 0,
-                'report_submitted': bool(report_row),
+                'username':    member,
+                'stage1':      counts['stage1'] or 0,
+                'day1':        counts['day1']   or 0,
+                'day2':        counts['day2']   or 0,
+                'day3':        counts['day3']   or 0,
+                'pending':     counts['pending'] or 0,
+                'converted':   counts['converted'] or 0,
+                'today_pts':   today_pts,
+                'report_done': report_done,
             })
+            if not report_done:
+                downline_missing_reports.append(member)
+
+        leader_report_stats = {
+            'total':     len(downline_usernames),
+            'submitted': len([m for m in team_snapshot if m['report_done']]),
+            'missing':   downline_missing_reports,
+        }
 
     db.close()
     resp = make_response(render_template('dashboard.html',
@@ -2583,8 +2608,13 @@ def team_dashboard():
                            today_streak=today_streak,
                            pending_batches=pending_batches,
                            batch_videos=batch_videos,
+                           enrollment_video_url=enrollment_video_url,
+                           enrollment_video_title=enrollment_video_title,
+                           show_day1_batches=show_day1_batches,
                            user_role=session.get('role', 'team'),
                            team_snapshot=team_snapshot,
+                           leader_report_stats=leader_report_stats,
+                           downline_missing_reports=downline_missing_reports,
                            call_status_values=CALL_STATUS_VALUES,
                            csrf_token=session.get('_csrf_token', '')))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
@@ -3639,6 +3669,10 @@ def reports_admin():
         """).fetchall()
         monthly_reports = []
 
+    # Additional summary for system vs reported videos
+    system_total_videos = sum((r['videos_sent_actual'] or 0) for r in reports if (r['videos_sent_actual'] or -1) >= 0)
+    reported_total_videos = sum((r['pdf_covered'] or 0) for r in reports)
+
     db.close()
     return render_template('reports_admin.html',
                            reports=reports,
@@ -3651,8 +3685,75 @@ def reports_admin():
                            filter_date=filter_date,
                            filter_user=filter_user,
                            view=view,
-                           today=today)
+                           today=today,
+                           system_total_videos=system_total_videos,
+                           reported_total_videos=reported_total_videos)
 
+
+# ─────────────────────────────────────────────────────────────
+#  Leader – Team Reports (read-only)
+# ─────────────────────────────────────────────────────────────
+@app.route('/leader/team-reports')
+@login_required
+@safe_route
+def leader_team_reports():
+    """Leader sees daily reports for their downline — read only."""
+    if session.get('role') not in ('leader', 'admin'):
+        flash('Access denied.', 'danger')
+        return redirect(url_for('team_dashboard'))
+
+    username = session['username']
+    db = get_db()
+
+    # Get downline
+    if session.get('role') == 'admin':
+        members = [r['username'] for r in db.execute(
+            "SELECT username FROM users WHERE role IN ('team','leader') AND status='approved'"
+        ).fetchall()]
+    else:
+        try:
+            members = _get_network_usernames(db, username)
+        except Exception:
+            members = []
+        members = [m for m in members if m != username]
+
+    # Date filter from query param, default today
+    from datetime import datetime as _dt2
+    date_filter = request.args.get('date', _today_ist().isoformat())
+
+    reports = []
+    if members:
+        ph = ','.join('?' * len(members))
+        reports = db.execute(f"""
+            SELECT dr.*, u.phone as member_phone
+            FROM daily_reports dr
+            LEFT JOIN users u ON u.username = dr.username
+            WHERE dr.username IN ({ph}) AND dr.report_date=?
+            ORDER BY dr.submitted_at DESC
+        """, members + [date_filter]).fetchall()
+
+    # Who hasn't submitted
+    submitted_set = {r['username'] for r in reports}
+    missing = [m for m in members if m not in submitted_set]
+
+    # Summary totals
+    summary = {
+        'total_calling':    sum((r['total_calling'] or 0) for r in reports),
+        'pdf_covered':      sum((r['pdf_covered'] or 0) for r in reports),
+        'calls_picked':     sum((r['calls_picked'] or 0) for r in reports),
+        'enrollments_done': sum((r['enrollments_done'] or 0) for r in reports),
+        'plan_2cc':         sum((r['plan_2cc'] or 0) for r in reports),
+        'seat_holdings':    sum((r['seat_holdings'] or 0) for r in reports),
+    }
+
+    db.close()
+    return render_template('leader_team_reports.html',
+                           reports=reports,
+                           missing=missing,
+                           members=members,
+                           summary=summary,
+                           date_filter=date_filter,
+                           today=_today_ist().isoformat())
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Admin \u2013 Settings
@@ -3701,6 +3802,10 @@ def admin_settings():
             val = request.form.get(key, '').strip()
             _set_setting(db, key, val)
 
+        # Enrollment video (Stage 1 — visible to team + leader)
+        _set_setting(db, 'enrollment_video_url', request.form.get('enrollment_video_url', '').strip())
+        _set_setting(db, 'enrollment_video_title', request.form.get('enrollment_video_title', '').strip())
+
         db.commit()
         db.close()
         flash('Settings saved successfully.', 'success')
@@ -3719,6 +3824,10 @@ def admin_settings():
         'anthropic_api_key_set': bool(_get_setting(db, 'anthropic_api_key') or os.environ.get('ANTHROPIC_API_KEY')),
     }
 
+    # ── Enrollment Video (Stage 1) ────────────────────────────────
+    enrollment_video_url   = _get_setting(db, 'enrollment_video_url', '')
+    enrollment_video_title = _get_setting(db, 'enrollment_video_title', 'Enrollment Video')
+
     # ── Batch Video Links ────────────────────────────────────────
     batch_videos = {
         'd1_morning_v1':   _get_setting(db, 'batch_d1_morning_v1', ''),
@@ -3736,7 +3845,8 @@ def admin_settings():
     }
 
     db.close()
-    return render_template('admin_settings.html', settings=settings, batch_videos=batch_videos)
+    return render_template('admin_settings.html', settings=settings, batch_videos=batch_videos,
+                           enrollment_video_url=enrollment_video_url, enrollment_video_title=enrollment_video_title)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -7332,7 +7442,7 @@ def working():
 
         # Team pipeline per member
         members = db.execute(
-            "SELECT username FROM users WHERE role='team' AND status='approved' ORDER BY username"
+            "SELECT username, fbo_id FROM users WHERE role IN ('team','leader') AND status='approved' ORDER BY username"
         ).fetchall()
         team_pipeline = {}
         for m in members:
@@ -7356,6 +7466,7 @@ def working():
                 'pending': row['pending'] or 0,
                 'converted': row['converted'] or 0,
                 'today_score': score_pts,
+                'fbo_id': m['fbo_id'] or '',
             }
 
         # Stale leads (not updated in 48h, not closed/lost)
@@ -7410,6 +7521,8 @@ def working():
             'd2_evening_v1': _get_setting(db, 'batch_d2_evening_v1', ''),
             'd2_evening_v2': _get_setting(db, 'batch_d2_evening_v2', ''),
         }
+        enrollment_video_url   = _get_setting(db, 'enrollment_video_url', '')
+        enrollment_video_title = _get_setting(db, 'enrollment_video_title', 'Enrollment Video')
 
         db.close()
         return render_template('working.html',
@@ -7421,9 +7534,254 @@ def working():
             batch_completion=batch_completion,
             tracks=TRACKS,
             batch_videos=admin_batch_videos,
+            enrollment_video_url=enrollment_video_url,
+            enrollment_video_title=enrollment_video_title,
+            show_day1_batches=True,
             user_role='admin',
             call_status_values=CALL_STATUS_VALUES,
             csrf_token=session.get('_csrf_token', ''),
+        )
+
+    if role == 'leader':
+        # ── Get downline (excludes self) ────────────────────────
+        _all_network = _get_network_usernames(db, username)
+        _downline_only = [u for u in _all_network if u != username]
+
+        # ── OWN LEADS (leader's personal work) ──────────────────
+        own_stage1 = db.execute(f"""
+            SELECT * FROM leads
+            WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
+              AND status IN ({','.join('?'*len(STAGE1_STATUSES))})
+            ORDER BY updated_at DESC
+        """, [username] + list(STAGE1_STATUSES)).fetchall()
+
+        own_day1 = db.execute("""
+            SELECT * FROM leads
+            WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 1'
+            ORDER BY updated_at DESC
+        """, (username,)).fetchall()
+
+        own_day2 = db.execute("""
+            SELECT * FROM leads
+            WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 2'
+            ORDER BY updated_at DESC
+        """, (username,)).fetchall()
+
+        own_day3 = db.execute("""
+            SELECT * FROM leads
+            WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
+              AND status IN ('Interview','Track Selected')
+            ORDER BY updated_at DESC
+        """, (username,)).fetchall()
+
+        own_pending = db.execute("""
+            SELECT * FROM leads
+            WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
+              AND status='Seat Hold Confirmed'
+            ORDER BY updated_at DESC
+        """, (username,)).fetchall()
+
+        own_past = db.execute("""
+            SELECT * FROM leads
+            WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
+              AND status IN ('Fully Converted','Converted','Lost')
+            ORDER BY updated_at DESC LIMIT 20
+        """, (username,)).fetchall()
+
+        # ── TEAM LEADS (downline's work) ─────────────────────────
+        if _downline_only:
+            _d_phs = ','.join('?' * len(_downline_only))
+
+            team_stage1 = db.execute(f"""
+                SELECT * FROM leads
+                WHERE assigned_to IN ({_d_phs}) AND in_pool=0 AND deleted_at=''
+                  AND status IN ({','.join('?'*len(STAGE1_STATUSES))})
+                ORDER BY assigned_to, updated_at DESC
+            """, _downline_only + list(STAGE1_STATUSES)).fetchall()
+
+            team_day1 = db.execute(f"""
+                SELECT * FROM leads
+                WHERE assigned_to IN ({_d_phs}) AND in_pool=0 AND deleted_at='' AND status='Day 1'
+                ORDER BY assigned_to, updated_at DESC
+            """, _downline_only).fetchall()
+
+            team_day2 = db.execute(f"""
+                SELECT * FROM leads
+                WHERE assigned_to IN ({_d_phs}) AND in_pool=0 AND deleted_at='' AND status='Day 2'
+                ORDER BY assigned_to, updated_at DESC
+            """, _downline_only).fetchall()
+
+            team_day3 = db.execute(f"""
+                SELECT * FROM leads
+                WHERE assigned_to IN ({_d_phs}) AND in_pool=0 AND deleted_at=''
+                  AND status IN ('Interview','Track Selected')
+                ORDER BY assigned_to, updated_at DESC
+            """, _downline_only).fetchall()
+
+            team_pending = db.execute(f"""
+                SELECT * FROM leads
+                WHERE assigned_to IN ({_d_phs}) AND in_pool=0 AND deleted_at=''
+                  AND status='Seat Hold Confirmed'
+                ORDER BY assigned_to, updated_at DESC
+            """, _downline_only).fetchall()
+
+            team_past = db.execute(f"""
+                SELECT * FROM leads
+                WHERE assigned_to IN ({_d_phs}) AND in_pool=0 AND deleted_at=''
+                  AND status IN ('Fully Converted','Converted','Lost')
+                ORDER BY assigned_to, updated_at DESC LIMIT 50
+            """, _downline_only).fetchall()
+
+            # Downline member info for filter buttons
+            downline_members = db.execute(f"""
+                SELECT username, fbo_id FROM users
+                WHERE username IN ({_d_phs}) AND status='approved'
+                ORDER BY username
+            """, _downline_only).fetchall()
+        else:
+            team_stage1 = team_day1 = team_day2 = team_day3 = []
+            team_pending = team_past = []
+            downline_members = []
+
+        # ── Pending action counts ────────────────────────────────
+        own_pending_calls = sum(
+            1 for l in own_stage1
+            if not l['call_result'] or l['call_result'] in ('Follow Up Later','Callback Requested')
+        )
+        team_pending_calls = sum(
+            1 for l in team_stage1
+            if not l['call_result'] or l['call_result'] in ('Follow Up Later','Callback Requested')
+        )
+        own_batches_due = (
+            sum(1 for l in own_day1 if not (l['d1_morning'] and l['d1_afternoon'] and l['d1_evening'])) +
+            sum(1 for l in own_day2 if not (l['d2_morning'] and l['d2_afternoon'] and l['d2_evening']))
+        )
+        team_batches_due = (
+            sum(1 for l in team_day1 if not (l['d1_morning'] and l['d1_afternoon'] and l['d1_evening'])) +
+            sum(1 for l in team_day2 if not (l['d2_morning'] and l['d2_afternoon'] and l['d2_evening']))
+        )
+
+        # ── Enrich all lists ─────────────────────────────────────
+        own_stage1   = _enrich_leads(own_stage1)
+        own_day1     = _enrich_leads(own_day1)
+        own_day2     = _enrich_leads(own_day2)
+        own_day3     = _enrich_leads(own_day3)
+        own_pending  = _enrich_leads(own_pending)
+        team_stage1  = _enrich_leads(team_stage1)
+        team_day1    = _enrich_leads(team_day1)
+        team_day2    = _enrich_leads(team_day2)
+        team_day3    = _enrich_leads(team_day3)
+        team_pending = _enrich_leads(team_pending)
+
+        today_score, streak = _get_today_score(db, username)
+
+        # ── Batch videos (same as team member) ──────────────────
+        leader_batch_videos = {
+            'd1_morning_v1':   _get_setting(db, 'batch_d1_morning_v1', ''),
+            'd1_morning_v2':   _get_setting(db, 'batch_d1_morning_v2', ''),
+            'd1_afternoon_v1': _get_setting(db, 'batch_d1_afternoon_v1', ''),
+            'd1_afternoon_v2': _get_setting(db, 'batch_d1_afternoon_v2', ''),
+            'd1_evening_v1':   _get_setting(db, 'batch_d1_evening_v1', ''),
+            'd1_evening_v2':   _get_setting(db, 'batch_d1_evening_v2', ''),
+            'd2_morning_v1':   _get_setting(db, 'batch_d2_morning_v1', ''),
+            'd2_morning_v2':   _get_setting(db, 'batch_d2_morning_v2', ''),
+            'd2_afternoon_v1': _get_setting(db, 'batch_d2_afternoon_v1', ''),
+            'd2_afternoon_v2': _get_setting(db, 'batch_d2_afternoon_v2', ''),
+            'd2_evening_v1':   _get_setting(db, 'batch_d2_evening_v1', ''),
+            'd2_evening_v2':   _get_setting(db, 'batch_d2_evening_v2', ''),
+        }
+
+        # ── Enroll To data ───────────────────────────────────────
+        _ec_rows = db.execute(
+            "SELECT * FROM enroll_content WHERE is_active=1 ORDER BY day_number, sort_order"
+        ).fetchall()
+        enroll_days = {}
+        for _r in _ec_rows:
+            _d = _r['day_number']
+            if _d not in enroll_days:
+                enroll_days[_d] = []
+            enroll_days[_d].append(dict(_r))
+
+        enroll_pdfs = db.execute(
+            "SELECT * FROM enroll_pdfs WHERE is_active=1 ORDER BY sort_order"
+        ).fetchall()
+
+        recent_shares = db.execute("""
+            SELECT esl.*, ec.curiosity_title as video_title, ec.day_number as video_day
+            FROM enroll_share_links esl
+            JOIN enroll_content ec ON ec.id = esl.content_id
+            WHERE esl.shared_by=?
+            ORDER BY esl.created_at DESC LIMIT 15
+        """, (username,)).fetchall()
+
+        # All leads for enroll share link generator (own + team)
+        _all_leader_leads_phs = ','.join('?' * len([username] + list(_downline_only)))
+        team_leads_for_enroll = db.execute(f"""
+            SELECT id, name, phone, assigned_to FROM leads
+            WHERE assigned_to IN ({_all_leader_leads_phs})
+              AND in_pool=0 AND deleted_at=''
+              AND status NOT IN ('Lost','Converted','Fully Converted')
+            ORDER BY assigned_to, name
+        """, [username] + list(_downline_only)).fetchall()
+
+        enrollment_video_url   = _get_setting(db, 'enrollment_video_url', '')
+        enrollment_video_title = _get_setting(db, 'enrollment_video_title', 'Enrollment Video')
+
+        db.close()
+
+        return render_template('working.html',
+            is_admin=False,
+            is_leader=True,
+
+            # Own leads
+            own_stage1=own_stage1,
+            own_day1=own_day1,
+            own_day2=own_day2,
+            own_day3=own_day3,
+            own_pending=own_pending,
+            own_past=own_past,
+
+            # Team leads
+            team_stage1=team_stage1,
+            team_day1=team_day1,
+            team_day2=team_day2,
+            team_day3=team_day3,
+            team_pending=team_pending,
+            team_past=team_past,
+
+            # Counts
+            own_pending_calls=own_pending_calls,
+            team_pending_calls=team_pending_calls,
+            own_batches_due=own_batches_due,
+            team_batches_due=team_batches_due,
+
+            # Downline info
+            downline_members=downline_members,
+            has_team=bool(_downline_only),
+
+            # Backward compatibility (some template parts may use these)
+            stage1_leads=own_stage1 + team_stage1,
+            day1_leads=own_day1 + team_day1,
+            day2_leads=own_day2 + team_day2,
+            day3_leads=own_day3 + team_day3,
+            pending_leads=own_pending + team_pending,
+            past_leads=own_past,
+
+            today_score=today_score,
+            streak=streak,
+            tracks=TRACKS,
+            statuses=STATUSES,
+            batch_videos=leader_batch_videos,
+            user_role='leader',
+            call_status_values=CALL_STATUS_VALUES,
+            csrf_token=session.get('_csrf_token', ''),
+            enroll_days=enroll_days,
+            enroll_pdfs=enroll_pdfs,
+            recent_shares=recent_shares,
+            team_leads=team_leads_for_enroll,
+            enrollment_video_url=enrollment_video_url,
+            enrollment_video_title=enrollment_video_title,
+            show_day1_batches=True,
         )
 
     # ── Team member view ───────────────────────────────────────────
@@ -7434,39 +7792,17 @@ def working():
         ORDER BY updated_at DESC
     """, [username] + list(STAGE1_STATUSES)).fetchall()
 
-    # Leaders see Day 1 leads for themselves + their downline
-    if role == 'leader':
-        _downline = _get_network_usernames(db, username)
-        _d1_users = [username] + list(_downline)
-        _phs = ','.join('?' * len(_d1_users))
-        day1_leads = db.execute(f"""
-            SELECT * FROM leads
-            WHERE assigned_to IN ({_phs}) AND in_pool=0 AND deleted_at='' AND status='Day 1'
-            ORDER BY updated_at DESC
-        """, _d1_users).fetchall()
-    else:
-        day1_leads = db.execute("""
-            SELECT * FROM leads
-            WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 1'
-            ORDER BY updated_at DESC
-        """, (username,)).fetchall()
+    day1_leads = db.execute("""
+        SELECT * FROM leads
+        WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 1'
+        ORDER BY updated_at DESC
+    """, (username,)).fetchall()
 
-    # Leaders see Day 2 leads for themselves + their downline (same as Day 1)
-    if role == 'leader':
-        _downline2 = _get_network_usernames(db, username)
-        _d2_users = [username] + list(_downline2)
-        _phs2 = ','.join('?' * len(_d2_users))
-        day2_leads = db.execute(f"""
-            SELECT * FROM leads
-            WHERE assigned_to IN ({_phs2}) AND in_pool=0 AND deleted_at='' AND status='Day 2'
-            ORDER BY updated_at DESC
-        """, _d2_users).fetchall()
-    else:
-        day2_leads = db.execute("""
-            SELECT * FROM leads
-            WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 2'
-            ORDER BY updated_at DESC
-        """, (username,)).fetchall()
+    day2_leads = db.execute("""
+        SELECT * FROM leads
+        WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 2'
+        ORDER BY updated_at DESC
+    """, (username,)).fetchall()
 
     day3_leads = db.execute("""
         SELECT * FROM leads
@@ -7548,6 +7884,9 @@ def working():
         'd2_evening_v1': _get_setting(db, 'batch_d2_evening_v1', ''),
         'd2_evening_v2': _get_setting(db, 'batch_d2_evening_v2', ''),
     }
+    enrollment_video_url   = _get_setting(db, 'enrollment_video_url', '')
+    enrollment_video_title = _get_setting(db, 'enrollment_video_title', 'Enrollment Video')
+    show_day1_batches     = (role or 'team') in ('leader', 'admin')
 
     # Enrich team view leads with heat + next_action
     stage1_leads  = _enrich_leads(stage1_leads)
@@ -7570,6 +7909,9 @@ def working():
         tracks=TRACKS,
         statuses=STATUSES,
         batch_videos=team_batch_videos,
+        enrollment_video_url=enrollment_video_url,
+        enrollment_video_title=enrollment_video_title,
+        show_day1_batches=show_day1_batches,
         user_role=role or 'team',
         call_status_values=CALL_STATUS_VALUES,
         csrf_token=session.get('_csrf_token', ''),

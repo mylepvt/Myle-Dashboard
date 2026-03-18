@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Team Reports — Myle Community{% endblock %}
+{% block page_title %}My Team Reports{% endblock %}
+
+{% block content %}
+
+{# Date picker #}
+<div class="d-flex align-items-center gap-2 mb-3">
+  <form method="get" class="d-flex align-items-center gap-2">
+    <label class="small fw-semibold text-muted">Date:</label>
+    <input type="date" name="date" value="{{ date_filter }}"
+           class="form-control form-control-sm" style="width:auto;"
+           onchange="this.form.submit()">
+  </form>
+  <span class="badge bg-light text-dark border">{{ reports|length }} reports submitted</span>
+  <a href="{{ url_for('team_dashboard') }}" class="btn btn-sm btn-outline-secondary ms-auto">Back to Dashboard</a>
+</div>
+
+{# Summary row #}
+<div class="row g-2 mb-3">
+  {% for label, key, color in [
+    ('Total Calls', 'total_calling', 'primary'),
+    ('Videos/PDF', 'pdf_covered', 'info'),
+    ('Calls Picked', 'calls_picked', 'success'),
+    ('Enrolled', 'enrollments_done', 'warning'),
+    ('2cc Plan', 'plan_2cc', 'purple'),
+    ('Seat Hold', 'seat_holdings', 'secondary'),
+  ] %}
+  <div class="col-4 col-md-2">
+    <div class="card border-0 shadow-sm text-center py-2">
+      <div class="fw-bold text-{{ color }}" style="font-size:1.3rem;">
+        {{ summary[key] }}
+      </div>
+      <div style="font-size:0.62rem;color:#9ca3af;">{{ label }}</div>
+    </div>
+  </div>
+  {% endfor %}
+ </div>
+
+{# Missing reports #}
+{% if missing %}
+<div class="alert alert-danger py-2 mb-3 d-flex align-items-center gap-2"
+     style="border-radius:10px;">
+  <i class="bi bi-exclamation-circle-fill flex-shrink-0"></i>
+  <div class="small">
+    <span class="fw-semibold">Report not submitted:</span>
+    {{ missing | join(', ') }}
+  </div>
+  <span class="ms-auto small text-muted">{{ today }}</span>
+</div>
+{% endif %}
+
+{# Reports table #}
+{% if reports %}
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0 small">
+      <thead class="table-light">
+        <tr>
+          <th>Member</th>
+          <th class="text-center">Calls</th>
+          <th class="text-center">Videos</th>
+          <th class="text-center">Picked</th>
+          <th class="text-center">Enrolled</th>
+          <th class="text-center">2cc</th>
+          <th class="text-center">Seat</th>
+          <th>Remarks</th>
+          <th class="text-center">Verified</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reports %}
+        {% set actual_v = r.videos_sent_actual if r.videos_sent_actual is defined else -1 %}
+        {% set inflated = actual_v >= 0 and (r.pdf_covered or 0) > actual_v + 5 %}
+        <tr {% if inflated %}style="background:#fffbeb;"{% endif %}>
+          <td class="fw-semibold">{{ r.username }}</td>
+          <td class="text-center">{{ r.total_calling or 0 }}</td>
+          <td class="text-center {% if inflated %}text-warning fw-bold{% endif %}">
+            {{ r.pdf_covered or 0 }}
+            {% if inflated %}
+            <i class="bi bi-exclamation-triangle-fill text-warning ms-1"
+               title="System tracked {{ actual_v }}, reported {{ r.pdf_covered }}"></i>
+            {% endif %}
+          </td>
+          <td class="text-center">{{ r.calls_picked or 0 }}</td>
+          <td class="text-center">{{ r.enrollments_done or 0 }}</td>
+          <td class="text-center">{{ r.plan_2cc or 0 }}</td>
+          <td class="text-center">{{ r.seat_holdings or 0 }}</td>
+          <td style="max-width:150px;" class="text-truncate text-muted small">
+            {{ r.remarks or '—' }}
+          </td>
+          <td class="text-center">
+            {% if r.system_verified %}
+            <span class="badge bg-success" style="font-size:0.65rem;">✅ Verified</span>
+            {% else %}
+            <span class="badge bg-light text-muted border" style="font-size:0.65rem;">Manual</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+ </div>
+{% else %}
+<div class="text-muted text-center py-4">
+  <i class="bi bi-inbox fs-2 d-block mb-2 opacity-50"></i>
+  No reports submitted for {{ date_filter }}.
+  </div>
+{% endif %}
+
+{% endblock %}
