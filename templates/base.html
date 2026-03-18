@@ -803,19 +803,19 @@ if (!window.CSS || !window.CSS.supports) {
 
   function applyDark(on) {
     document.documentElement.setAttribute('data-theme', on ? 'dark' : 'light');
-    darkIcon.className = on ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+    if (darkIcon) darkIcon.className = on ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
     var meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', on ? '#050507' : '#007AFF');
   }
 
-  // Load saved preference
-  applyDark(localStorage.getItem('myle-dark') === '1');
-
-  darkToggle.addEventListener('click', () => {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    localStorage.setItem('myle-dark', isDark ? '0' : '1');
-    applyDark(!isDark);
-  });
+  if (darkToggle && darkIcon) {
+    applyDark(localStorage.getItem('myle-dark') === '1');
+    darkToggle.addEventListener('click', () => {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      localStorage.setItem('myle-dark', isDark ? '0' : '1');
+      applyDark(!isDark);
+    });
+  }
 
   /* ── Offline indicator ──────────────────────────────── */
   window.addEventListener('offline', function(){ document.getElementById('offlineBanner').classList.remove('d-none'); });
