@@ -1469,8 +1469,11 @@ async function _markBatchDone(leadId, batchKey, forceMark = false) {
   }
 }
 
-document.getElementById('batchPopup').addEventListener('click', function(e) {
-  if (e.target === this) closeBatchPopup();
+document.addEventListener('DOMContentLoaded', function() {
+  var bp = document.getElementById('batchPopup');
+  if (bp) bp.addEventListener('click', function(e) {
+    if (e.target === this) closeBatchPopup();
+  });
 });
 
 // ── Stage Advance via Pipeline ─────────────────────────────────
@@ -1523,11 +1526,8 @@ function updateCallStatus(leadId, newStatus, selectEl) {
 </script>
 
 <!-- Batch Popup HTML -->
-<div id="batchPopup" style="display:none;
-  position:fixed; inset:0; z-index:9999;
-  background:rgba(0,0,0,0.5);
-  display:none; align-items:flex-end;
-  justify-content:center;">
+<div id="batchPopup" style="display:none; position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,0.5); align-items:flex-end; justify-content:center;">
 
   <div style="background:#fff; border-radius:20px 20px 0 0;
     width:100%; max-width:480px; padding:20px;

@@ -1302,12 +1302,14 @@ setInterval(updateLiveScore, 30000);
 
 // ── Score breakdown popup ──────────────────────────────────────
 function toggleScoreBreakdown() {
-  document.getElementById('scorePopup').classList.toggle('d-none');
+  var el = document.getElementById('scorePopup');
+  if (el) el.classList.toggle('d-none');
 }
 document.addEventListener('click', function(e) {
   const popup = document.getElementById('scorePopup');
+  const scoreBtn = document.getElementById('scoreBtn');
   if (popup && !popup.classList.contains('d-none')) {
-    if (!popup.contains(e.target) && !document.getElementById('scoreBtn').contains(e.target)) {
+    if (!popup.contains(e.target) && (!scoreBtn || !scoreBtn.contains(e.target))) {
       popup.classList.add('d-none');
     }
   }
@@ -1523,12 +1525,12 @@ function spawnConfetti(anchorEl) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const BATCH_VIDEOS = {
-  d1_morning:   { v1: "{{ batch_videos.d1_morning_v1 }}", v2: "{{ batch_videos.d1_morning_v2 }}" },
-  d1_afternoon: { v1: "{{ batch_videos.d1_afternoon_v1 }}", v2: "{{ batch_videos.d1_afternoon_v2 }}" },
-  d1_evening:   { v1: "{{ batch_videos.d1_evening_v1 }}", v2: "{{ batch_videos.d1_evening_v2 }}" },
-  d2_morning:   { v1: "{{ batch_videos.d2_morning_v1 }}", v2: "{{ batch_videos.d2_morning_v2 }}" },
-  d2_afternoon: { v1: "{{ batch_videos.d2_afternoon_v1 }}", v2: "{{ batch_videos.d2_afternoon_v2 }}" },
-  d2_evening:   { v1: "{{ batch_videos.d2_evening_v1 }}", v2: "{{ batch_videos.d2_evening_v2 }}" },
+  d1_morning:   { v1: "{{ batch_videos.d1_morning_v1|default('') }}", v2: "{{ batch_videos.d1_morning_v2|default('') }}" },
+  d1_afternoon: { v1: "{{ batch_videos.d1_afternoon_v1|default('') }}", v2: "{{ batch_videos.d1_afternoon_v2|default('') }}" },
+  d1_evening:   { v1: "{{ batch_videos.d1_evening_v1|default('') }}", v2: "{{ batch_videos.d1_evening_v2|default('') }}" },
+  d2_morning:   { v1: "{{ batch_videos.d2_morning_v1|default('') }}", v2: "{{ batch_videos.d2_morning_v2|default('') }}" },
+  d2_afternoon: { v1: "{{ batch_videos.d2_afternoon_v1|default('') }}", v2: "{{ batch_videos.d2_afternoon_v2|default('') }}" },
+  d2_evening:   { v1: "{{ batch_videos.d2_evening_v1|default('') }}", v2: "{{ batch_videos.d2_evening_v2|default('') }}" },
 };
 
 const BATCH_LABELS = {
@@ -1691,8 +1693,12 @@ async function _markBatchDone(leadId, batchKey, forceMark = false) {
   }
 }
 
-document.getElementById('batchPopup').addEventListener('click', function(e) {
-  if (e.target === this) closeBatchPopup();
+// Attach batch popup backdrop click when DOM ready (batchPopup is below this script)
+document.addEventListener('DOMContentLoaded', function() {
+  var bp = document.getElementById('batchPopup');
+  if (bp) bp.addEventListener('click', function(e) {
+    if (e.target === this) closeBatchPopup();
+  });
 });
 
 // ── Stage Advance via Pipeline ─────────────────────────────────
@@ -1836,11 +1842,8 @@ function reactivateLead(leadId, selectEl) {
 </script>
 
 <!-- Batch Popup HTML -->
-<div id="batchPopup" style="display:none;
-  position:fixed; inset:0; z-index:9999;
-  background:rgba(0,0,0,0.5);
-  display:none; align-items:flex-end;
-  justify-content:center;">
+<div id="batchPopup" style="display:none; position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,0.5); align-items:flex-end; justify-content:center;">
 
   <div style="background:#fff; border-radius:20px 20px 0 0;
     width:100%; max-width:480px; padding:20px;
