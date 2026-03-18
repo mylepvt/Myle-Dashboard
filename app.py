@@ -1773,7 +1773,7 @@ def inject_pending_count():
             db = get_db()
             has_pending_work = db.execute(
                 "SELECT COUNT(*) FROM leads "
-                "WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status='Day 1' AND d1_morning=0",
+                "WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status IN ('Day 1','Paid ₹196') AND d1_morning=0",
                 (uname,)
             ).fetchone()[0] > 0
             db.close()
@@ -2427,7 +2427,7 @@ def team_dashboard():
         (username, *STAGE1_STATUSES)
     ).fetchall()
     day1_leads_db = db.execute(
-        "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 1' ORDER BY updated_at ASC",
+        "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status IN ('Day 1','Paid ₹196') ORDER BY updated_at ASC",
         (username,)
     ).fetchall()
     day2_leads_db = db.execute(
@@ -2528,7 +2528,7 @@ def team_dashboard():
             counts = db.execute(f"""
                 SELECT
                     SUM(CASE WHEN status IN ({stage_ph}) THEN 1 ELSE 0 END) as stage1,
-                    SUM(CASE WHEN status='Day 1'   THEN 1 ELSE 0 END) as day1,
+                    SUM(CASE WHEN status IN ('Day 1','Paid ₹196') THEN 1 ELSE 0 END) as day1,
                     SUM(CASE WHEN status='Day 2'   THEN 1 ELSE 0 END) as day2,
                     SUM(CASE WHEN status IN ('Interview','Track Selected')
                         THEN 1 ELSE 0 END) as day3,
@@ -6068,8 +6068,20 @@ def migrate_pipeline_stages(db):
         FROM leads WHERE in_pool=0 AND deleted_at=''
     """).fetchall()
     for lead in leads:
+        # Legacy normalization: "Paid ₹196" is now treated as Day 1 everywhere
+        # (older data may still have the old status value).
+        if lead['status'] == 'Paid ₹196':
+            try:
+                db.execute(
+                    "UPDATE leads SET status='Day 1', payment_done=1, payment_amount=? WHERE id=?",
+                    (PAYMENT_AMOUNT, lead['id'])
+                )
+            except Exception:
+                pass
         current_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else ''
-        expected_stage = STATUS_TO_STAGE.get(lead['status'], 'enrollment')
+        # If we normalized status above, re-read expected stage accordingly
+        expected_status = 'Day 1' if lead['status'] == 'Paid ₹196' else lead['status']
+        expected_stage = STATUS_TO_STAGE.get(expected_status, 'enrollment')
         needs_update = (not current_stage or current_stage == '' or current_stage != expected_stage)
         if needs_update:
             stage = expected_stage
@@ -7427,7 +7439,7 @@ def working():
         stage_counts = db.execute(f"""
             SELECT
                 SUM(CASE WHEN status IN ({stage_placeholders}) THEN 1 ELSE 0 END) AS stage1,
-                SUM(CASE WHEN status='Day 1'             THEN 1 ELSE 0 END) AS day1,
+                SUM(CASE WHEN status IN ('Day 1','Paid ₹196') THEN 1 ELSE 0 END) AS day1,
                 SUM(CASE WHEN status='Day 2'             THEN 1 ELSE 0 END) AS day2,
                 SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3,
                 SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS pending,
@@ -7450,7 +7462,7 @@ def working():
             row = db.execute(f"""
                 SELECT
                     SUM(CASE WHEN status IN ({stage_placeholders}) THEN 1 ELSE 0 END) AS stage1,
-                    SUM(CASE WHEN status='Day 1'             THEN 1 ELSE 0 END) AS day1,
+                    SUM(CASE WHEN status IN ('Day 1','Paid ₹196') THEN 1 ELSE 0 END) AS day1,
                     SUM(CASE WHEN status='Day 2'             THEN 1 ELSE 0 END) AS day2,
                     SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3,
                     SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS pending,
@@ -7483,11 +7495,11 @@ def working():
 
         # Day 1/2 batch completion rate
         d1_total = db.execute(
-            "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND status='Day 1'"
+            "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND status IN ('Day 1','Paid ₹196')"
         ).fetchone()[0] or 0
         d1_done  = db.execute("""
             SELECT COUNT(*) FROM leads
-            WHERE in_pool=0 AND deleted_at='' AND status='Day 1'
+            WHERE in_pool=0 AND deleted_at='' AND status IN ('Day 1','Paid ₹196')
               AND d1_morning=1 AND d1_afternoon=1 AND d1_evening=1
         """).fetchone()[0] or 0
         d2_total = db.execute(
@@ -7557,7 +7569,7 @@ def working():
 
         own_day1 = db.execute("""
             SELECT * FROM leads
-            WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 1'
+            WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status IN ('Day 1','Paid ₹196')
             ORDER BY updated_at DESC
         """, (username,)).fetchall()
 
@@ -7601,7 +7613,7 @@ def working():
 
             team_day1 = db.execute(f"""
                 SELECT * FROM leads
-                WHERE assigned_to IN ({_d_phs}) AND in_pool=0 AND deleted_at='' AND status='Day 1'
+                WHERE assigned_to IN ({_d_phs}) AND in_pool=0 AND deleted_at='' AND status IN ('Day 1','Paid ₹196')
                 ORDER BY assigned_to, updated_at DESC
             """, _downline_only).fetchall()
 
@@ -7794,7 +7806,7 @@ def working():
 
     day1_leads = db.execute("""
         SELECT * FROM leads
-        WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 1'
+        WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status IN ('Day 1','Paid ₹196')
         ORDER BY updated_at DESC
     """, (username,)).fetchall()
 
@@ -7845,7 +7857,7 @@ def working():
     batches_due = (
         db.execute("""
             SELECT COUNT(*) FROM leads
-            WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 1'
+            WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status IN ('Day 1','Paid ₹196')
               AND (d1_morning+d1_afternoon+d1_evening) < 3
         """, (username,)).fetchone()[0] or 0
     ) + (
@@ -8277,7 +8289,7 @@ def update_call_status(lead_id):
         if lead_stage == 'enrollment':
             _transition_stage(db, lead_id, 'day1', username)
             stage_advanced = True
-            # Ensure lead shows in Working Day 1: status and payment must be set (leader/team Day 1 lists filter by status='Day 1')
+            # Ensure lead shows in Day 1 lists: status and payment must be set
             db.execute(
                 "UPDATE leads SET status='Day 1', payment_done=1, payment_amount=?, updated_at=? WHERE id=?",
                 (PAYMENT_AMOUNT, now_str, lead_id)
