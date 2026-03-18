@@ -59,6 +59,7 @@
 {% endif %}
 
 <form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
   <!-- ── Section 1: Basic Info ── -->
   <div class="card border-0 shadow-sm mb-3">
