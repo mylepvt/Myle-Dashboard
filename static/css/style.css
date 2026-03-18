@@ -1261,7 +1261,7 @@ p,span,td,li { color: inherit; }
 
 @media (max-width:768px) {
   .container-fluid { padding:0.6rem 0.75rem!important; }
-  .navbar { padding:0.5rem 0.6rem!important; }
+  .navbar { padding:calc(0.5rem + env(safe-area-inset-top,0px)) 0.6rem 0.5rem!important; }
   .navbar .navbar-page-title { max-width:45vw; }
   /* Touch target for sidebar toggle (mobile) */
   #sidebarToggle { min-width: 44px; min-height: 44px; padding: 0.5rem; }
