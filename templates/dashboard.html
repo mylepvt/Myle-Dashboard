@@ -13,7 +13,7 @@
   {# Score pill #}
   <span class="badge rounded-pill px-3 py-2 fw-bold" id="scorePill"
         style="background:#eef2ff;color:#6366f1;font-size:0.82rem;">
-    <i class="bi bi-trophy-fill me-1"></i>{{ today_score }} pts
+    <i class="bi bi-trophy-fill me-1"></i><span data-countup="{{ today_score }}">{{ today_score }}</span> pts
   </span>
 
   {# Streak pill #}
@@ -250,12 +250,12 @@
 {% if enrollment_video_url %}
 <div class="card border-0 shadow-sm mb-2">
   <div class="card-body p-2">
-    <a href="{{ enrollment_video_url }}" target="_blank" rel="noopener" class="d-flex align-items-center gap-2 text-decoration-none" style="color:#6366f1;">
+    <a href="{{ enrollment_video_url }}" class="video-in-app d-flex align-items-center gap-2 text-decoration-none" style="color:#6366f1;">
       <i class="bi bi-play-circle-fill fs-5 flex-shrink-0"></i>
       <span class="fw-semibold small">{{ enrollment_video_title|default('Enrollment Video') }}</span>
-      <i class="bi bi-box-arrow-up-right ms-auto small"></i>
+      <i class="bi bi-play-btn ms-auto small"></i>
     </a>
-    <div class="small text-muted mt-1">Stage 1 — share with leads before payment</div>
+    <div class="small text-muted mt-1">Stage 1 — share with leads; plays in-app (no YouTube suggestions)</div>
   </div>
 </div>
 {% endif %}
@@ -643,13 +643,13 @@
       <div class="row g-2 text-center">
         <div class="col-4">
           <div class="p-2 rounded" style="background:#eef2ff;">
-            <div class="fw-bold" style="color:#6366f1;font-size:1.15rem;">{{ total_leads_count }}</div>
+            <div class="fw-bold" style="color:#6366f1;font-size:1.15rem;"><span data-countup="{{ total_leads_count }}">{{ total_leads_count }}</span></div>
             <div class="text-muted" style="font-size:0.68rem;">Total Leads</div>
           </div>
         </div>
         <div class="col-4">
           <div class="p-2 rounded" style="background:#f0fdf4;">
-            <div class="fw-bold text-success" style="font-size:1.15rem;">{{ pending_leads|length }}</div>
+            <div class="fw-bold text-success" style="font-size:1.15rem;"><span data-countup="{{ pending_leads|length }}">{{ pending_leads|length }}</span></div>
             <div class="text-muted" style="font-size:0.68rem;">Seat Holds</div>
           </div>
         </div>

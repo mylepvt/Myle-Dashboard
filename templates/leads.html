@@ -1051,8 +1051,14 @@ document.addEventListener('change', function(e) {
   .then(data => {
     if (data.ok) {
       showToast('Status updated → ' + status, 'success');
+      if (status === 'Day 1' || status === 'Paid ₹196') {
+        if (typeof MyleSound !== 'undefined') MyleSound.celebrate();
+        var card = sel.closest('.wl-card, .wk-lead-card, tr');
+        if (card && typeof spawnConfetti === 'function') spawnConfetti(card);
+      }
       if (data.stage_changed) {
         showToast('Stage advanced → ' + data.new_stage + ' 🎯', 'info');
+        if (typeof MyleAnim !== 'undefined') MyleAnim.floatPoints(10, sel);
         setTimeout(() => location.reload(), 1400);
       }
     } else { showToast('Could not save. Try again.', 'danger'); }

@@ -1204,7 +1204,17 @@ function updateLiveScore() {
     .then(d => {
       if (d.ok) {
         const el = document.getElementById('liveScore');
-        if (el) el.textContent = d.score;
+        if (el) {
+          const oldScore = parseInt(el.textContent, 10) || 0;
+          const newScore = d.score || 0;
+          if (newScore > oldScore && typeof MyleAnim !== 'undefined') {
+            MyleAnim.animateScore(el, oldScore, newScore, 600);
+            MyleAnim.floatPoints(newScore - oldScore, el);
+            if (typeof MyleSound !== 'undefined') MyleSound.score();
+          } else {
+            el.textContent = newScore;
+          }
+        }
       }
     })
     .catch(() => {});
@@ -1338,6 +1348,17 @@ document.addEventListener('DOMContentLoaded', function() {
   if (firstOwnTab && !firstOwnTab.classList.contains('active')) {
     firstOwnTab.click();
   }
+
+  // Stagger lead cards animation on page load
+  document.querySelectorAll('.wk-lead-card').forEach(function(card, index) {
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(20px)';
+    setTimeout(function() {
+      card.style.transition = 'opacity 0.3s ease, transform 0.4s cubic-bezier(0.34,1.56,0.64,1)';
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(0)';
+    }, index * 60);
+  });
 });
 
 // ── Quick advance ──────────────────────────────────────────────
@@ -1367,9 +1388,15 @@ function handleAdvance() {
     if (d.new_badges && d.new_badges.length) {
       d.new_badges.forEach(b => showToast(`🏅 Badge unlocked: ${b}`, 'warning'));
     }
-    // Update live score
-    const scoreEl = document.getElementById('liveScore');
-    if (scoreEl && d.today_score !== undefined) scoreEl.textContent = d.today_score;
+    if (typeof MyleAnim !== 'undefined') {
+      const scoreEl = document.getElementById('liveScore');
+      if (scoreEl && d.today_score !== undefined) {
+        const oldScore = parseInt(scoreEl.textContent, 10) || 0;
+        MyleAnim.animateScore(scoreEl, oldScore, d.today_score, 800);
+        MyleAnim.floatPoints(d.today_score - oldScore, scoreEl);
+      }
+    }
+    if (typeof MyleSound !== 'undefined') MyleSound.celebrate();
 
     // Remove card from current column with animation
     const card = document.getElementById(`lead-${leadId}`);
@@ -1565,6 +1592,15 @@ async function _markBatchDone(leadId, batchKey, forceMark = false) {
           const advBtn = card.querySelector('.wk-advance-btn');
           if (advBtn) advBtn.style.display = 'inline-flex';
         }
+      }
+      if (data.new_val && data.points > 0 && typeof MyleAnim !== 'undefined') {
+        var btn = card ? card.querySelector('[data-batch="' + batchKey + '"]') : null;
+        if (btn) MyleAnim.floatPoints(data.points, btn);
+      }
+      if (data.all_done && card && typeof MyleAnim !== 'undefined') {
+        MyleAnim.glowGreen(card);
+        if (typeof spawnConfetti === 'function') spawnConfetti(card);
+        if (typeof MyleSound !== 'undefined') MyleSound.celebrate();
       }
       if (data.new_val && typeof MyleSound !== 'undefined') MyleSound.batch();
       showToast(data.new_val ? '+15 pts! Batch mark ho gayi ✅' : 'Batch un-mark ho gayi', data.new_val ? 'success' : 'warning');
