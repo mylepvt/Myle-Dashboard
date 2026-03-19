@@ -309,6 +309,7 @@ button, .btn, .nav-link, .mbn-item {
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
+  flex-wrap: nowrap;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -1244,6 +1245,7 @@ p,span,td,li { color: inherit; }
   #sidebar {
     position:fixed!important;top:0;left:0;height:100vh;height:100dvh;width:min(320px,85vw)!important;
     padding-top:env(safe-area-inset-top,0)!important;
+    padding-bottom:calc(68px + env(safe-area-inset-bottom,0px))!important;
     z-index:1060;transform:translateX(-100%);
     transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);
     overflow:hidden;
