@@ -5570,8 +5570,8 @@ def export_leads():
 
     buf.seek(0)
     fname = f"leads_{_today_ist().isoformat()}.csv"
-    return Response(buf.getvalue(), mimetype='text/csv',
-                    headers={'Content-Disposition': f'attachment; filename={fname}'})
+    return Response(buf.getvalue(), mimetype='application/octet-stream',
+                    headers={'Content-Disposition': f'attachment; filename="{fname}"'})
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
