@@ -95,16 +95,19 @@
   .faq-q-chevron { margin-left: auto; color: #9ca3af; transition: transform .2s; }
 
   /* dark mode */
-  [data-bs-theme="dark"] .feat-card { border-color: #374151; background: #1f2937; }
-  [data-bs-theme="dark"] .feat-card-header { background: #111827; border-color: #374151; }
-  [data-bs-theme="dark"] .feat-card-header:hover { background: #1f2937; }
-  [data-bs-theme="dark"] .help-hero { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
-  [data-bs-theme="dark"] .tip-box { background: #052e16; border-color: #16a34a; }
-  [data-bs-theme="dark"] .tip-box.warn { background: #1c1008; border-color: #d97706; }
-  [data-bs-theme="dark"] .tip-box.info { background: #0c1a2e; border-color: #3b82f6; }
-  [data-bs-theme="dark"] .help-tab-btn { color: #9ca3af; }
-  [data-bs-theme="dark"] .faq-item { border-color: #374151; }
-  [data-bs-theme="dark"] .faq-a { color: #d1d5db; }
+  [data-theme="dark"] .feat-card { border-color: var(--sep); background: var(--bg-card); }
+  [data-theme="dark"] .feat-card-header { background: rgba(255,255,255,0.04); border-color: var(--sep); color: var(--label-1); }
+  [data-theme="dark"] .feat-card-header:hover { background: var(--fill-3); }
+  [data-theme="dark"] .help-hero { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
+  [data-theme="dark"] .tip-box { background: rgba(50,215,75,0.08); border-color: var(--ios-green); color: var(--label-1); }
+  [data-theme="dark"] .tip-box.warn { background: rgba(255,159,10,0.08); border-color: var(--ios-orange); }
+  [data-theme="dark"] .tip-box.info { background: rgba(10,132,255,0.08); border-color: var(--ios-blue); }
+  [data-theme="dark"] .help-tab-btn { color: var(--label-3); }
+  [data-theme="dark"] .faq-item { border-color: var(--sep); }
+  [data-theme="dark"] .faq-a { color: var(--label-2); }
+  [data-theme="dark"] .faq-q { color: var(--label-1); }
+  [data-theme="dark"] .feat-icon { color: var(--label-1) !important; background: var(--fill-3) !important; }
+  [data-theme="dark"] .faq-q-chevron { color: var(--label-3); }
 </style>
 {% endblock %}
 

@@ -6,7 +6,7 @@
 
 {# ── Macro: compact lead card for Working section ──────────── #}
 {% macro wcard(lead, day=0) %}
-<div class="wl-card" id="wcard-{{ lead.id }}">
+<div class="wl-card" id="wcard-{{ lead.id }}" data-status="{{ lead.status|replace(' ','') }}">
   <div class="d-flex align-items-start justify-content-between gap-2 mb-1">
     <div>
       <div class="wl-name">{{ lead.name or ('Lead #' ~ lead.id) }}</div>
@@ -785,6 +785,15 @@
 
   </div>{# /histTabContent #}
 
+  {% if has_more_hist %}
+  <div class="text-center my-3">
+    <a href="{{ url_for('leads', page=page+1, status=selected_status, q=search) }}#pane-history"
+       class="btn btn-outline-primary btn-sm fw-semibold px-4">
+      <i class="bi bi-arrow-down-circle me-1"></i>Load More Leads
+    </a>
+  </div>
+  {% endif %}
+
   {% endif %}{# /hist_leads check #}
 </div>{# /pane-history #}
 
@@ -823,8 +832,8 @@
 
 
 <!-- ── Import Modal ──────────────────────────────────── -->
-<div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+<div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true" data-bs-focus="false" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-scrollable">
     <div class="modal-content border-0 shadow">
       <div class="modal-header border-0 pb-0 imp-modal-hdr" style="border-radius:12px 12px 0 0;">
         <h5 class="modal-title fw-bold imp-modal-title">
@@ -901,16 +910,21 @@
 </div>
 
 <!-- ── Quick Add Lead Modal ───────────────────────────── -->
-<div class="modal fade" id="quickAddModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+<!-- data-bs-focus="false" stops Bootstrap overriding our iOS gesture-focus -->
+<div class="modal fade" id="quickAddModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
+  <div class="modal-dialog modal-dialog-scrollable">
     <div class="modal-content border-0 shadow">
-      <form method="post" action="{{ url_for('add_lead') }}">
-        <div class="modal-header border-0 pb-0 qa-modal-hdr" style="border-radius:12px 12px 0 0;">
-          <h5 class="modal-title fw-bold qa-modal-title">
-            <i class="bi bi-person-plus-fill me-2"></i>Quick Add Lead
-          </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
+      <!-- Header OUTSIDE <form> — Bootstrap scrollable modal requires direct
+           flex children of .modal-content (.modal-header / body / footer).
+           Placing <form> here broke that flex chain → footer hidden on iOS. -->
+      <div class="modal-header border-0 pb-0 qa-modal-hdr" style="border-radius:12px 12px 0 0;">
+        <h5 class="modal-title fw-bold qa-modal-title">
+          <i class="bi bi-person-plus-fill me-2"></i>Quick Add Lead
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="quickAddForm" method="post" action="{{ url_for('add_lead') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div class="modal-body pt-3">
           <div class="row g-3">
             <div class="col-md-6">
@@ -944,12 +958,12 @@
               </select>
             </div>
             {% if session.get('role') == 'admin' %}
-            <div class="col-12">
+            <div class="col-md-6">
               <label class="form-label fw-semibold small">Assign To</label>
               <select name="assigned_to" class="form-select">
                 <option value="">— Unassigned —</option>
                 {% for m in team %}
-                  <option>{{ m.name }}</option>
+                  <option value="{{ m.name }}">{{ m.name }}</option>
                 {% endfor %}
               </select>
             </div>
@@ -958,7 +972,7 @@
         </div>
         <div class="modal-footer border-0 pt-0">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-success px-4 fw-semibold">
+          <button type="submit" class="btn btn-success px-4 fw-semibold" id="quickAddBtn" data-noloading="1">
             <i class="bi bi-plus-circle-fill me-1"></i>Add Lead
           </button>
         </div>
@@ -1036,36 +1050,6 @@ if (selAllMobile) {
 }
 document.querySelectorAll('.lead-check').forEach(cb => cb.addEventListener('change', updateBulkBar));
 
-/* ── Status AJAX (reuses existing route) ─────────────────── */
-document.addEventListener('change', function(e) {
-  const sel = e.target;
-  if (!sel.classList.contains('status-select') || !sel.dataset.leadId) return;
-  const leadId = sel.dataset.leadId;
-  const status = sel.value;
-  fetch(`/leads/${leadId}/status`, {
-    method: 'POST',
-    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ status: status })
-  })
-  .then(r => r.json())
-  .then(data => {
-    if (data.ok) {
-      showToast('Status updated → ' + status, 'success');
-      if (status === 'Day 1' || status === 'Paid ₹196') {
-        if (typeof MyleSound !== 'undefined') MyleSound.celebrate();
-        var card = sel.closest('.wl-card, .wk-lead-card, tr');
-        if (card && typeof spawnConfetti === 'function') spawnConfetti(card);
-      }
-      if (data.stage_changed) {
-        showToast('Stage advanced → ' + data.new_stage + ' 🎯', 'info');
-        if (typeof MyleAnim !== 'undefined') MyleAnim.floatPoints(10, sel);
-        setTimeout(() => location.reload(), 1400);
-      }
-    } else { showToast('Could not save. Try again.', 'danger'); }
-  })
-  .catch(() => showToast('Network error.', 'danger'));
-});
-
 /* ── Batch assignment (AJAX) ─────────────────────────────── */
 function setBatch(leadId, day, batchVal) {
   // Toggle: if already active batch, clicking again clears it
@@ -1096,11 +1080,189 @@ function setBatch(leadId, day, batchVal) {
   .catch(() => showToast('Network error', 'danger'));
 }
 
-/* ── Focus quickAdd input AFTER modal animation (prevents iOS freeze) ── */
-document.getElementById('quickAddModal').addEventListener('shown.bs.modal', function() {
-  var inp = document.getElementById('quickAddName');
-  if (inp) setTimeout(function(){ inp.focus(); }, 50);
-});
+/* ── Quick Add AJAX ────────────────────────────────────── */
+(function() {
+  var qf = document.getElementById('quickAddForm');
+  if (!qf) return;
+  qf.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var btn = document.getElementById('quickAddBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Adding…';
+    var fd = new FormData(qf);
+    fd.append('csrf_token', '{{ csrf_token }}');
+    fetch('{{ url_for("add_lead") }}', {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      body: fd
+    })
+    .then(function(r) { return r.json().then(function(d) { return {status: r.status, data: d}; }); })
+    .then(function(res) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-plus-circle-fill me-1"></i>Add Lead';
+      if (res.data.ok) {
+        showToast('Lead "' + res.data.name + '" added ✅', 'success');
+        qf.reset();
+        var modal = bootstrap.Modal.getInstance(document.getElementById('quickAddModal'));
+        if (modal) modal.hide();
+        var container = document.querySelector('#dpane-active .row.g-2') ||
+                        document.querySelector('#pane-working');
+        if (container && container.classList.contains('row')) {
+          var col = document.createElement('div');
+          col.className = 'col-sm-6 col-lg-4';
+          col.innerHTML = '<div class="wl-card" data-status="New">' +
+            '<div class="d-flex align-items-start justify-content-between gap-2 mb-1">' +
+              '<div><div class="wl-name">' + res.data.name + '</div>' +
+              (res.data.city ? '<div class="wl-city"><i class="bi bi-geo-alt-fill me-1"></i>' + res.data.city + '</div>' : '') +
+              '</div>' +
+              '<span class="wl-status-badge">New</span>' +
+            '</div>' +
+            '<div class="d-flex align-items-center gap-2 mb-2">' +
+              '<span class="wl-phone">' + res.data.phone + '</span>' +
+              '<a href="tel:' + res.data.phone + '" class="wl-action-btn call"><i class="bi bi-telephone-fill"></i></a>' +
+              '<a href="https://wa.me/' + res.data.phone + '" target="_blank" class="wl-action-btn wa"><i class="bi bi-whatsapp"></i></a>' +
+            '</div></div>';
+          container.prepend(col);
+          col.style.opacity = '0'; col.style.transform = 'translateY(-10px)';
+          requestAnimationFrame(function() {
+            col.style.transition = 'opacity .3s, transform .3s';
+            col.style.opacity = '1'; col.style.transform = 'none';
+          });
+        }
+        var countEl = document.querySelector('#outerTabs .nav-link.active .badge');
+        if (countEl) countEl.textContent = (parseInt(countEl.textContent)||0) + 1;
+      } else {
+        showToast(res.data.error || 'Could not add lead', 'danger');
+      }
+    })
+    .catch(function() {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-plus-circle-fill me-1"></i>Add Lead';
+      showToast('Network error — try again', 'danger');
+    });
+  });
+})();
+
+/* ── iOS keyboard fix for modals (temp-input trick) ──────────────────────
+   Problem: iOS Safari/Chrome only opens keyboard if focus() is called within
+   the SAME synchronous gesture chain as the user tap. But the actual target
+   input is inside display:none — focusing it does nothing until it's visible.
+
+   Solution (temp-input hack):
+   1. On trigger tap: create a tiny off-screen real <input>, append + focus it
+      immediately (within gesture) → keyboard opens for the temp input.
+   2. On shown.bs.modal: shift focus to the real input → keyboard stays open.
+   3. Remove the temp input.
+
+   This is the only approach proven reliable across Safari + Chrome on iOS.  ── */
+(function() {
+  function makeTempInput() {
+    var t = document.createElement('input');
+    t.setAttribute('type', 'text');
+    t.setAttribute('inputmode', 'text');
+    // opacity:0.01 (not 0) + no pointer-events override so iOS WebKit
+    // still treats this as a valid focusable / touchable element.
+    // z-index:99999 ensures it's above backdrop so iOS hit-testing sees it.
+    // width/height 2px so it doesn't visually affect layout.
+    t.style.cssText = 'position:fixed;top:50%;left:50%;width:2px;height:2px;opacity:0.01;font-size:16px;border:none;outline:none;z-index:99999;background:transparent;color:transparent;caret-color:transparent;';
+    t.setAttribute('aria-hidden', 'true');
+    t.setAttribute('tabindex', '-1');
+    t.setAttribute('readonly', 'true');   // prevent its own keyboard on some browsers
+    return t;
+  }
+
+  function iosFocusModal(modalId, realInputSelector) {
+    var triggers = document.querySelectorAll('[data-bs-target="' + modalId + '"]');
+    var modalEl  = document.querySelector(modalId);
+    if (!modalEl) return;
+
+    triggers.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        // Step 1: focus temp input within the synchronous gesture chain → keyboard opens
+        var tmp = makeTempInput();
+        document.body.appendChild(tmp);
+        tmp.removeAttribute('readonly');  // allow focus to trigger keyboard
+        try { tmp.focus(); } catch (e) {}  // some iOS versions may throw
+
+        var cleaned = false;
+        function cleanup() {
+          if (cleaned) return;
+          cleaned = true;
+          var real = modalEl.querySelector(realInputSelector);
+          if (real) real.focus();
+          tmp.remove();
+        }
+
+        // Step 2: once modal animation completes, shift focus to real input
+        modalEl.addEventListener('shown.bs.modal', function handler() {
+          modalEl.removeEventListener('shown.bs.modal', handler);
+          cleanup();
+        });
+
+        // Safety net: cleanup after 1.5s even if shown.bs.modal never fires
+        setTimeout(cleanup, 1500);
+      });
+    });
+  }
+
+  iosFocusModal('#quickAddModal', '#quickAddName');
+  iosFocusModal('#importModal',   'input:not([type=file]), select');
+})();
+
+/* ── iOS visual-viewport / keyboard fix ─────────────────────────────────
+   Problem: when iOS keyboard opens, it covers the bottom of the modal —
+   hiding the footer buttons (Cancel / Add Lead). The keyboard shrinks the
+   visual viewport but the modal's position:fixed is anchored to the full
+   layout viewport so the footer ends up behind the keyboard.
+
+   Fix: listen to visualViewport resize → dynamically cap .modal-content
+   max-height to visualViewport.height minus the modal's top margin. This
+   forces the body to scroll inside a shorter container and keeps the
+   footer always visible above the keyboard.
+
+   CRITICAL: visualViewport fires 30–60×/sec when keyboard animates. Without
+   throttling, onVVChange caused layout thrashing → app freeze on iOS.       ── */
+(function() {
+  if (!window.visualViewport) return;
+  var TOP_MARGIN = Math.max(10, Math.round(window.innerHeight * 0.02));
+  var lastRun = 0;
+  var rafId = null;
+
+  function onVVChange() {
+    var now = Date.now();
+    if (now - lastRun < 80) {
+      if (!rafId) rafId = requestAnimationFrame(function() {
+        rafId = null; lastRun = Date.now(); doResize();
+      });
+      return;
+    }
+    lastRun = now;
+    doResize();
+  }
+  function doResize() {
+    var vvH  = Math.floor(window.visualViewport.height);
+    var maxH = Math.max(200, vvH - TOP_MARGIN - 10);
+    document.querySelectorAll('#quickAddModal.show, #importModal.show').forEach(function(m) {
+      var dlg = m.querySelector('.modal-dialog');
+      var cnt = m.querySelector('.modal-content');
+      if (dlg) dlg.style.maxHeight = maxH + 'px';
+      if (cnt) cnt.style.maxHeight = maxH + 'px';
+    });
+  }
+
+  window.visualViewport.addEventListener('resize', onVVChange);
+  window.visualViewport.addEventListener('scroll', onVVChange);
+
+  // Reset inline styles when modal closes so CSS rules take over again
+  document.addEventListener('hidden.bs.modal', function() {
+    document.querySelectorAll('#quickAddModal, #importModal').forEach(function(m) {
+      var dlg = m.querySelector('.modal-dialog');
+      var cnt = m.querySelector('.modal-content');
+      if (dlg) dlg.style.maxHeight = '';
+      if (cnt) cnt.style.maxHeight = '';
+    });
+  });
+})();
 
 /* ── Call status update — Android + iOS compatible ────────── */
 const _leadsPageCsrf = '{{ session.get("_csrf_token", "") }}';
@@ -1142,19 +1304,112 @@ const _leadsPageCsrf = '{{ session.get("_csrf_token", "") }}';
   }
   document.addEventListener('change', onCallStatusChange, true);
 })();
+
+/* ── Import form loading state ─────────────────────────── */
+document.querySelectorAll('#importModal form').forEach(function(form) {
+  form.addEventListener('submit', function() {
+    var btn = form.querySelector('button[type="submit"]');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Importing…';
+    }
+  });
+});
 </script>
 
 <style>
+/* ── Modal scrollable layout fix (iOS) ────────────────────────────────────
+   Root cause of "freeze": overflow-y:hidden on .modal blocks iOS from
+   recognising .modal-body as a touch-scrollable container — any scroll
+   gesture on the body is swallowed → modal feels completely frozen.
+
+   Fix strategy:
+   1. Do NOT set overflow on .modal itself — let Bootstrap keep its default
+      (overflow-y:auto). The dialog is capped at 94vh so it never exceeds
+      the viewport and the outer scroll never activates.
+   2. Clip at .modal-content level (overflow:hidden) — header stays fixed,
+      only the body scrolls.
+   3. .modal-body: overflow-y:scroll (not auto — forces iOS scroll context)
+      + overscroll-behavior:contain (stops propagation to page behind).
+   4. touch-action:manipulation on every interactive layer → kills 300ms
+      double-tap delay without blocking scroll gestures.                   */
+
+/* Kill 300ms tap delay — do NOT use overflow on .modal */
+#quickAddModal.modal,
+#importModal.modal {
+  touch-action: manipulation;
+}
+#quickAddModal .modal-content,
+#importModal   .modal-content,
+#quickAddModal .modal-body,
+#importModal   .modal-body,
+#quickAddModal .modal-footer,
+#importModal   .modal-footer {
+  touch-action: manipulation;
+}
+
+/* Dialog: never taller than 94vh so the outer modal doesn't scroll */
+#quickAddModal .modal-dialog,
+#importModal   .modal-dialog {
+  margin: 2vh auto !important;
+  max-height: 94vh;
+  height: auto;
+}
+
+/* Content: clip overflow so header/footer don't move */
+#quickAddModal .modal-content,
+#importModal   .modal-content {
+  max-height: 94vh;
+  overflow: hidden;
+}
+
+/* Form inside modal-content: flex column so body expands and footer sticks */
+#quickAddModal .modal-content > form,
+#importModal   .modal-content > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Body: scroll — use 'scroll' not 'auto' for reliable iOS touch-scroll.
+   overscroll-behavior:contain stops the page-behind from scrolling when
+   the body reaches its top/bottom edge.                                  */
+#quickAddModal .modal-body,
+#importModal   .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
 /* ══ Working section card styles ══════════════════════════ */
 .wl-card {
   background: #fff;
   border: 1.5px solid #e5e7eb;
+  border-left: 3px solid #d1d5db;
   border-radius: 12px;
   padding: .75rem;
   margin-bottom: .5rem;
   transition: box-shadow .15s;
 }
 .wl-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+/* Left border color by status */
+.wl-card[data-status="New"],.wl-card[data-status="NewLead"] { border-left-color:#9ca3af; }
+.wl-card[data-status="Contacted"] { border-left-color:#3b82f6; }
+.wl-card[data-status="VideoSent"] { border-left-color:#a78bfa; }
+.wl-card[data-status="VideoWatched"] { border-left-color:#8b5cf6; }
+.wl-card[data-status="Paid₹196"] { border-left-color:#10b981; }
+.wl-card[data-status="Day1"] { border-left-color:#0ea5e9; }
+.wl-card[data-status="Day2"] { border-left-color:#8b5cf6; }
+.wl-card[data-status="Interview"] { border-left-color:#f59e0b; }
+.wl-card[data-status="TrackSelected"] { border-left-color:#f97316; }
+.wl-card[data-status="SeatHoldConfirmed"] { border-left-color:#f97316; }
+.wl-card[data-status="FullyConverted"],.wl-card[data-status="Converted"] { border-left-color:#10b981; }
+.wl-card[data-status="Lost"] { border-left-color:#ef4444; }
+.wl-card[data-status="Retarget"] { border-left-color:#f59e0b; }
 .wl-name  { font-weight: 600; font-size: .88rem; line-height: 1.3; }
 .wl-city  { font-size: .72rem; color: #6b7280; }
 .wl-phone { font-size: .8rem; color: #374151; font-family: monospace; }
@@ -1247,55 +1502,32 @@ const _leadsPageCsrf = '{{ session.get("_csrf_token", "") }}';
 .imp-modal-title { color: #4f46e5; }
 
 /* ── Dark mode overrides for all wl-* lead card styles ─── */
-[data-theme="dark"] .wl-card {
-  background: var(--bg-card);
-  border-color: var(--sep);
-}
+[data-theme="dark"] .wl-card { background: var(--bg-card); border-color: var(--sep); }
 [data-theme="dark"] .wl-name  { color: var(--label-1); }
 [data-theme="dark"] .wl-city  { color: var(--label-3); }
 [data-theme="dark"] .wl-phone { color: var(--label-2); }
 [data-theme="dark"] .wl-action-btn.call,
-[data-theme="dark"] .wl-action-btn.wa {
-  background: rgba(48,209,88,0.15); color: var(--ios-green);
-}
+[data-theme="dark"] .wl-action-btn.wa { background: rgba(48,209,88,0.15); color: var(--ios-green); }
 [data-theme="dark"] .wl-done-badge.done    { background: rgba(48,209,88,0.15); color: var(--ios-green); }
 [data-theme="dark"] .wl-done-badge.pending { background: var(--fill-3); color: var(--label-3); }
-[data-theme="dark"] .wl-b {
-  background: var(--fill-3);
-  border-color: var(--sep-opaque);
-  color: var(--label-2);
-}
-[data-theme="dark"] .wl-b:hover {
-  background: rgba(94,92,230,0.2);
-  border-color: var(--ios-indigo);
-  color: var(--ios-indigo);
-}
-[data-theme="dark"] .wl-b.active {
-  background: var(--ios-indigo);
-  border-color: var(--ios-indigo);
-  color: #fff;
-}
-[data-theme="dark"] .wl-batch-col {
-  background: var(--fill-4);
-  border-color: var(--sep);
-}
-[data-theme="dark"] .wl-batch-hdr   { color: var(--label-2); }
-[data-theme="dark"] .wl-empty-col   { color: var(--label-4); }
+[data-theme="dark"] .wl-b { background: var(--fill-3); border-color: var(--sep-opaque); color: var(--label-2); }
+[data-theme="dark"] .wl-b:hover { background: rgba(94,92,230,0.2); border-color: var(--ios-indigo); color: var(--ios-indigo); }
+[data-theme="dark"] .wl-b.active { background: var(--ios-indigo); border-color: var(--ios-indigo); color: #fff; }
+[data-theme="dark"] .wl-batch-col { background: var(--fill-4); border-color: var(--sep); }
+[data-theme="dark"] .wl-batch-hdr { color: var(--label-2); }
+[data-theme="dark"] .wl-empty-col { color: var(--label-4); }
 [data-theme="dark"] .wl-unassigned-hdr { color: var(--label-3); }
-
-[data-theme="dark"] .wl-status-badge                        { background: var(--fill-3); color: var(--label-2); }
-[data-theme="dark"] .wl-status-badge.status-Day1            { background: rgba(50,173,230,0.15); color: var(--ios-cyan); }
-[data-theme="dark"] .wl-status-badge.status-Day2            { background: rgba(191,90,242,0.15); color: var(--ios-purple); }
-[data-theme="dark"] .wl-status-badge.status-Interview       { background: rgba(255,159,10,0.15); color: var(--ios-orange); }
+[data-theme="dark"] .wl-status-badge { background: var(--fill-3); color: var(--label-2); }
+[data-theme="dark"] .wl-status-badge.status-Day1 { background: rgba(50,173,230,0.15); color: var(--ios-cyan); }
+[data-theme="dark"] .wl-status-badge.status-Day2 { background: rgba(191,90,242,0.15); color: var(--ios-purple); }
+[data-theme="dark"] .wl-status-badge.status-Interview { background: rgba(255,159,10,0.15); color: var(--ios-orange); }
 [data-theme="dark"] .wl-status-badge.status-FullyConverted,
-[data-theme="dark"] .wl-status-badge.status-Converted       { background: rgba(48,209,88,0.15); color: var(--ios-green); }
-[data-theme="dark"] .wl-status-badge.status-Lost            { background: rgba(255,69,58,0.15);  color: var(--ios-red); }
-[data-theme="dark"] .wl-status-badge.status-Paid₹196        { background: rgba(48,209,88,0.12);  color: var(--ios-green); }
-[data-theme="dark"] .wl-status-badge.status-MindsetLock     { background: rgba(255,45,85,0.15);  color: var(--ios-pink); }
-
-[data-theme="dark"] #outerTabs .nav-link        { background: var(--fill-3); color: var(--label-2); }
+[data-theme="dark"] .wl-status-badge.status-Converted { background: rgba(48,209,88,0.15); color: var(--ios-green); }
+[data-theme="dark"] .wl-status-badge.status-Lost { background: rgba(255,69,58,0.15); color: var(--ios-red); }
+[data-theme="dark"] .wl-status-badge.status-Paid₹196 { background: rgba(48,209,88,0.12); color: var(--ios-green); }
+[data-theme="dark"] .wl-status-badge.status-MindsetLock { background: rgba(255,45,85,0.15); color: var(--ios-pink); }
+[data-theme="dark"] #outerTabs .nav-link { background: var(--fill-3); color: var(--label-2); }
 [data-theme="dark"] #outerTabs .nav-link.active { background: linear-gradient(135deg, var(--ios-indigo), var(--ios-purple)); color: #fff; }
-
 /* Modal headers dark mode */
 [data-theme="dark"] .qa-modal-hdr  { background: rgba(48,209,88,0.12) !important; }
 [data-theme="dark"] .qa-modal-title { color: var(--ios-green) !important; }

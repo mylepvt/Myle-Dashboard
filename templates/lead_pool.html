@@ -109,6 +109,7 @@
     </div>
     {% else %}
     <form method="POST" action="{{ url_for('claim_leads') }}" id="claimForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="row g-3 align-items-start">
         <div class="col-md-5">
           <label class="form-label fw-semibold">How many leads to claim?</label>

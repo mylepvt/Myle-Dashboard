@@ -161,7 +161,7 @@ STATUS_TO_STAGE = {
     'Invited':             'enrollment',
     'Video Sent':          'enrollment',
     'Video Watched':       'enrollment',
-    'Paid ₹196':           'day1',
+    'Paid ₹196':           'enrollment',
     'Mindset Lock':        'enrollment',
     'Day 1':               'day1',
     'Day 2':               'day2',
@@ -509,15 +509,15 @@ DRILL_REPORT_METRICS = {
 
 
 def _get_metrics(db, username=None):
-    """All dashboard KPIs. Excludes pool leads (in_pool=1)."""
+    """All dashboard KPIs. Excludes pool and soft-deleted leads."""
     if username:
-        where_clause = "WHERE assigned_to = ? AND in_pool = 0"
+        where_clause = "WHERE assigned_to = ? AND in_pool = 0 AND deleted_at = ''"
         params = (username,)
-        base = "assigned_to = ? AND in_pool = 0"
+        base = "assigned_to = ? AND in_pool = 0 AND deleted_at = ''"
     else:
-        where_clause = "WHERE in_pool = 0"
+        where_clause = "WHERE in_pool = 0 AND deleted_at = ''"
         params = ()
-        base = "in_pool = 0"
+        base = "in_pool = 0 AND deleted_at = ''"
 
     row = db.execute(f"""
         SELECT
@@ -1242,6 +1242,13 @@ BADGE_META = {
 
 def _check_and_award_badges(db, username):
     """Check badge conditions and award new ones. Returns list of new badge keys."""
+    try:
+        return _check_and_award_badges_inner(db, username)
+    except Exception:
+        return []
+
+
+def _check_and_award_badges_inner(db, username):
     new_badges = []
     today  = _today_ist().strftime('%Y-%m-%d')
     mon    = (_today_ist() - datetime.timedelta(days=_today_ist().weekday())).strftime('%Y-%m-%d')
@@ -1334,14 +1341,15 @@ def _get_user_badges_emoji(db, username):
 
 # Canonical stage -> default status (for transitions that don't provide an override)
 STAGE_TO_DEFAULT_STATUS = {
-    'day1': 'Day 1',
-    'day2': 'Day 2',
-    'day3': 'Interview',
-    'seat_hold': 'Seat Hold Confirmed',
-    'closing': 'Fully Converted',
-    'training': 'Training',
-    'complete': 'Converted',
-    'lost': 'Lost',
+    'enrollment': 'New Lead',   # fallback if a lead is reset to enrollment
+    'day1':       'Day 1',
+    'day2':       'Day 2',
+    'day3':       'Interview',
+    'seat_hold':  'Seat Hold Confirmed',
+    'closing':    'Fully Converted',
+    'training':   'Training',
+    'complete':   'Converted',
+    'lost':       'Lost',
 }
 
 
@@ -1421,10 +1429,10 @@ def _sync_enroll_share_to_lead(db, token, username):
         return
     if not link:
         return
-    if link.get('synced_to_lead'):
+    if link['synced_to_lead']:
         return
 
-    lead_id = link.get('lead_id')
+    lead_id = link['lead_id']
     if not lead_id:
         _upsert_daily_score(db, username, 10, delta_videos=1)
         try:
@@ -1450,7 +1458,7 @@ def _sync_enroll_share_to_lead(db, token, username):
         'Day 1', 'Day 2', 'Interview', 'Track Selected',
         'Seat Hold Confirmed', 'Fully Converted', 'Training', 'Converted', 'Lost', 'Retarget'
     ]
-    current_status = (lead.get('status') or 'New')
+    current_status = (lead['status'] or 'New')
     current_idx = FORWARD_ORDER.index(current_status) if current_status in FORWARD_ORDER else 0
     video_sent_idx = FORWARD_ORDER.index('Video Sent') if 'Video Sent' in FORWARD_ORDER else 4
 
@@ -1462,7 +1470,7 @@ def _sync_enroll_share_to_lead(db, token, username):
             (now_str, now_str, lead_id)
         )
     else:
-        current_call = (lead.get('call_status') or '')
+        current_call = (lead['call_status'] or '')
         call_forward = ['Not Called Yet', 'Called - No Answer', 'Called - Not Interested',
                         'Called - Follow Up', 'Called - Interested',
                         'Video Sent', 'Video Watched', 'Payment Done']
@@ -1472,7 +1480,7 @@ def _sync_enroll_share_to_lead(db, token, username):
                 (now_str, lead_id)
             )
 
-    content_id = link.get('content_id')
+    content_id = link['content_id']
     video_name = 'Video'
     if content_id:
         try:
@@ -1481,7 +1489,7 @@ def _sync_enroll_share_to_lead(db, token, username):
                 (content_id,)
             ).fetchone()
             if content:
-                video_name = (content.get('curiosity_title') or content.get('title') or video_name)
+                video_name = (content['curiosity_title'] or content['title'] or video_name)
         except Exception:
             pass
     _log_lead_event(db, lead_id, username, f'Video shared via Enroll To: "{video_name}"')
@@ -1507,7 +1515,7 @@ def _sync_watch_event_to_lead(db, token):
         ).fetchone()
     except Exception:
         return
-    if not link or link.get('watch_synced') or not link.get('lead_id'):
+    if not link or link['watch_synced'] or not link['lead_id']:
         return
 
     lead_id = link['lead_id']
@@ -1519,7 +1527,7 @@ def _sync_watch_event_to_lead(db, token):
         return
 
     now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
-    shared_by = link.get('shared_by') or ''
+    shared_by = link['shared_by'] or ''
 
     FORWARD_ORDER = [
         'New Lead', 'New', 'Contacted', 'Invited',
@@ -1527,7 +1535,7 @@ def _sync_watch_event_to_lead(db, token):
         'Day 1', 'Day 2', 'Interview', 'Track Selected',
         'Seat Hold Confirmed', 'Fully Converted', 'Training', 'Converted', 'Lost', 'Retarget'
     ]
-    current_status = (lead.get('status') or 'New')
+    current_status = (lead['status'] or 'New')
     current_idx = FORWARD_ORDER.index(current_status) if current_status in FORWARD_ORDER else 0
     watched_idx = FORWARD_ORDER.index('Video Watched') if 'Video Watched' in FORWARD_ORDER else 5
 
@@ -1538,7 +1546,7 @@ def _sync_watch_event_to_lead(db, token):
             (now_str, lead_id)
         )
 
-    content_id = link.get('content_id')
+    content_id = link['content_id']
     video_name = 'Video'
     if content_id:
         try:
@@ -1547,7 +1555,7 @@ def _sync_watch_event_to_lead(db, token):
                 (content_id,)
             ).fetchone()
             if content:
-                video_name = (content.get('curiosity_title') or 'Video')
+                video_name = (content['curiosity_title'] or 'Video')
         except Exception:
             pass
     _log_lead_event(db, lead_id, shared_by,
@@ -1557,7 +1565,7 @@ def _sync_watch_event_to_lead(db, token):
 
     try:
         _push_to_users(db, shared_by,
-                       f'{lead.get("name") or "Lead"} watched the video!',
+                       f'{lead["name"] or "Lead"} watched the video!',
                        'Call now — interest is at its peak!',
                        '/working')
     except Exception:
@@ -1598,12 +1606,13 @@ def _get_actual_daily_counts(db, username):
             'enroll_links_sent': 0,
             'prospect_views': 0,
         }
+    d = dict(row)
     return {
-        'videos_sent': row.get('videos_sent') or 0,
-        'calls_made': row.get('calls_made') or 0,
-        'payments_collected': row.get('payments_collected') or 0,
-        'enroll_links_sent': row.get('enroll_links_sent') or 0,
-        'prospect_views': row.get('prospect_views') or 0,
+        'videos_sent': d.get('videos_sent', 0) or 0,
+        'calls_made': d.get('calls_made', 0) or 0,
+        'payments_collected': d.get('payments_collected', 0) or 0,
+        'enroll_links_sent': d.get('enroll_links_sent', 0) or 0,
+        'prospect_views': d.get('prospect_views', 0) or 0,
     }
 
 
@@ -1654,6 +1663,22 @@ def enroll_generate_link():
     return jsonify({'ok': True, 'token': token, 'watch_url': watch_url})
 
 
+def _youtube_embed_url(raw_url):
+    """Extract YouTube video ID from any common URL and return embed URL. Returns '' if not valid."""
+    if not raw_url or not isinstance(raw_url, str):
+        return ''
+    s = raw_url.strip()
+    # Support: watch?v=, youtu.be/, embed/, shorts/
+    m = _re.search(
+        r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/|youtube\.com/shorts/)([a-zA-Z0-9_-]{11})',
+        s
+    )
+    if m:
+        vid = m.group(1)
+        return 'https://www.youtube.com/embed/' + vid + '?rel=0&modestbranding=1'
+    return ''
+
+
 @app.route('/watch/enrollment')
 def watch_enrollment():
     """Public page: enrollment video in minimal embed (no YouTube UI). Share this link so prospect opens our page, not YouTube."""
@@ -1661,11 +1686,7 @@ def watch_enrollment():
     enrollment_video_url = _get_setting(db, 'enrollment_video_url', '')
     enrollment_video_title = _get_setting(db, 'enrollment_video_title', 'Enrollment Video')
     db.close()
-    embed_url = ''
-    if enrollment_video_url:
-        m = _re.search(r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]{11})', enrollment_video_url)
-        if m:
-            embed_url = 'https://www.youtube.com/embed/' + m.group(1) + '?rel=0&modestbranding=1'
+    embed_url = _youtube_embed_url(enrollment_video_url)
     if not embed_url:
         return render_template('watch_video.html', error='Video not configured', title='Enrollment Video'), 404
     return render_template('watch_video.html', embed_url=embed_url, title=enrollment_video_title or 'Enrollment Video', error=None)
@@ -1700,15 +1721,15 @@ def _mark_batch_done_for_lead(db, lead_id, slot):
     db.execute(f"UPDATE leads SET {slot}=?, updated_at=? WHERE id=?", (1, now_str, lead_id))
     day_prefix = slot[:2]
     if day_prefix == 'd1':
-        m = 1 if slot == 'd1_morning' else (row.get('d1_morning') or 0)
-        a = 1 if slot == 'd1_afternoon' else (row.get('d1_afternoon') or 0)
-        e = 1 if slot == 'd1_evening' else (row.get('d1_evening') or 0)
+        m = 1 if slot == 'd1_morning' else (row['d1_morning'] or 0)
+        a = 1 if slot == 'd1_afternoon' else (row['d1_afternoon'] or 0)
+        e = 1 if slot == 'd1_evening' else (row['d1_evening'] or 0)
         all_done = bool(m and a and e)
         db.execute("UPDATE leads SET day1_done=? WHERE id=?", (1 if all_done else 0, lead_id))
     else:
-        m = 1 if slot == 'd2_morning' else (row.get('d2_morning') or 0)
-        a = 1 if slot == 'd2_afternoon' else (row.get('d2_afternoon') or 0)
-        e = 1 if slot == 'd2_evening' else (row.get('d2_evening') or 0)
+        m = 1 if slot == 'd2_morning' else (row['d2_morning'] or 0)
+        a = 1 if slot == 'd2_afternoon' else (row['d2_afternoon'] or 0)
+        e = 1 if slot == 'd2_evening' else (row['d2_evening'] or 0)
         all_done = bool(m and a and e)
         db.execute("UPDATE leads SET day2_done=? WHERE id=?", (1 if all_done else 0, lead_id))
     _upsert_daily_score(db, owner, 15, delta_batches=1)
@@ -1724,11 +1745,7 @@ def watch_batch(slot, v):
     setting_key = f'batch_{slot}_v{v}'
     yt_url = _get_setting(db, setting_key, '')
     db.close()
-    embed_url = ''
-    if yt_url:
-        m = _re.search(r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]{11})', yt_url)
-        if m:
-            embed_url = 'https://www.youtube.com/embed/' + m.group(1) + '?rel=0&modestbranding=1'
+    embed_url = _youtube_embed_url(yt_url)
     if not embed_url:
         return render_template('watch_video.html', error='Video not configured', title=_BATCH_LABELS.get(slot, 'Batch Video')), 404
     title = _BATCH_LABELS.get(slot, 'Batch Video') + ' — Video ' + str(v)
@@ -1768,7 +1785,7 @@ def watch_video(token):
         db.commit()
 
     content = None
-    if link.get('content_id'):
+    if link['content_id']:
         try:
             content = db.execute(
                 "SELECT curiosity_title, title FROM enroll_content WHERE id=?",
@@ -1780,11 +1797,7 @@ def watch_video(token):
     enrollment_video_url = _get_setting(db, 'enrollment_video_url', '') if db else ''
     db.close()
     title = (content['curiosity_title'] or content['title']) if content else 'Video'
-    yt_id = None
-    if enrollment_video_url:
-        m = _re.search(r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]{11})', enrollment_video_url)
-        yt_id = m.group(1) if m else None
-    embed_url = ('https://www.youtube.com/embed/' + yt_id + '?rel=0&modestbranding=1') if yt_id else ''
+    embed_url = _youtube_embed_url(enrollment_video_url)
     return render_template('watch_video.html', token=token, title=title,
                            enrollment_video_url=enrollment_video_url or '', embed_url=embed_url, error=None)
 
@@ -1862,10 +1875,12 @@ def inject_pending_count():
             row = db.execute("""
                 SELECT
                   (SELECT COUNT(*) FROM users           WHERE status='pending') as pu,
-                  (SELECT COUNT(*) FROM wallet_recharges WHERE status='pending') as wp
+                  (SELECT COUNT(*) FROM wallet_recharges WHERE status='pending') as wp,
+                  (SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND status='Lost') as lc
             """).fetchone()
             db.close()
-            return {'pending_count': row['pu'], 'wallet_pending': row['wp'], 'has_pending_work': False}
+            return {'pending_count': row['pu'], 'wallet_pending': row['wp'],
+                    'has_pending_work': False, 'lost_count': row['lc']}
         uname = session.get('username')
         if uname:
             db = get_db()
@@ -1874,11 +1889,16 @@ def inject_pending_count():
                 "WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status IN ('Day 1','Paid ₹196') AND d1_morning=0",
                 (uname,)
             ).fetchone()[0] > 0
+            lc = db.execute(
+                "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status='Lost'",
+                (uname,)
+            ).fetchone()[0]
             db.close()
-            return {'pending_count': 0, 'wallet_pending': 0, 'has_pending_work': has_pending_work}
+            return {'pending_count': 0, 'wallet_pending': 0,
+                    'has_pending_work': has_pending_work, 'lost_count': lc}
     except Exception as e:
         app.logger.error(f"inject_pending_count() failed: {e}")
-    return {'pending_count': 0, 'wallet_pending': 0, 'has_pending_work': False}
+    return {'pending_count': 0, 'wallet_pending': 0, 'has_pending_work': False, 'lost_count': 0}
 
 
 # ──────────────────────────────────────────────────────────────
@@ -2312,68 +2332,147 @@ def admin_dashboard():
         _check_seat_hold_expiry(db, u['username'])
 
     metrics = _get_metrics(db)
+    today   = _today_ist().isoformat()
+    _base_w = "in_pool=0 AND deleted_at=''"
 
+    # ── 1. Live Pipeline Funnel (current leads at each stage) ────────
+    _s1_ph = ','.join('?' * len(STAGE1_STATUSES))
+    pipeline = db.execute(f"""
+        SELECT
+            SUM(CASE WHEN status IN ('New Lead','New','Contacted','Invited',
+                         'Video Sent','Video Watched') THEN 1 ELSE 0 END) AS enrollment,
+            SUM(CASE WHEN status IN ({_s1_ph}) THEN 1 ELSE 0 END) AS ready,
+            SUM(CASE WHEN status='Day 1'       THEN 1 ELSE 0 END) AS day1,
+            SUM(CASE WHEN status='Day 2'       THEN 1 ELSE 0 END) AS day2,
+            SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3,
+            SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS seat_hold,
+            SUM(CASE WHEN status IN ('Fully Converted','Converted') THEN 1 ELSE 0 END) AS converted
+        FROM leads WHERE {_base_w}
+    """, list(STAGE1_STATUSES)).fetchone()
+    pipeline = dict(pipeline) if pipeline else {}
+    for k in ('enrollment','ready','day1','day2','day3','seat_hold','converted'):
+        pipeline[k] = pipeline.get(k) or 0
+
+    pipeline_value = db.execute(
+        f"SELECT COALESCE(SUM(track_price),0) FROM leads WHERE {_base_w} "
+        "AND status IN ('Seat Hold Confirmed','Track Selected')"
+    ).fetchone()[0] or 0
+
+    # ── 2. Today's Pulse ─────────────────────────────────────────────
+    approved_members = db.execute(
+        "SELECT username, fbo_id FROM users WHERE role IN ('team','leader') AND status='approved' ORDER BY username"
+    ).fetchall()
+    today_reports = db.execute(
+        "SELECT * FROM daily_reports WHERE report_date=? ORDER BY submitted_at DESC",
+        (today,)
+    ).fetchall()
+    submitted_set   = {r['username'] for r in today_reports}
+    missing_reports = [u['username'] for u in approved_members
+                       if u['username'] not in submitted_set]
+
+    _pulse_calls = sum(r['total_calling'] or 0 for r in today_reports)
+
+    _pay_today = db.execute(
+        f"SELECT COUNT(*), COALESCE(SUM(payment_amount),0) FROM leads "
+        f"WHERE payment_done=1 AND date(updated_at)=? AND {_base_w}",
+        (today,)
+    ).fetchone()
+
+    _d1_total = db.execute(f"SELECT COUNT(*) FROM leads WHERE {_base_w} AND status='Day 1'").fetchone()[0] or 0
+    _d1_done  = db.execute(f"SELECT COUNT(*) FROM leads WHERE {_base_w} AND status='Day 1' AND d1_morning=1 AND d1_afternoon=1 AND d1_evening=1").fetchone()[0] or 0
+    _d2_total = db.execute(f"SELECT COUNT(*) FROM leads WHERE {_base_w} AND status='Day 2'").fetchone()[0] or 0
+    _d2_done  = db.execute(f"SELECT COUNT(*) FROM leads WHERE {_base_w} AND status='Day 2' AND d2_morning=1 AND d2_afternoon=1 AND d2_evening=1").fetchone()[0] or 0
+
+    stale_cutoff = (_now_ist() - datetime.timedelta(hours=48)).strftime('%Y-%m-%d %H:%M:%S')
+    stale_leads = db.execute(
+        f"SELECT id, name, phone, assigned_to, status, updated_at FROM leads "
+        f"WHERE {_base_w} AND assigned_to != '' "
+        "AND status NOT IN ('Fully Converted','Converted','Lost','Seat Hold Confirmed') "
+        "AND updated_at < ? ORDER BY updated_at ASC LIMIT 20",
+        (stale_cutoff,)
+    ).fetchall()
+
+    pulse = {
+        'reports_done':    len(today_reports),
+        'reports_total':   len(approved_members),
+        'total_calls':     _pulse_calls,
+        'payments_count':  _pay_today[0] or 0,
+        'payments_amount': _pay_today[1] or 0,
+        'batch_d1_done':   _d1_done, 'batch_d1_total': _d1_total,
+        'batch_d1_pct':    round(_d1_done / _d1_total * 100) if _d1_total else 0,
+        'batch_d2_done':   _d2_done, 'batch_d2_total': _d2_total,
+        'batch_d2_pct':    round(_d2_done / _d2_total * 100) if _d2_total else 0,
+        'stale_count':     len(stale_leads),
+    }
+
+    # ── 3. Team Leaderboard ──────────────────────────────────────────
+    _verif_rows = db.execute(f"""
+        SELECT assigned_to, COUNT(*) as cnt FROM leads
+        WHERE payment_done=1 AND date(updated_at)=? AND {_base_w}
+        GROUP BY assigned_to
+    """, (today,)).fetchall()
+    report_verification = {r['assigned_to']: r['cnt'] for r in _verif_rows}
+
+    team_board = []
+    for m in approved_members:
+        uname = m['username']
+        score_pts, streak = _get_today_score(db, uname)
+        counts = db.execute(f"""
+            SELECT
+                SUM(CASE WHEN status IN ({_s1_ph}) THEN 1 ELSE 0 END) AS stage1,
+                SUM(CASE WHEN status='Day 1' THEN 1 ELSE 0 END) AS day1,
+                SUM(CASE WHEN status='Day 2' THEN 1 ELSE 0 END) AS day2,
+                SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3,
+                SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS pending,
+                SUM(CASE WHEN status IN ('Fully Converted','Converted') THEN 1 ELSE 0 END) AS converted,
+                COUNT(*) AS total
+            FROM leads WHERE assigned_to=? AND {_base_w}
+        """, (*STAGE1_STATUSES, uname)).fetchone()
+
+        _m_d1_total = db.execute(f"SELECT COUNT(*) FROM leads WHERE assigned_to=? AND {_base_w} AND status='Day 1'", (uname,)).fetchone()[0] or 0
+        _m_d1_done  = db.execute(f"SELECT COUNT(*) FROM leads WHERE assigned_to=? AND {_base_w} AND status='Day 1' AND d1_morning=1 AND d1_afternoon=1 AND d1_evening=1", (uname,)).fetchone()[0] or 0
+        _m_d2_total = db.execute(f"SELECT COUNT(*) FROM leads WHERE assigned_to=? AND {_base_w} AND status='Day 2'", (uname,)).fetchone()[0] or 0
+        _m_d2_done  = db.execute(f"SELECT COUNT(*) FROM leads WHERE assigned_to=? AND {_base_w} AND status='Day 2' AND d2_morning=1 AND d2_afternoon=1 AND d2_evening=1", (uname,)).fetchone()[0] or 0
+        _m_batch_total = _m_d1_total + _m_d2_total
+        _m_batch_done  = _m_d1_done + _m_d2_done
+        batch_pct = round(_m_batch_done / _m_batch_total * 100) if _m_batch_total else -1
+
+        team_board.append({
+            'username': uname, 'fbo_id': m['fbo_id'] or '',
+            'score': score_pts, 'streak': streak,
+            'stage1': counts['stage1'] or 0, 'day1': counts['day1'] or 0,
+            'day2': counts['day2'] or 0, 'day3': counts['day3'] or 0,
+            'pending': counts['pending'] or 0, 'converted': counts['converted'] or 0,
+            'total': counts['total'] or 0,
+            'batch_pct': batch_pct,
+            'report_done': uname in submitted_set,
+        })
+    team_board.sort(key=lambda x: x['score'], reverse=True)
+
+    # ── 4. Existing metrics kept ─────────────────────────────────────
     recent = db.execute(
-        "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' ORDER BY created_at DESC LIMIT 5"
+        f"SELECT * FROM leads WHERE {_base_w} ORDER BY created_at DESC LIMIT 5"
     ).fetchall()
 
     _sc = db.execute(
-        "SELECT status, COUNT(*) as c FROM leads WHERE in_pool=0 AND deleted_at='' GROUP BY status"
+        f"SELECT status, COUNT(*) as c FROM leads WHERE {_base_w} GROUP BY status"
     ).fetchall()
     status_data = {s: 0 for s in STATUSES}
     for row in _sc:
         if row['status'] in status_data:
             status_data[row['status']] = row['c']
 
-    monthly = db.execute("""
+    monthly = db.execute(f"""
         SELECT strftime('%Y-%m', created_at) as month,
                SUM(payment_amount) as total
         FROM leads
-        WHERE payment_done=1 AND in_pool=0 AND deleted_at=''
-        GROUP BY month
-        ORDER BY month DESC
-        LIMIT 6
+        WHERE payment_done=1 AND {_base_w}
+        GROUP BY month ORDER BY month DESC LIMIT 6
     """).fetchall()
-
-    members = db.execute(
-        "SELECT username as name FROM users WHERE role='team' AND status='approved' ORDER BY username"
-    ).fetchall()
-    _stats_rows = db.execute("""
-        SELECT assigned_to,
-            COUNT(*) as total,
-            SUM(CASE WHEN status IN ('Converted','Fully Converted') THEN 1 ELSE 0 END) as converted,
-            SUM(CASE WHEN payment_done=1     THEN 1 ELSE 0 END) as paid,
-            SUM(COALESCE(payment_amount,0) + COALESCE(revenue,0)) as revenue
-        FROM leads WHERE in_pool=0 AND deleted_at=''
-        GROUP BY assigned_to
-    """).fetchall()
-    _stats_map = {r['assigned_to']: r for r in _stats_rows}
-    _empty = {'total': 0, 'converted': 0, 'paid': 0, 'revenue': 0}
-    team_stats = [{'member': m, 'stats': _stats_map.get(m['name'], _empty)}
-                  for m in members]
 
     pending_users = db.execute(
         "SELECT * FROM users WHERE status='pending' ORDER BY created_at DESC"
     ).fetchall()
-
-    today = _today_ist().isoformat()
-    today_reports = db.execute(
-        "SELECT * FROM daily_reports WHERE report_date=? ORDER BY submitted_at DESC",
-        (today,)
-    ).fetchall()
-    approved_team = db.execute(
-        "SELECT username FROM users WHERE role='team' AND status='approved'"
-    ).fetchall()
-    submitted_set   = {r['username'] for r in today_reports}
-    missing_reports = [u['username'] for u in approved_team
-                       if u['username'] not in submitted_set]
-
-    _verif_rows = db.execute("""
-        SELECT assigned_to, COUNT(*) as cnt FROM leads
-        WHERE payment_done=1 AND date(updated_at)=? AND in_pool=0 AND deleted_at=''
-        GROUP BY assigned_to
-    """, (today,)).fetchall()
-    report_verification = {r['assigned_to']: r['cnt'] for r in _verif_rows}
 
     wallet_pending_count = db.execute(
         "SELECT COUNT(*) FROM wallet_recharges WHERE status='pending'"
@@ -2381,28 +2480,28 @@ def admin_dashboard():
 
     pool_count = db.execute("SELECT COUNT(*) FROM leads WHERE in_pool=1").fetchone()[0]
 
-    funnel_members = {}
-    for _mk, _cond in [
-        ('day1',      'day1_done=1'),
-        ('day2',      'day2_done=1'),
-        ('interview', 'interview_done=1'),
-        ('converted', "status IN ('Converted','Fully Converted')"),
-    ]:
-        _rows = db.execute(
-            f"SELECT DISTINCT assigned_to FROM leads "
-            f"WHERE in_pool=0 AND deleted_at='' AND assigned_to!='' AND {_cond} "
-            f"ORDER BY assigned_to"
-        ).fetchall()
-        funnel_members[_mk] = [r['assigned_to'] for r in _rows]
+    # ── 5. Daily conversion trend (7 days) ───────────────────────────
+    daily_trend = db.execute(f"""
+        SELECT date(updated_at) AS d,
+               SUM(CASE WHEN status IN ('Converted','Fully Converted') THEN 1 ELSE 0 END) AS conversions,
+               SUM(CASE WHEN payment_done=1 THEN 1 ELSE 0 END) AS payments
+        FROM leads WHERE {_base_w} AND date(updated_at) >= date(?, '-6 days')
+        GROUP BY d ORDER BY d
+    """, (today,)).fetchall()
 
     recent = _enrich_leads(recent)
     db.close()
     resp = make_response(render_template('admin.html',
                            metrics=metrics,
+                           pipeline=pipeline,
+                           pipeline_value=pipeline_value,
+                           pulse=pulse,
+                           team_board=team_board,
+                           stale_leads=stale_leads,
                            recent=recent,
                            status_data=status_data,
                            monthly=monthly,
-                           team_stats=team_stats,
+                           daily_trend=daily_trend,
                            pending_users=pending_users,
                            payment_amount=PAYMENT_AMOUNT,
                            today_reports=today_reports,
@@ -2410,8 +2509,7 @@ def admin_dashboard():
                            report_verification=report_verification,
                            today=today,
                            wallet_pending_count=wallet_pending_count,
-                           pool_count=pool_count,
-                           funnel_members=funnel_members))
+                           pool_count=pool_count))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
     return resp
 
@@ -2540,7 +2638,7 @@ def team_dashboard():
         (username, *STAGE1_STATUSES)
     ).fetchall()
     day1_leads_db = db.execute(
-        "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status IN ('Day 1','Paid ₹196') ORDER BY updated_at ASC",
+        "SELECT * FROM leads WHERE assigned_to=? AND in_pool=0 AND deleted_at='' AND status='Day 1' ORDER BY updated_at ASC",
         (username,)
     ).fetchall()
     day2_leads_db = db.execute(
@@ -2640,8 +2738,8 @@ def team_dashboard():
             counts = db.execute(f"""
                 SELECT
                     SUM(CASE WHEN status IN ({stage_ph}) THEN 1 ELSE 0 END) as stage1,
-                    SUM(CASE WHEN status IN ('Day 1','Paid ₹196') THEN 1 ELSE 0 END) as day1,
-                    SUM(CASE WHEN status='Day 2'   THEN 1 ELSE 0 END) as day2,
+                    SUM(CASE WHEN status='Day 1' THEN 1 ELSE 0 END) as day1,
+                    SUM(CASE WHEN status='Day 2' THEN 1 ELSE 0 END) as day2,
                     SUM(CASE WHEN status IN ('Interview','Track Selected')
                         THEN 1 ELSE 0 END) as day3,
                     SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) as pending,
@@ -2671,7 +2769,7 @@ def team_dashboard():
                 'day3':        counts['day3']   or 0,
                 'pending':     counts['pending'] or 0,
                 'converted':   counts['converted'] or 0,
-                'today_pts':   today_pts,
+                'score':       today_pts,
                 'report_done': report_done,
             })
             if not report_done:
@@ -2752,22 +2850,22 @@ def leads():
         return redirect(url_for('dashboard'))
 
 def _leads_inner():
-    from datetime import datetime as _dt
+    from datetime import datetime as _dt, timedelta as _td
     db     = get_db()
     status = request.args.get('status', '')
     search = request.args.get('q', '').strip()
-    today  = _dt.now().strftime('%Y-%m-%d')
+    page   = max(1, int(request.args.get('page', 1)))
+    today      = _dt.now().strftime('%Y-%m-%d')
+    today_lo   = today + ' 00:00:00'
+    tomorrow_lo = (_dt.now() + _td(days=1)).strftime('%Y-%m-%d') + ' 00:00:00'
 
-    # Base filter
-    base   = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at=''"
+    base   = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' AND status NOT IN ('Lost','Retarget')"
     role   = session.get('role')
     uname  = session.get('username')
 
-    # Today condition: created today OR claimed today
-    today_cond = ("(date(created_at,'localtime')=? "
-                  "OR (claimed_at!='' AND date(claimed_at,'localtime')=?))")
+    today_cond = ("(created_at >= ? AND created_at < ?"
+                  " OR (claimed_at != '' AND claimed_at >= ? AND claimed_at < ?))")
 
-    # Build today params and hist params
     def _apply_filters(base_q, base_p, extra_cond, extra_p):
         q = base_q + f" AND {extra_cond}"
         p = list(base_p) + list(extra_p)
@@ -2789,27 +2887,35 @@ def _leads_inner():
 
     today_q, today_p = _apply_filters(
         base, base_params,
-        today_cond, [today, today]
+        today_cond, [today_lo, tomorrow_lo, today_lo, tomorrow_lo]
     )
     hist_q, hist_p = _apply_filters(
         base, base_params,
-        f"NOT {today_cond}", [today, today]
+        f"NOT {today_cond}", [today_lo, tomorrow_lo, today_lo, tomorrow_lo]
     )
 
-    # Limit rows for fast page load; pagination can be added later via ?page=
-    _today_limit = 150
-    _hist_limit  = 300
+    _today_limit = 60
+    _hist_limit  = 80
+    _hist_offset = (page - 1) * _hist_limit
     try:
         today_leads_raw = db.execute(
             today_q + " ORDER BY created_at DESC LIMIT " + str(_today_limit), today_p
         ).fetchall()
         hist_leads_raw  = db.execute(
-            hist_q  + " ORDER BY created_at DESC LIMIT " + str(_hist_limit), hist_p
+            hist_q  + " ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            hist_p + [_hist_limit + 1, _hist_offset]
         ).fetchall()
     except Exception as e:
         app.logger.error(f"leads() query failed: {e}")
         today_leads_raw, hist_leads_raw = [], []
-    team            = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
+    has_more_hist = len(hist_leads_raw) > _hist_limit
+    if has_more_hist:
+        hist_leads_raw = hist_leads_raw[:_hist_limit]
+    # Use actual usernames from users table so assigned_to matches session['username']
+    team            = db.execute(
+        "SELECT username AS name FROM users "
+        "WHERE role IN ('team','leader') AND status='approved' ORDER BY username"
+    ).fetchall()
     db.close()
 
     # Enrich with heat + next_action
@@ -2835,7 +2941,6 @@ def _leads_inner():
     hist_day3_leads   = [l for l in hist_leads if l.get('status') == 'Interview']
 
     return render_template('leads.html',
-                           # legacy key kept for any other templates that reference it
                            leads=hist_leads,
                            today_leads=today_leads,
                            hist_leads=hist_leads,
@@ -2854,7 +2959,9 @@ def _leads_inner():
                            sources=SOURCES,
                            selected_status=status,
                            search=search,
-                           team=team)
+                           team=team,
+                           page=page,
+                           has_more_hist=has_more_hist)
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -2894,7 +3001,12 @@ def set_lead_batch(lid):
 @safe_route
 def add_lead():
     db   = get_db()
-    team = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
+    team = db.execute(
+        "SELECT username AS name FROM users "
+        "WHERE role IN ('team','leader') AND status='approved' ORDER BY username"
+    ).fetchall()
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
     if request.method == 'POST':
         name           = request.form.get('name', '').strip()
@@ -2920,6 +3032,9 @@ def add_lead():
             assigned_to = session['username']
 
         if not name or not phone:
+            if is_ajax:
+                db.close()
+                return {'ok': False, 'error': 'Name and Phone are required.'}, 400
             flash('Name and Phone are required.', 'danger')
             db.close()
             return render_template('add_lead.html',
@@ -2930,7 +3045,11 @@ def add_lead():
             "SELECT name FROM leads WHERE phone=? AND in_pool=0 AND deleted_at=''", (phone,)
         ).fetchone()
         if dup:
-            flash(f'A lead with phone {phone} already exists ({dup["name"]}). Duplicate entries are not allowed.', 'danger')
+            msg = f'A lead with phone {phone} already exists ({dup["name"]}).'
+            if is_ajax:
+                db.close()
+                return {'ok': False, 'error': msg}, 409
+            flash(msg + ' Duplicate entries are not allowed.', 'danger')
             db.close()
             return render_template('add_lead.html',
                                    statuses=STATUSES, sources=SOURCES, team=team,
@@ -2951,8 +3070,14 @@ def add_lead():
               status, payment_done, payment_amount, revenue,
               follow_up_date, call_result, notes, city,
               pipeline_stage, assigned_to))
+        new_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
         db.commit()
         db.close()
+
+        if is_ajax:
+            return {'ok': True, 'id': new_id, 'name': name, 'phone': phone,
+                    'city': city, 'status': status, 'source': source}
+
         flash(f'Lead "{name}" added successfully.', 'success')
         return redirect(url_for('leads'))
 
@@ -2971,7 +3096,10 @@ def add_lead():
 @safe_route
 def edit_lead(lead_id):
     db   = get_db()
-    team = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
+    team = db.execute(
+        "SELECT username AS name FROM users "
+        "WHERE role IN ('team','leader') AND status='approved' ORDER BY username"
+    ).fetchall()
 
     if session.get('role') == 'admin':
         lead = db.execute(
@@ -3312,6 +3440,80 @@ def retarget():
                            leads=leads_list,
                            call_result_tags=CALL_RESULT_TAGS,
                            statuses=STATUSES)
+
+
+# ─────────────────────────────────────────────────────────────
+#  Old Leads – Lost leads archive (can be restored / retargeted)
+# ─────────────────────────────────────────────────────────────
+
+@app.route('/old-leads')
+@login_required
+@safe_route
+def old_leads():
+    db     = get_db()
+    search = request.args.get('q', '').strip()
+    role   = session.get('role')
+
+    base   = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' AND status='Lost'"
+    params = []
+
+    if role not in ('admin', 'leader'):
+        base  += " AND assigned_to=?"
+        params.append(session['username'])
+
+    if search:
+        if role == 'admin':
+            base  += " AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR assigned_to LIKE ?)"
+            params += [f'%{search}%', f'%{search}%', f'%{search}%', f'%{search}%']
+        else:
+            base  += " AND (name LIKE ? OR phone LIKE ? OR email LIKE ?)"
+            params += [f'%{search}%', f'%{search}%', f'%{search}%']
+
+    base += " ORDER BY updated_at DESC"
+    leads_list = db.execute(base, params).fetchall()
+    db.close()
+    return render_template('old_leads.html', leads=leads_list, search=search)
+
+
+@app.route('/leads/<int:lead_id>/restore-from-lost', methods=['POST'])
+@login_required
+@safe_route
+def restore_from_lost(lead_id):
+    """Move a Lost lead back to Retarget so it can be worked again."""
+    db   = get_db()
+    lead = db.execute(
+        "SELECT * FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''", (lead_id,)
+    ).fetchone()
+
+    if not lead:
+        db.close()
+        flash('Lead not found.', 'danger')
+        return redirect(url_for('old_leads'))
+
+    role = session.get('role')
+    if role not in ('admin', 'leader') and lead['assigned_to'] != session['username']:
+        db.close()
+        flash('Access denied.', 'danger')
+        return redirect(url_for('old_leads'))
+
+    if lead['status'] != 'Lost':
+        db.close()
+        flash('Only Lost leads can be restored.', 'warning')
+        return redirect(url_for('old_leads'))
+
+    db.execute(
+        """UPDATE leads
+              SET status='Retarget',
+                  pipeline_stage='enrollment',
+                  updated_at=datetime('now','localtime')
+            WHERE id=?""",
+        (lead_id,)
+    )
+    db.commit()
+    db.close()
+
+    flash(f'✅ "{lead["name"]}" restored to Retarget list.', 'success')
+    return redirect(url_for('old_leads'))
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -4785,6 +4987,7 @@ def wallet():
 
 @app.route('/wallet/request-recharge', methods=['POST'])
 @login_required
+@safe_route
 def request_recharge():
     username = session['username']
     db       = get_db()
@@ -4794,7 +4997,7 @@ def request_recharge():
     except ValueError:
         amount = 0
 
-    utr = request.form.get('utr_number', '').strip()
+    utr = (request.form.get('utr_number') or '').strip()
 
     if amount <= 0:
         flash('Please enter a valid amount greater than 0.', 'danger')
@@ -4814,12 +5017,21 @@ def request_recharge():
         db.close()
         return redirect(url_for('wallet'))
 
-    db.execute(
-        "INSERT INTO wallet_recharges (username, amount, utr_number, status) "
-        "VALUES (?, ?, ?, 'pending')",
-        (username, amount, utr)
-    )
-    db.commit()
+    try:
+        db.execute(
+            "INSERT INTO wallet_recharges (username, amount, utr_number, status) "
+            "VALUES (?, ?, ?, 'pending')",
+            (username, amount, utr)
+        )
+        db.commit()
+    except Exception as _e:
+        app.logger.error(f"wallet recharge INSERT failed for {username}: {_e}")
+        try: db.execute("ROLLBACK")
+        except Exception: pass
+        db.close()
+        flash('Could not save your request. Please try again or contact admin.', 'danger')
+        return redirect(url_for('wallet'))
+
     db.close()
     flash(f'Recharge request of \u20b9{amount:.0f} submitted! UTR: {utr}. '
           f'Admin will credit your wallet within 24 hours.', 'success')
@@ -5439,8 +5651,8 @@ def export_leads():
 
     buf.seek(0)
     fname = f"leads_{_today_ist().isoformat()}.csv"
-    return Response(buf.getvalue(), mimetype='text/csv',
-                    headers={'Content-Disposition': f'attachment; filename={fname}'})
+    return Response(buf.getvalue(), mimetype='application/octet-stream',
+                    headers={'Content-Disposition': f'attachment; filename="{fname}"'})
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -5522,6 +5734,7 @@ def import_leads():
     }
 
     imported = skipped = 0
+    batch_values = []
     for row in rows_list:
         name  = row.get('name', '').strip()
         phone = row.get('phone', '').strip()
@@ -5540,16 +5753,20 @@ def import_leads():
             skipped += 1
             continue
         existing_phones.add(phone)
+        batch_values.append((name, phone, email, assigned_to, src, city))
+        imported += 1
 
-        db.execute("""
+    _BATCH_SZ = 50
+    for i in range(0, len(batch_values), _BATCH_SZ):
+        chunk = batch_values[i:i + _BATCH_SZ]
+        db.executemany("""
             INSERT INTO leads
                 (name, phone, email, assigned_to, source, status,
                  in_pool, pool_price, claimed_at, city, notes)
             VALUES (?, ?, ?, ?, ?, 'New', 0, 0, '', ?, '')
-        """, (name, phone, email, assigned_to, src, city))
-        imported += 1
+        """, chunk)
+        db.commit()
 
-    db.commit()
     db.close()
     flash(f'Import complete: {imported} leads added, {skipped} skipped (duplicates/empty).', 'success')
     return redirect(url_for('leads'))
@@ -6656,12 +6873,14 @@ _TRAINING_EXEMPT = (
 
 @app.before_request
 def refresh_session_role():
-    """Auto-sync session role from DB on every request.
-    Ensures promotions (team→leader) take effect immediately
-    without requiring logout/login."""
+    """Auto-sync session role from DB periodically (not every request)."""
     if 'username' not in session:
         return
     if request.path.startswith('/static'):
+        return
+    import time
+    last_check = session.get('_role_checked', 0)
+    if time.time() - last_check < 60:
         return
     try:
         db = get_db()
@@ -6670,6 +6889,7 @@ def refresh_session_role():
             (session['username'],)
         ).fetchone()
         db.close()
+        session['_role_checked'] = time.time()
         if row and row['role'] != session.get('role'):
             session['role'] = row['role']
     except Exception:
@@ -6813,6 +7033,11 @@ def training_home():
         (username,)
     ).fetchone()
 
+    # Sync session from DB so upload/certificate routes see correct status
+    if user_row and user_row['training_status']:
+        ts = user_row['training_status']
+        session['training_status'] = ts
+
     test_score = user_row['test_score'] if user_row else -1
 
     # Bonus videos (shown after all days done)
@@ -6940,11 +7165,33 @@ def training_certificate():
 
 @app.route('/training/upload-certificate', methods=['POST'])
 @login_required
+@safe_route
 def training_upload_certificate():
-    ts = session.get('training_status', 'pending')
+    import base64 as _b64
+
+    # Verify from DB (session can be stale — e.g. new tab, re-login, cache)
+    db = get_db()
+    user = db.execute(
+        "SELECT training_status, test_score FROM users WHERE username=?",
+        (session['username'],)
+    ).fetchone()
+    ts = (user['training_status'] if user else '') or 'pending'
+    test_score = (user['test_score'] if user and user['test_score'] is not None else -1)
+
     if ts not in ('completed', 'unlocked'):
+        db.close()
         flash('Complete training first.', 'warning')
         return redirect(url_for('training_home'))
+
+    # If completed, must have passed test (60+) to upload
+    if ts == 'completed' and test_score < 60:
+        db.close()
+        flash('Training test pass karna zaroori hai (60/100). Pehle test do.', 'warning')
+        return redirect(url_for('training_test'))
+
+    # Sync session so it stays correct
+    session['training_status'] = ts
+    db.close()
 
     f = request.files.get('certificate_file')
     if not f or not f.filename:
@@ -6964,16 +7211,31 @@ def training_upload_certificate():
         flash('File too large. Maximum size is 5 MB.', 'danger')
         return redirect(url_for('training_home'))
 
-    # Save file to persistent upload root (not /tmp)
-    upload_dir = os.path.join(_upload_root(), 'uploads', 'training_certs')
-    os.makedirs(upload_dir, exist_ok=True)
-    filename = f"{session['username']}_cert.{ext}"
-    f.save(os.path.join(upload_dir, filename))
+    # Read file bytes and encode as base64 for SQLite storage
+    # This avoids any dependency on the filesystem (Render has an ephemeral FS)
+    file_bytes = f.read()
+    cert_blob  = _b64.b64encode(file_bytes).decode('utf-8')
+    filename   = f"{session['username']}_cert.{ext}"
 
+    # Best-effort: also try to save to disk, but NEVER block unlock on failure
+    try:
+        upload_dir = os.path.join(_upload_root(), 'uploads', 'training_certs')
+        os.makedirs(upload_dir, exist_ok=True)
+        with open(os.path.join(upload_dir, filename), 'wb') as fh:
+            fh.write(file_bytes)
+    except Exception as _e:
+        app.logger.warning(f"training_upload_certificate: disk save failed for "
+                           f"{session['username']} ({_e}) — blob stored in DB instead")
+
+    # Always update DB — certificate_blob guarantees we have the file even on Render
     db = get_db()
     db.execute(
-        "UPDATE users SET training_status='unlocked', certificate_path=? WHERE username=?",
-        (filename, session['username'])
+        """UPDATE users
+              SET training_status='unlocked',
+                  certificate_path=?,
+                  certificate_blob=?
+            WHERE username=?""",
+        (filename, cert_blob, session['username'])
     )
     db.commit()
     db.close()
@@ -7153,27 +7415,28 @@ def admin_training_reset(username):
 @app.route('/training/test')
 @login_required
 def training_test():
-    ts = session.get('training_status', 'pending')
+    username = session['username']
+    db = get_db()
+    user_row = db.execute(
+        "SELECT training_status, test_score, test_attempts FROM users WHERE username=?",
+        (username,)
+    ).fetchone()
+    ts = (user_row and user_row['training_status']) or 'pending'
     if ts not in ('completed', 'unlocked'):
+        db.close()
         flash('Complete all 7 days of training first.', 'warning')
         return redirect(url_for('training_home'))
 
-    username = session['username']
-    db = get_db()
+    session['training_status'] = ts  # keep session in sync
 
-    # Fetch up to 20 questions (random order for variety)
     questions = db.execute(
         "SELECT * FROM training_questions ORDER BY RANDOM() LIMIT 20"
     ).fetchall()
 
-    user_row = db.execute(
-        "SELECT test_score, test_attempts FROM users WHERE username=?", (username,)
-    ).fetchone()
-    db.close()
-
     test_score   = user_row['test_score']   if user_row else -1
     test_attempts = user_row['test_attempts'] if user_row else 0
 
+    db.close()
     return render_template('training_test.html',
                            questions=questions,
                            test_score=test_score,
@@ -7184,12 +7447,14 @@ def training_test():
 @app.route('/training/test/submit', methods=['POST'])
 @login_required
 def training_test_submit():
-    ts = session.get('training_status', 'pending')
-    if ts not in ('completed', 'unlocked'):
-        return redirect(url_for('training_home'))
-
     username = session['username']
     db = get_db()
+    user = db.execute("SELECT training_status FROM users WHERE username=?", (username,)).fetchone()
+    ts = (user and user['training_status']) or 'pending'
+    if ts not in ('completed', 'unlocked'):
+        db.close()
+        flash('Complete all 7 training days first.', 'warning')
+        return redirect(url_for('training_home'))
 
     questions = db.execute("SELECT * FROM training_questions ORDER BY id").fetchall()
     if not questions:
@@ -7506,7 +7771,10 @@ def _working_assigned_where(db, role, username, scope='all', downline_usernames=
 def _upsert_daily_score(db, username, delta_pts,
                         delta_calls=0, delta_videos=0,
                         delta_batches=0, delta_payments=0):
-    """Atomically add to today's daily_scores row, creating it if needed."""
+    """Atomically add to today's daily_scores row, creating it if needed.
+    Uses CASE WHEN for floor-at-zero because SQLite does not allow MAX()
+    as a scalar in SET clauses (only as an aggregate).
+    Uses INSERT OR REPLACE for the new-row path to handle rare concurrent inserts."""
     today     = _today_ist().strftime('%Y-%m-%d')
     yesterday = (_today_ist() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
     existing  = db.execute(
@@ -7514,16 +7782,21 @@ def _upsert_daily_score(db, username, delta_pts,
         (username, today)
     ).fetchone()
     if existing:
+        # CASE WHEN is the correct SQLite way to floor at zero in an UPDATE
         db.execute("""
             UPDATE daily_scores SET
-                total_points       = MAX(0, total_points + ?),
-                calls_made         = MAX(0, calls_made + ?),
-                videos_sent        = MAX(0, videos_sent + ?),
-                batches_marked     = MAX(0, batches_marked + ?),
-                payments_collected = MAX(0, payments_collected + ?)
+                total_points       = CASE WHEN total_points + ? < 0 THEN 0 ELSE total_points + ? END,
+                calls_made         = CASE WHEN calls_made + ? < 0 THEN 0 ELSE calls_made + ? END,
+                videos_sent        = CASE WHEN videos_sent + ? < 0 THEN 0 ELSE videos_sent + ? END,
+                batches_marked     = CASE WHEN batches_marked + ? < 0 THEN 0 ELSE batches_marked + ? END,
+                payments_collected = CASE WHEN payments_collected + ? < 0 THEN 0 ELSE payments_collected + ? END
             WHERE username=? AND score_date=?
-        """, (delta_pts, delta_calls, delta_videos,
-              delta_batches, delta_payments, username, today))
+        """, (delta_pts, delta_pts,
+              delta_calls, delta_calls,
+              delta_videos, delta_videos,
+              delta_batches, delta_batches,
+              delta_payments, delta_payments,
+              username, today))
     else:
         yrow = db.execute(
             "SELECT streak_days FROM daily_scores WHERE username=? AND score_date=?",
@@ -7531,8 +7804,9 @@ def _upsert_daily_score(db, username, delta_pts,
         ).fetchone()
         streak       = (yrow['streak_days'] + 1) if yrow else 1
         streak_bonus = 10 if yrow else 0
+        # INSERT OR REPLACE handles the rare concurrent-insert race condition
         db.execute("""
-            INSERT OR IGNORE INTO daily_scores
+            INSERT OR REPLACE INTO daily_scores
                 (username, score_date, calls_made, videos_sent,
                  batches_marked, payments_collected, total_points, streak_days)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -7580,7 +7854,7 @@ def working():
         stage_counts = db.execute(
             "SELECT "
             "SUM(CASE WHEN status IN (" + stage_placeholders + ") THEN 1 ELSE 0 END) AS stage1, "
-            "SUM(CASE WHEN status IN ('Day 1','Paid ₹196') THEN 1 ELSE 0 END) AS day1, "
+            "SUM(CASE WHEN status='Day 1' THEN 1 ELSE 0 END) AS day1, "
             "SUM(CASE WHEN status='Day 2' THEN 1 ELSE 0 END) AS day2, "
             "SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3, "
             "SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS pending, "
@@ -7604,7 +7878,7 @@ def working():
             row = db.execute(f"""
                 SELECT
                     SUM(CASE WHEN status IN ({stage_placeholders}) THEN 1 ELSE 0 END) AS stage1,
-                    SUM(CASE WHEN status IN ('Day 1','Paid ₹196') THEN 1 ELSE 0 END) AS day1,
+                    SUM(CASE WHEN status='Day 1' THEN 1 ELSE 0 END) AS day1,
                     SUM(CASE WHEN status='Day 2'             THEN 1 ELSE 0 END) AS day2,
                     SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3,
                     SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS pending,
@@ -7619,7 +7893,7 @@ def working():
                 'day3':   row['day3']   or 0,
                 'pending': row['pending'] or 0,
                 'converted': row['converted'] or 0,
-                'today_score': score_pts,
+                'score': score_pts,
                 'fbo_id': m['fbo_id'] or '',
             }
 
@@ -7633,11 +7907,11 @@ def working():
 
         # Day 1/2 batch completion rate
         d1_total = db.execute(
-            "SELECT COUNT(*) " + _admin_base + "AND status IN ('Day 1','Paid ₹196')",
+            "SELECT COUNT(*) " + _admin_base + "AND status='Day 1'",
             _admin_params
         ).fetchone()[0] or 0
         d1_done  = db.execute(
-            "SELECT COUNT(*) " + _admin_base + "AND status IN ('Day 1','Paid ₹196') AND d1_morning=1 AND d1_afternoon=1 AND d1_evening=1",
+            "SELECT COUNT(*) " + _admin_base + "AND status='Day 1' AND d1_morning=1 AND d1_afternoon=1 AND d1_evening=1",
             _admin_params
         ).fetchone()[0] or 0
         d2_total = db.execute(
@@ -7712,7 +7986,7 @@ def working():
             _own_params + list(STAGE1_STATUSES)
         ).fetchall()
         own_day1 = db.execute(
-            _base + _own_where + " AND status IN ('Day 1','Paid ₹196') ORDER BY updated_at DESC",
+            _base + _own_where + " AND status='Day 1' ORDER BY updated_at DESC",
             _own_params
         ).fetchall()
         own_day2 = db.execute(
@@ -7741,7 +8015,7 @@ def working():
                 _team_params + list(STAGE1_STATUSES)
             ).fetchall()
             team_day1 = db.execute(
-                _team_base + "AND status IN ('Day 1','Paid ₹196') ORDER BY assigned_to, updated_at DESC",
+                _team_base + "AND status='Day 1' ORDER BY assigned_to, updated_at DESC",
                 _team_params
             ).fetchall()
             team_day2 = db.execute(
@@ -7953,7 +8227,7 @@ def working():
         _tp + list(STAGE1_STATUSES)
     ).fetchall()
     day1_leads = db.execute(
-        _base_team + "AND status IN ('Day 1','Paid ₹196') ORDER BY updated_at DESC",
+        _base_team + "AND status='Day 1' ORDER BY updated_at DESC",
         _tp
     ).fetchall()
     day2_leads = db.execute(
@@ -7987,7 +8261,7 @@ def working():
     ).fetchone()[0] or 0
     batches_due = (
         db.execute(
-            _count_base + "AND status IN ('Day 1','Paid ₹196') AND (d1_morning+d1_afternoon+d1_evening) < 3",
+            _count_base + "AND status='Day 1' AND (d1_morning+d1_afternoon+d1_evening) < 3",
             _tp
         ).fetchone()[0] or 0
     ) + (
@@ -8136,11 +8410,14 @@ def batch_toggle(lead_id):
             if owner != session['username'] and owner not in downline:
                 db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
     else:
-        # Day 2 batches can only be marked by admin
-        if batch.startswith('d2_') and role != 'admin':
-            db.close(); return {'ok': False, 'error': 'Only admin can mark Day 2 batches'}, 403
-        if role != 'admin' and owner != session['username']:
-            db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
+        # Day 2 batches: admin only
+        if batch.startswith('d2_'):
+            if role != 'admin':
+                db.close(); return {'ok': False, 'error': 'Only admin can mark Day 2 batches'}, 403
+        else:
+            # Other batches (d3_, etc.): team can mark own; admin unrestricted
+            if role != 'admin' and owner != session['username']:
+                db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
 
     # Toggle (or force-mark if force_mark=true, used by "already sent" button)
     force_mark = data.get('force_mark', False)
@@ -8325,6 +8602,35 @@ def stage_advance(lead_id):
 
     lead_keys = lead.keys()
 
+    # ── Ownership check: team can only act on own leads;
+    #    leader can act on own + downline; admin unrestricted ──
+    if role == 'team':
+        if lead['assigned_to'] != username:
+            db.close()
+            return {'ok': False, 'error': 'You can only advance your own leads'}, 403
+    elif role == 'leader':
+        downline = _get_network_usernames(db, username)
+        if lead['assigned_to'] != username and lead['assigned_to'] not in downline:
+            db.close()
+            return {'ok': False, 'error': 'You can only advance your own or downline leads'}, 403
+
+    # ── Stage machine guard: validate the current stage allows this action ──
+    VALID_FROM = {
+        'enroll_complete':   ('enrollment',),
+        'day1_complete':     ('day1',),
+        'day2_complete':     ('day2',),
+        'interview_done':    ('day2',),
+        'seat_hold_done':    ('day3',),
+        'fully_converted':   ('seat_hold', 'closing'),
+        'training_complete': ('training',),
+        'mark_lost':         ('enrollment', 'day1', 'day2', 'day3', 'seat_hold', 'closing'),
+    }
+    current_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead_keys else 'enrollment'
+    valid_from = VALID_FROM.get(action, ())
+    if valid_from and current_stage not in valid_from:
+        db.close()
+        return {'ok': False, 'error': f'Lead is at stage "{current_stage}" — cannot perform "{action}" from here'}, 400
+
     if action == 'seat_hold_done':
         track_sel = lead['track_selected'] if 'track_selected' in lead_keys else ''
         if not track_sel:
@@ -8441,9 +8747,11 @@ def update_call_status(lead_id):
     if new_auto_status:
         new_idx = _STATUS_ORDER.index(new_auto_status) if new_auto_status in _STATUS_ORDER else 0
         if new_idx > cur_idx:
+            # Sync pipeline_stage alongside status to keep them consistent
+            new_auto_stage = STATUS_TO_STAGE.get(new_auto_status, 'enrollment')
             db.execute(
-                "UPDATE leads SET status=?, updated_at=? WHERE id=?",
-                (new_auto_status, now_str, lead_id)
+                "UPDATE leads SET status=?, pipeline_stage=?, updated_at=? WHERE id=?",
+                (new_auto_status, new_auto_stage, now_str, lead_id)
             )
 
     # Gamification: award points for call actions

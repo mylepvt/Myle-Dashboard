@@ -214,8 +214,8 @@
       <form method="post" action="{{ url_for('training_upload_certificate') }}" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token','') }}">
         <div class="d-flex gap-2 align-items-center flex-wrap">
-          <input type="file" name="certificate_file" class="form-control"
-                 accept=".pdf,.jpg,.jpeg,.png" style="max-width:320px;" required>
+          <input type="file" name="certificate_file" class="form-control input-ios-safe"
+                 accept="image/*,.pdf" style="max-width:320px;font-size:16px;" required>
           <button type="submit" class="ap-btn primary">
             <i class="bi bi-unlock-fill me-2"></i>Upload &amp; Unlock
           </button>
@@ -807,5 +807,20 @@ function togglePodcast(btn, url, isLocal) {
   70%      { box-shadow: 0 0 0 8px rgba(52,199,89,0); }
 }
 .pulse-btn { animation: pulse 1.5s infinite; }
+
+/* ── Dark mode ─────────────────────────────────── */
+[data-theme="dark"] {
+  --ap-label: #FFFFFF;
+  --ap-sublabel: rgba(235,235,245,0.86);
+  --ap-gray1: rgba(120,120,130,0.14);
+  --ap-gray2: rgba(84,84,92,0.45);
+  --ap-gray3: rgba(235,235,245,0.45);
+}
+[data-theme="dark"] .ap-card { background: var(--bg-card); color: var(--label-1); }
+[data-theme="dark"] .ap-seg-btn[data-bs-toggle="tab"].active { background: var(--bg-card); color: var(--label-1); }
+[data-theme="dark"] .ap-btn-white { background: rgba(255,255,255,0.08); color: var(--label-1); }
+[data-theme="dark"] .ap-btn-white:hover { color: var(--label-1); }
+[data-theme="dark"] .ap-notice.warning { background: rgba(255,159,10,0.10); color: var(--ios-orange); }
+[data-theme="dark"] .ap-notice.success { background: rgba(50,215,75,0.10); color: var(--ios-green); }
 </style>
 {% endblock %}

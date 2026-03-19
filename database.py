@@ -12,7 +12,7 @@ DATABASE = os.environ.get(
 
 def get_db():
     try:
-        conn = sqlite3.connect(DATABASE)
+        conn = sqlite3.connect(DATABASE, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA busy_timeout=5000")
@@ -119,6 +119,7 @@ def init_db():
             training_status       TEXT    NOT NULL DEFAULT 'not_required',
             joining_date          TEXT    NOT NULL DEFAULT '',
             certificate_path      TEXT    NOT NULL DEFAULT '',
+            certificate_blob      TEXT    NOT NULL DEFAULT '',
             badges_json           TEXT    NOT NULL DEFAULT '[]',
             created_at            TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
         )
@@ -398,6 +399,8 @@ def migrate_db():
         ("badges_json",           "TEXT NOT NULL DEFAULT '[]'"),
         ("test_score",            "INTEGER NOT NULL DEFAULT -1"),
         ("test_attempts",         "INTEGER NOT NULL DEFAULT 0"),
+        # Certificate stored as base64 so it persists on ephemeral filesystems (Render)
+        ("certificate_blob",      "TEXT NOT NULL DEFAULT ''"),
         # Pipeline role system (Part 2)
         ("upline_username",       "TEXT NOT NULL DEFAULT ''"),
     ]:
@@ -818,6 +821,12 @@ def migrate_db():
         "CREATE INDEX IF NOT EXISTS idx_lead_notes_lead ON lead_notes(lead_id, created_at)",
         "CREATE INDEX IF NOT EXISTS idx_leads_followup ON leads(follow_up_date, assigned_to)",
         "CREATE INDEX IF NOT EXISTS idx_leads_contacted ON leads(last_contacted, assigned_to)",
+        "CREATE INDEX IF NOT EXISTS idx_leads_created ON leads(created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_leads_deleted_pool ON leads(in_pool, deleted_at, assigned_to, created_at)",
+        # Seat-hold expiry check: pipeline_stage + current_owner + expiry for fast scan
+        "CREATE INDEX IF NOT EXISTS idx_leads_seat_hold ON leads(pipeline_stage, current_owner, seat_hold_expiry)",
+        # Stage-advance lookups by assigned_to + pipeline_stage
+        "CREATE INDEX IF NOT EXISTS idx_leads_stage_assigned ON leads(assigned_to, pipeline_stage, in_pool, deleted_at)",
     ]
     for idx in indexes:
         try:

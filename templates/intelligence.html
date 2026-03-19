@@ -87,6 +87,71 @@
 .rank-medal.silver { background:#9ca3af; color:#fff; }
 .rank-medal.bronze { background:#cd7c3a; color:#fff; }
 .rank-medal.other  { background:#f3f4f6; color:#6b7280; }
+
+/* ── Dark mode ─────────────────────────────────── */
+[data-theme="dark"] .intel-card {
+  background: var(--bg-card); border-color: var(--sep); color: var(--label-1);
+}
+[data-theme="dark"] .intel-card .fw-bold { color: var(--label-1) !important; }
+[data-theme="dark"] .intel-tabs {
+  background: var(--bg-card) !important; border-color: var(--sep) !important;
+}
+[data-theme="dark"] .intel-tab {
+  color: var(--label-3) !important;
+}
+[data-theme="dark"] .intel-tab.active {
+  color: #6366f1 !important; border-bottom-color: #6366f1 !important;
+}
+[data-theme="dark"] .intel-card [style*="color:#9ca3af"] {
+  color: var(--label-3) !important;
+}
+[data-theme="dark"] [style*="color:#9ca3af"] {
+  color: var(--label-3) !important;
+}
+[data-theme="dark"] .na-badge.urgent {
+  background: rgba(255,69,58,0.18) !important; color: #ff6b6b !important;
+  border-color: rgba(255,69,58,0.3) !important;
+}
+[data-theme="dark"] .na-badge.today {
+  background: rgba(255,159,10,0.18) !important; color: #ffb84d !important;
+  border-color: rgba(255,159,10,0.3) !important;
+}
+[data-theme="dark"] .na-badge.followup {
+  background: rgba(10,132,255,0.18) !important; color: #60aaff !important;
+  border-color: rgba(10,132,255,0.3) !important;
+}
+[data-theme="dark"] .na-badge.cold {
+  background: var(--fill-3) !important; color: var(--label-3) !important;
+  border-color: var(--sep) !important;
+}
+[data-theme="dark"] .ai-tip-btn {
+  background: rgba(99,102,241,0.15) !important;
+  border-color: rgba(99,102,241,0.3) !important;
+  color: #a5b4fc !important;
+}
+[data-theme="dark"] .ai-tip-body {
+  background: rgba(99,102,241,0.08) !important;
+  border-color: rgba(99,102,241,0.25) !important;
+  color: #c7d2fe !important;
+}
+[data-theme="dark"] .heat-val-hot { color: #ff6b6b !important; }
+[data-theme="dark"] .heat-val-warm { color: #ffb84d !important; }
+[data-theme="dark"] .heat-val-cold { color: var(--label-3) !important; }
+[data-theme="dark"] .intel-card .badge.bg-light {
+  background: var(--fill-3) !important; color: var(--label-2) !important;
+}
+[data-theme="dark"] .lb-weekly-row { border-color: var(--sep); color: var(--label-1); }
+[data-theme="dark"] .lb-weekly-row.me { background: rgba(94,92,230,0.10); }
+[data-theme="dark"] .lb-weekly-row:first-child { background: rgba(255,214,10,0.08); }
+[data-theme="dark"] .lb-weekly-row [style*="color:#9ca3af"] { color: var(--label-3) !important; }
+[data-theme="dark"] .lb-weekly-row [style*="color:#6366f1"] { color: #a5b4fc !important; }
+[data-theme="dark"] .rank-medal.other { background: var(--fill-3); color: var(--label-3); }
+[data-theme="dark"] #panel-lb [style*="background:#f9fafb"] {
+  background: var(--fill-3) !important;
+}
+[data-theme="dark"] #panel-lb .card-header[style*="background:linear-gradient"] {
+  border-color: var(--sep) !important;
+}
 </style>
 {% endblock %}
 
