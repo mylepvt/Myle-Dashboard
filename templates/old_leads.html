@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Old Leads – Myle Community{% endblock %}
+{% block page_title %}Old Leads{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="mb-3">
+  <div class="d-flex align-items-center gap-2 mb-1">
+    <h5 class="fw-bold mb-0"><i class="bi bi-archive me-1 text-secondary"></i>Old Leads</h5>
+    <span class="badge bg-secondary rounded-pill">{{ leads|length }}</span>
+  </div>
+  <p class="text-muted small mb-0">Lost leads — restore karo to retarget list mein wapas aa jaayenge</p>
+</div>
+
+<!-- Search -->
+<form method="get" class="mb-3">
+  <div class="input-group input-group-sm" style="max-width:340px;">
+    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+    <input type="text" name="q" value="{{ search }}"
+           class="form-control border-start-0 ps-0"
+           placeholder="Name, phone ya email se dhundo…">
+    {% if search %}
+    <a href="{{ url_for('old_leads') }}" class="btn btn-outline-secondary">
+      <i class="bi bi-x"></i>
+    </a>
+    {% endif %}
+  </div>
+</form>
+
+{% if leads %}
+<div class="card border-0 shadow-sm" style="border-radius:12px;">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Name</th>
+            <th>Phone</th>
+            {% if session.get('role') == 'admin' %}
+            <th>Assigned To</th>
+            {% endif %}
+            <th>Last Stage</th>
+            <th>Lost On</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lead in leads %}
+          <tr>
+            <td class="ps-3 fw-semibold">{{ lead.name }}</td>
+            <td>
+              <div class="d-flex align-items-center gap-1">
+                <span class="small">{{ lead.phone }}</span>
+                <a href="tel:{{ lead.phone }}" class="btn btn-xs btn-success px-1 py-0"
+                   title="Call" style="font-size:0.72rem;line-height:1.5;">
+                  <i class="bi bi-telephone-fill"></i>
+                </a>
+                <a href="https://wa.me/{{ lead.phone|wa_phone }}"
+                   class="btn btn-xs px-1 py-0" target="_blank" rel="noopener"
+                   title="WhatsApp"
+                   style="background:#25D366;color:#fff;font-size:0.72rem;line-height:1.5;border-radius:4px;">
+                  <i class="bi bi-whatsapp"></i>
+                </a>
+              </div>
+            </td>
+            {% if session.get('role') == 'admin' %}
+            <td class="text-muted small">{{ lead.assigned_to or '—' }}</td>
+            {% endif %}
+            <td>
+              {% if lead.pipeline_stage %}
+              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"
+                    style="font-size:.72rem;">
+                {{ lead.pipeline_stage|title }}
+              </span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-muted small">{{ lead.updated_at[:10] }}</td>
+            <td>
+              <form method="post"
+                    action="{{ url_for('restore_from_lost', lead_id=lead.id) }}"
+                    onsubmit="return confirm('{{ lead.name }} ko Retarget list mein restore karo?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-xs btn-outline-success"
+                        style="font-size:.75rem;">
+                  <i class="bi bi-arrow-counterclockwise me-1"></i>Restore
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="text-center py-5">
+  <i class="bi bi-archive text-secondary" style="font-size:3rem;opacity:.4;"></i>
+  <h5 class="mt-3 fw-semibold text-muted">
+    {% if search %}Koi lead nahi mili "{{ search }}" ke liye{% else %}Koi bhi lost lead nahi hai{% endif %}
+  </h5>
+  {% if search %}
+  <a href="{{ url_for('old_leads') }}" class="btn btn-sm btn-outline-secondary mt-2">Clear Search</a>
+  {% else %}
+  <p class="text-muted small">Jab koi lead "Lost" status milegi, yahan dikhegi</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -182,6 +182,15 @@
         </a>
       </li>
       {% endif %}
+      <li class="nav-item">
+        <a href="{{ url_for('old_leads') }}"
+           class="nav-link d-flex align-items-center justify-content-between {% if request.endpoint == 'old_leads' %}active{% endif %}">
+          <span><i class="bi bi-archive me-2"></i><span>Old Leads</span></span>
+          {% if lost_count is defined and lost_count > 0 %}
+          <span class="badge bg-secondary" style="font-size:.6rem;">{{ lost_count }}</span>
+          {% endif %}
+        </a>
+      </li>
 
       <!-- ── Team (admin only) ─────────────────────────── -->
       {% if session.get('role') == 'admin' %}

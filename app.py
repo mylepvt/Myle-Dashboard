@@ -1875,10 +1875,12 @@ def inject_pending_count():
             row = db.execute("""
                 SELECT
                   (SELECT COUNT(*) FROM users           WHERE status='pending') as pu,
-                  (SELECT COUNT(*) FROM wallet_recharges WHERE status='pending') as wp
+                  (SELECT COUNT(*) FROM wallet_recharges WHERE status='pending') as wp,
+                  (SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND status='Lost') as lc
             """).fetchone()
             db.close()
-            return {'pending_count': row['pu'], 'wallet_pending': row['wp'], 'has_pending_work': False}
+            return {'pending_count': row['pu'], 'wallet_pending': row['wp'],
+                    'has_pending_work': False, 'lost_count': row['lc']}
         uname = session.get('username')
         if uname:
             db = get_db()
@@ -1887,11 +1889,16 @@ def inject_pending_count():
                 "WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status IN ('Day 1','Paid ₹196') AND d1_morning=0",
                 (uname,)
             ).fetchone()[0] > 0
+            lc = db.execute(
+                "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status='Lost'",
+                (uname,)
+            ).fetchone()[0]
             db.close()
-            return {'pending_count': 0, 'wallet_pending': 0, 'has_pending_work': has_pending_work}
+            return {'pending_count': 0, 'wallet_pending': 0,
+                    'has_pending_work': has_pending_work, 'lost_count': lc}
     except Exception as e:
         app.logger.error(f"inject_pending_count() failed: {e}")
-    return {'pending_count': 0, 'wallet_pending': 0, 'has_pending_work': False}
+    return {'pending_count': 0, 'wallet_pending': 0, 'has_pending_work': False, 'lost_count': 0}
 
 
 # ──────────────────────────────────────────────────────────────
@@ -2852,7 +2859,7 @@ def _leads_inner():
     today_lo   = today + ' 00:00:00'
     tomorrow_lo = (_dt.now() + _td(days=1)).strftime('%Y-%m-%d') + ' 00:00:00'
 
-    base   = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at=''"
+    base   = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' AND status NOT IN ('Lost','Retarget')"
     role   = session.get('role')
     uname  = session.get('username')
 
@@ -3433,6 +3440,80 @@ def retarget():
                            leads=leads_list,
                            call_result_tags=CALL_RESULT_TAGS,
                            statuses=STATUSES)
+
+
+# ─────────────────────────────────────────────────────────────
+#  Old Leads – Lost leads archive (can be restored / retargeted)
+# ─────────────────────────────────────────────────────────────
+
+@app.route('/old-leads')
+@login_required
+@safe_route
+def old_leads():
+    db     = get_db()
+    search = request.args.get('q', '').strip()
+    role   = session.get('role')
+
+    base   = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' AND status='Lost'"
+    params = []
+
+    if role not in ('admin', 'leader'):
+        base  += " AND assigned_to=?"
+        params.append(session['username'])
+
+    if search:
+        if role == 'admin':
+            base  += " AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR assigned_to LIKE ?)"
+            params += [f'%{search}%', f'%{search}%', f'%{search}%', f'%{search}%']
+        else:
+            base  += " AND (name LIKE ? OR phone LIKE ? OR email LIKE ?)"
+            params += [f'%{search}%', f'%{search}%', f'%{search}%']
+
+    base += " ORDER BY updated_at DESC"
+    leads_list = db.execute(base, params).fetchall()
+    db.close()
+    return render_template('old_leads.html', leads=leads_list, search=search)
+
+
+@app.route('/leads/<int:lead_id>/restore-from-lost', methods=['POST'])
+@login_required
+@safe_route
+def restore_from_lost(lead_id):
+    """Move a Lost lead back to Retarget so it can be worked again."""
+    db   = get_db()
+    lead = db.execute(
+        "SELECT * FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''", (lead_id,)
+    ).fetchone()
+
+    if not lead:
+        db.close()
+        flash('Lead not found.', 'danger')
+        return redirect(url_for('old_leads'))
+
+    role = session.get('role')
+    if role not in ('admin', 'leader') and lead['assigned_to'] != session['username']:
+        db.close()
+        flash('Access denied.', 'danger')
+        return redirect(url_for('old_leads'))
+
+    if lead['status'] != 'Lost':
+        db.close()
+        flash('Only Lost leads can be restored.', 'warning')
+        return redirect(url_for('old_leads'))
+
+    db.execute(
+        """UPDATE leads
+              SET status='Retarget',
+                  pipeline_stage='enrollment',
+                  updated_at=datetime('now','localtime')
+            WHERE id=?""",
+        (lead_id,)
+    )
+    db.commit()
+    db.close()
+
+    flash(f'✅ "{lead["name"]}" restored to Retarget list.', 'success')
+    return redirect(url_for('old_leads'))
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -6952,6 +7033,11 @@ def training_home():
         (username,)
     ).fetchone()
 
+    # Sync session from DB so upload/certificate routes see correct status
+    if user_row and user_row['training_status']:
+        ts = user_row['training_status']
+        session['training_status'] = ts
+
     test_score = user_row['test_score'] if user_row else -1
 
     # Bonus videos (shown after all days done)
@@ -7083,10 +7169,29 @@ def training_certificate():
 def training_upload_certificate():
     import base64 as _b64
 
-    ts = session.get('training_status', 'pending')
+    # Verify from DB (session can be stale — e.g. new tab, re-login, cache)
+    db = get_db()
+    user = db.execute(
+        "SELECT training_status, test_score FROM users WHERE username=?",
+        (session['username'],)
+    ).fetchone()
+    ts = (user['training_status'] if user else '') or 'pending'
+    test_score = (user['test_score'] if user and user['test_score'] is not None else -1)
+
     if ts not in ('completed', 'unlocked'):
+        db.close()
         flash('Complete training first.', 'warning')
         return redirect(url_for('training_home'))
+
+    # If completed, must have passed test (60+) to upload
+    if ts == 'completed' and test_score < 60:
+        db.close()
+        flash('Training test pass karna zaroori hai (60/100). Pehle test do.', 'warning')
+        return redirect(url_for('training_test'))
+
+    # Sync session so it stays correct
+    session['training_status'] = ts
+    db.close()
 
     f = request.files.get('certificate_file')
     if not f or not f.filename:
@@ -7310,27 +7415,28 @@ def admin_training_reset(username):
 @app.route('/training/test')
 @login_required
 def training_test():
-    ts = session.get('training_status', 'pending')
+    username = session['username']
+    db = get_db()
+    user_row = db.execute(
+        "SELECT training_status, test_score, test_attempts FROM users WHERE username=?",
+        (username,)
+    ).fetchone()
+    ts = (user_row and user_row['training_status']) or 'pending'
     if ts not in ('completed', 'unlocked'):
+        db.close()
         flash('Complete all 7 days of training first.', 'warning')
         return redirect(url_for('training_home'))
 
-    username = session['username']
-    db = get_db()
+    session['training_status'] = ts  # keep session in sync
 
-    # Fetch up to 20 questions (random order for variety)
     questions = db.execute(
         "SELECT * FROM training_questions ORDER BY RANDOM() LIMIT 20"
     ).fetchall()
 
-    user_row = db.execute(
-        "SELECT test_score, test_attempts FROM users WHERE username=?", (username,)
-    ).fetchone()
-    db.close()
-
     test_score   = user_row['test_score']   if user_row else -1
     test_attempts = user_row['test_attempts'] if user_row else 0
 
+    db.close()
     return render_template('training_test.html',
                            questions=questions,
                            test_score=test_score,
@@ -7341,12 +7447,14 @@ def training_test():
 @app.route('/training/test/submit', methods=['POST'])
 @login_required
 def training_test_submit():
-    ts = session.get('training_status', 'pending')
-    if ts not in ('completed', 'unlocked'):
-        return redirect(url_for('training_home'))
-
     username = session['username']
     db = get_db()
+    user = db.execute("SELECT training_status FROM users WHERE username=?", (username,)).fetchone()
+    ts = (user and user['training_status']) or 'pending'
+    if ts not in ('completed', 'unlocked'):
+        db.close()
+        flash('Complete all 7 training days first.', 'warning')
+        return redirect(url_for('training_home'))
 
     questions = db.execute("SELECT * FROM training_questions ORDER BY id").fetchall()
     if not questions:
