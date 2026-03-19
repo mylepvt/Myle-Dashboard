@@ -709,6 +709,35 @@ if (!window.CSS || !window.CSS.supports) {
     initSidebar();
   }
 
+  /* ── iOS modal scroll-lock fix ─────────────────────────
+     Bootstrap adds overflow:hidden to body when a modal opens.
+     On iOS Safari this freezes ALL touch/gesture input on the page.
+     Fix: use position:fixed + save/restore scroll position instead. ── */
+  (function() {
+    var isIOS = (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (!isIOS) return;
+    var _savedScroll = 0;
+    document.addEventListener('show.bs.modal', function() {
+      _savedScroll = window.scrollY || window.pageYOffset || 0;
+    });
+    document.addEventListener('shown.bs.modal', function() {
+      document.body.style.position   = 'fixed';
+      document.body.style.top        = '-' + _savedScroll + 'px';
+      document.body.style.width      = '100%';
+      document.body.style.overflow   = '';
+      document.body.style.paddingRight = '';
+    });
+    document.addEventListener('hidden.bs.modal', function() {
+      document.body.style.position   = '';
+      document.body.style.top        = '';
+      document.body.style.width      = '';
+      document.body.style.overflow   = '';
+      document.body.style.paddingRight = '';
+      window.scrollTo(0, _savedScroll);
+    });
+  })();
+
   /* ── Auto-dismiss flash alerts after 4s ─────────────── */
   document.querySelectorAll('.js-autodismiss').forEach(el => {
     setTimeout(() => {
