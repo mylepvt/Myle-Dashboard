@@ -833,7 +833,7 @@
 
 <!-- ── Import Modal ──────────────────────────────────── -->
 <div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
-  <div class="modal-dialog modal-dialog-scrollable" style="margin-top:5vh;">
+  <div class="modal-dialog modal-dialog-scrollable">
     <div class="modal-content border-0 shadow">
       <div class="modal-header border-0 pb-0 imp-modal-hdr" style="border-radius:12px 12px 0 0;">
         <h5 class="modal-title fw-bold imp-modal-title">
@@ -912,7 +912,7 @@
 <!-- ── Quick Add Lead Modal ───────────────────────────── -->
 <!-- data-bs-focus="false" stops Bootstrap overriding our iOS gesture-focus -->
 <div class="modal fade" id="quickAddModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
-  <div class="modal-dialog modal-dialog-scrollable" style="margin-top:5vh;">
+  <div class="modal-dialog modal-dialog-scrollable">
     <div class="modal-content border-0 shadow">
       <!-- Header OUTSIDE <form> — Bootstrap scrollable modal requires direct
            flex children of .modal-content (.modal-header / body / footer).
@@ -1270,12 +1270,31 @@ document.querySelectorAll('#importModal form').forEach(function(form) {
 </script>
 
 <style>
-/* ── Modal scrollable layout fix ──────────────────────────────────────────
-   Bootstrap's modal-dialog-scrollable needs .modal-content to have direct
-   flex children (.modal-header / .modal-body / .modal-footer).
-   Our <form> sits between .modal-content and those divs, breaking the chain.
-   Fix: make the form a flex container so flexbox passes through correctly,
-   keeping .modal-footer (Add Lead / Import buttons) always visible.       */
+/* ── Modal scrollable layout fix (iOS) ────────────────────────────────────
+   Problem: On iPhone the modal form is taller than the viewport, so the
+   .modal element (overflow-y:auto) scrolls the entire dialog — header
+   scrolls off-screen and touch targets break.
+
+   Fix:
+   1. Lock .modal overflow → NO outer scroll.
+   2. Cap .modal-dialog to 94vh (not dvh — unsupported on older iOS).
+   3. <form> inside .modal-content uses flex so .modal-body scrolls
+      internally and header + footer stay fixed.                           */
+#quickAddModal.modal,
+#importModal.modal {
+  overflow-y: hidden !important;
+}
+#quickAddModal .modal-dialog,
+#importModal   .modal-dialog {
+  margin: 2vh auto !important;
+  max-height: 94vh;
+  height: auto;
+}
+#quickAddModal .modal-content,
+#importModal   .modal-content {
+  max-height: 94vh;
+  overflow: hidden;
+}
 #quickAddModal .modal-content > form,
 #importModal   .modal-content > form {
   display: flex;
@@ -1290,11 +1309,6 @@ document.querySelectorAll('#importModal form').forEach(function(form) {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-}
-/* Cap modal height so footer is never pushed off-screen on small phones */
-#quickAddModal .modal-dialog,
-#importModal   .modal-dialog {
-  max-height: calc(100dvh - 8vh);
 }
 
 /* ══ Working section card styles ══════════════════════════ */
