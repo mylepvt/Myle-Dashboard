@@ -1180,15 +1180,9 @@ p,span,td,li { color: inherit; }
 .text-purple { color:var(--ios-purple)!important; }
 .bg-purple   { background-color:var(--ios-purple)!important; }
 
-/* ── Scrollbar ──────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: var(--fill-1);
-  border-radius: 99px;
-  transition: background 0.15s ease;
-}
-::-webkit-scrollbar-thumb:hover { background: var(--fill-2); }
+/* ── Scrollbar — hidden globally ────────────────────────────────── */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+::-webkit-scrollbar { width: 0; height: 0; display: none; }
 @media (prefers-reduced-motion: no-preference) {
   html { scroll-behavior: smooth; }
 }
