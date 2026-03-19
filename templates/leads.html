@@ -1139,27 +1139,54 @@ function setBatch(leadId, day, batchVal) {
   });
 })();
 
-/* ── iOS keyboard fix for modals ─────────────────────────────────────────
-   iOS Safari only opens the keyboard when focus() is called within the
-   SAME synchronous gesture chain as the user tap. setTimeout / shown.bs.modal
-   both break that chain — so we focus from the trigger button's click handler
-   directly. iOS queues the keyboard; it slides up once the modal is visible.  ── */
-(function() {
-  // Quick Add: focus name input on every trigger tap (gesture-synchronous)
-  document.querySelectorAll('[data-bs-target="#quickAddModal"]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var inp = document.getElementById('quickAddName');
-      if (inp) inp.focus();
-    });
-  });
+/* ── iOS keyboard fix for modals (temp-input trick) ──────────────────────
+   Problem: iOS Safari/Chrome only opens keyboard if focus() is called within
+   the SAME synchronous gesture chain as the user tap. But the actual target
+   input is inside display:none — focusing it does nothing until it's visible.
 
-  // Import: focus first focusable input in the modal on trigger tap
-  document.querySelectorAll('[data-bs-target="#importModal"]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var first = document.querySelector('#importModal input, #importModal select');
-      if (first) first.focus();
+   Solution (temp-input hack):
+   1. On trigger tap: create a tiny off-screen real <input>, append + focus it
+      immediately (within gesture) → keyboard opens for the temp input.
+   2. On shown.bs.modal: shift focus to the real input → keyboard stays open.
+   3. Remove the temp input.
+
+   This is the only approach proven reliable across Safari + Chrome on iOS.  ── */
+(function() {
+  function makeTempInput() {
+    var t = document.createElement('input');
+    t.setAttribute('type', 'text');
+    t.setAttribute('inputmode', 'text');
+    t.style.cssText = 'position:fixed;top:50%;left:50%;width:1px;height:1px;opacity:0;font-size:16px;border:none;outline:none;z-index:-1;';
+    t.setAttribute('aria-hidden', 'true');
+    t.setAttribute('tabindex', '-1');
+    return t;
+  }
+
+  function iosFocusModal(modalId, realInputSelector) {
+    var triggers = document.querySelectorAll('[data-bs-target="' + modalId + '"]');
+    var modalEl  = document.querySelector(modalId);
+    if (!modalEl) return;
+
+    triggers.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        // Step 1: focus temp input within the synchronous gesture chain
+        var tmp = makeTempInput();
+        document.body.appendChild(tmp);
+        tmp.focus();
+
+        // Step 2: once modal animation completes, shift focus to real input
+        modalEl.addEventListener('shown.bs.modal', function handler() {
+          modalEl.removeEventListener('shown.bs.modal', handler);
+          var real = modalEl.querySelector(realInputSelector);
+          if (real) real.focus();
+          tmp.remove();
+        });
+      });
     });
-  });
+  }
+
+  iosFocusModal('#quickAddModal', '#quickAddName');
+  iosFocusModal('#importModal',   'input:not([type=file]), select');
 })();
 
 /* ── Call status update — Android + iOS compatible ────────── */
