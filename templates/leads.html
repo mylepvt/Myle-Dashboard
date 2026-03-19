@@ -1305,18 +1305,24 @@ document.querySelectorAll('#importModal form').forEach(function(form) {
 
 <style>
 /* ── Modal scrollable layout fix (iOS) ────────────────────────────────────
-   Problem: On iPhone the modal form is taller than the viewport, so the
-   .modal element (overflow-y:auto) scrolls the entire dialog — header
-   scrolls off-screen and touch targets break.
+   Root cause of "freeze": overflow-y:hidden on .modal blocks iOS from
+   recognising .modal-body as a touch-scrollable container — any scroll
+   gesture on the body is swallowed → modal feels completely frozen.
 
-   Fix:
-   1. Lock .modal overflow → NO outer scroll.
-   2. Cap .modal-dialog to 94vh (not dvh — unsupported on older iOS).
-   3. <form> inside .modal-content uses flex so .modal-body scrolls
-      internally and header + footer stay fixed.                           */
+   Fix strategy:
+   1. Do NOT set overflow on .modal itself — let Bootstrap keep its default
+      (overflow-y:auto). The dialog is capped at 94vh so it never exceeds
+      the viewport and the outer scroll never activates.
+   2. Clip at .modal-content level (overflow:hidden) — header stays fixed,
+      only the body scrolls.
+   3. .modal-body: overflow-y:scroll (not auto — forces iOS scroll context)
+      + overscroll-behavior:contain (stops propagation to page behind).
+   4. touch-action:manipulation on every interactive layer → kills 300ms
+      double-tap delay without blocking scroll gestures.                   */
+
+/* Kill 300ms tap delay — do NOT use overflow on .modal */
 #quickAddModal.modal,
 #importModal.modal {
-  overflow-y: hidden !important;
   touch-action: manipulation;
 }
 #quickAddModal .modal-content,
@@ -1327,17 +1333,23 @@ document.querySelectorAll('#importModal form').forEach(function(form) {
 #importModal   .modal-footer {
   touch-action: manipulation;
 }
+
+/* Dialog: never taller than 94vh so the outer modal doesn't scroll */
 #quickAddModal .modal-dialog,
 #importModal   .modal-dialog {
   margin: 2vh auto !important;
   max-height: 94vh;
   height: auto;
 }
+
+/* Content: clip overflow so header/footer don't move */
 #quickAddModal .modal-content,
 #importModal   .modal-content {
   max-height: 94vh;
   overflow: hidden;
 }
+
+/* Form inside modal-content: flex column so body expands and footer sticks */
 #quickAddModal .modal-content > form,
 #importModal   .modal-content > form {
   display: flex;
@@ -1346,12 +1358,17 @@ document.querySelectorAll('#importModal form').forEach(function(form) {
   min-height: 0;
   overflow: hidden;
 }
+
+/* Body: scroll — use 'scroll' not 'auto' for reliable iOS touch-scroll.
+   overscroll-behavior:contain stops the page-behind from scrolling when
+   the body reaches its top/bottom edge.                                  */
 #quickAddModal .modal-body,
 #importModal   .modal-body {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
+  overflow-y: scroll;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 /* ══ Working section card styles ══════════════════════════ */
