@@ -820,6 +820,10 @@ def migrate_db():
         "CREATE INDEX IF NOT EXISTS idx_leads_contacted ON leads(last_contacted, assigned_to)",
         "CREATE INDEX IF NOT EXISTS idx_leads_created ON leads(created_at)",
         "CREATE INDEX IF NOT EXISTS idx_leads_deleted_pool ON leads(in_pool, deleted_at, assigned_to, created_at)",
+        # Seat-hold expiry check: pipeline_stage + current_owner + expiry for fast scan
+        "CREATE INDEX IF NOT EXISTS idx_leads_seat_hold ON leads(pipeline_stage, current_owner, seat_hold_expiry)",
+        # Stage-advance lookups by assigned_to + pipeline_stage
+        "CREATE INDEX IF NOT EXISTS idx_leads_stage_assigned ON leads(assigned_to, pipeline_stage, in_pool, deleted_at)",
     ]
     for idx in indexes:
         try:

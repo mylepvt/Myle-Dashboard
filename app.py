@@ -1341,14 +1341,15 @@ def _get_user_badges_emoji(db, username):
 
 # Canonical stage -> default status (for transitions that don't provide an override)
 STAGE_TO_DEFAULT_STATUS = {
-    'day1': 'Day 1',
-    'day2': 'Day 2',
-    'day3': 'Interview',
-    'seat_hold': 'Seat Hold Confirmed',
-    'closing': 'Fully Converted',
-    'training': 'Training',
-    'complete': 'Converted',
-    'lost': 'Lost',
+    'enrollment': 'New Lead',   # fallback if a lead is reset to enrollment
+    'day1':       'Day 1',
+    'day2':       'Day 2',
+    'day3':       'Interview',
+    'seat_hold':  'Seat Hold Confirmed',
+    'closing':    'Fully Converted',
+    'training':   'Training',
+    'complete':   'Converted',
+    'lost':       'Lost',
 }
 
 
@@ -7624,7 +7625,10 @@ def _working_assigned_where(db, role, username, scope='all', downline_usernames=
 def _upsert_daily_score(db, username, delta_pts,
                         delta_calls=0, delta_videos=0,
                         delta_batches=0, delta_payments=0):
-    """Atomically add to today's daily_scores row, creating it if needed."""
+    """Atomically add to today's daily_scores row, creating it if needed.
+    Uses CASE WHEN for floor-at-zero because SQLite does not allow MAX()
+    as a scalar in SET clauses (only as an aggregate).
+    Uses INSERT OR REPLACE for the new-row path to handle rare concurrent inserts."""
     today     = _today_ist().strftime('%Y-%m-%d')
     yesterday = (_today_ist() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
     existing  = db.execute(
@@ -7632,16 +7636,21 @@ def _upsert_daily_score(db, username, delta_pts,
         (username, today)
     ).fetchone()
     if existing:
+        # CASE WHEN is the correct SQLite way to floor at zero in an UPDATE
         db.execute("""
             UPDATE daily_scores SET
-                total_points       = MAX(0, total_points + ?),
-                calls_made         = MAX(0, calls_made + ?),
-                videos_sent        = MAX(0, videos_sent + ?),
-                batches_marked     = MAX(0, batches_marked + ?),
-                payments_collected = MAX(0, payments_collected + ?)
+                total_points       = CASE WHEN total_points + ? < 0 THEN 0 ELSE total_points + ? END,
+                calls_made         = CASE WHEN calls_made + ? < 0 THEN 0 ELSE calls_made + ? END,
+                videos_sent        = CASE WHEN videos_sent + ? < 0 THEN 0 ELSE videos_sent + ? END,
+                batches_marked     = CASE WHEN batches_marked + ? < 0 THEN 0 ELSE batches_marked + ? END,
+                payments_collected = CASE WHEN payments_collected + ? < 0 THEN 0 ELSE payments_collected + ? END
             WHERE username=? AND score_date=?
-        """, (delta_pts, delta_calls, delta_videos,
-              delta_batches, delta_payments, username, today))
+        """, (delta_pts, delta_pts,
+              delta_calls, delta_calls,
+              delta_videos, delta_videos,
+              delta_batches, delta_batches,
+              delta_payments, delta_payments,
+              username, today))
     else:
         yrow = db.execute(
             "SELECT streak_days FROM daily_scores WHERE username=? AND score_date=?",
@@ -7649,8 +7658,9 @@ def _upsert_daily_score(db, username, delta_pts,
         ).fetchone()
         streak       = (yrow['streak_days'] + 1) if yrow else 1
         streak_bonus = 10 if yrow else 0
+        # INSERT OR REPLACE handles the rare concurrent-insert race condition
         db.execute("""
-            INSERT OR IGNORE INTO daily_scores
+            INSERT OR REPLACE INTO daily_scores
                 (username, score_date, calls_made, videos_sent,
                  batches_marked, payments_collected, total_points, streak_days)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -8254,11 +8264,14 @@ def batch_toggle(lead_id):
             if owner != session['username'] and owner not in downline:
                 db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
     else:
-        # Day 2 batches can only be marked by admin
-        if batch.startswith('d2_') and role != 'admin':
-            db.close(); return {'ok': False, 'error': 'Only admin can mark Day 2 batches'}, 403
-        if role != 'admin' and owner != session['username']:
-            db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
+        # Day 2 batches: admin only
+        if batch.startswith('d2_'):
+            if role != 'admin':
+                db.close(); return {'ok': False, 'error': 'Only admin can mark Day 2 batches'}, 403
+        else:
+            # Other batches (d3_, etc.): team can mark own; admin unrestricted
+            if role != 'admin' and owner != session['username']:
+                db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
 
     # Toggle (or force-mark if force_mark=true, used by "already sent" button)
     force_mark = data.get('force_mark', False)
@@ -8443,6 +8456,35 @@ def stage_advance(lead_id):
 
     lead_keys = lead.keys()
 
+    # ── Ownership check: team can only act on own leads;
+    #    leader can act on own + downline; admin unrestricted ──
+    if role == 'team':
+        if lead['assigned_to'] != username:
+            db.close()
+            return {'ok': False, 'error': 'You can only advance your own leads'}, 403
+    elif role == 'leader':
+        downline = _get_network_usernames(db, username)
+        if lead['assigned_to'] != username and lead['assigned_to'] not in downline:
+            db.close()
+            return {'ok': False, 'error': 'You can only advance your own or downline leads'}, 403
+
+    # ── Stage machine guard: validate the current stage allows this action ──
+    VALID_FROM = {
+        'enroll_complete':   ('enrollment',),
+        'day1_complete':     ('day1',),
+        'day2_complete':     ('day2',),
+        'interview_done':    ('day2',),
+        'seat_hold_done':    ('day3',),
+        'fully_converted':   ('seat_hold', 'closing'),
+        'training_complete': ('training',),
+        'mark_lost':         ('enrollment', 'day1', 'day2', 'day3', 'seat_hold', 'closing'),
+    }
+    current_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead_keys else 'enrollment'
+    valid_from = VALID_FROM.get(action, ())
+    if valid_from and current_stage not in valid_from:
+        db.close()
+        return {'ok': False, 'error': f'Lead is at stage "{current_stage}" — cannot perform "{action}" from here'}, 400
+
     if action == 'seat_hold_done':
         track_sel = lead['track_selected'] if 'track_selected' in lead_keys else ''
         if not track_sel:
@@ -8559,9 +8601,11 @@ def update_call_status(lead_id):
     if new_auto_status:
         new_idx = _STATUS_ORDER.index(new_auto_status) if new_auto_status in _STATUS_ORDER else 0
         if new_idx > cur_idx:
+            # Sync pipeline_stage alongside status to keep them consistent
+            new_auto_stage = STATUS_TO_STAGE.get(new_auto_status, 'enrollment')
             db.execute(
-                "UPDATE leads SET status=?, updated_at=? WHERE id=?",
-                (new_auto_status, now_str, lead_id)
+                "UPDATE leads SET status=?, pipeline_stage=?, updated_at=? WHERE id=?",
+                (new_auto_status, new_auto_stage, now_str, lead_id)
             )
 
     # Gamification: award points for call actions
