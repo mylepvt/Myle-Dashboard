@@ -832,7 +832,7 @@
 
 
 <!-- ── Import Modal ──────────────────────────────────── -->
-<div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
   <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content border-0 shadow">
       <div class="modal-header border-0 pb-0 imp-modal-hdr" style="border-radius:12px 12px 0 0;">
@@ -910,7 +910,8 @@
 </div>
 
 <!-- ── Quick Add Lead Modal ───────────────────────────── -->
-<div class="modal fade" id="quickAddModal" tabindex="-1" aria-hidden="true">
+<!-- data-bs-focus="false" stops Bootstrap overriding our iOS gesture-focus -->
+<div class="modal fade" id="quickAddModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
   <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content border-0 shadow">
       <form id="quickAddForm">
@@ -1138,11 +1139,28 @@ function setBatch(leadId, day, batchVal) {
   });
 })();
 
-/* ── Focus quickAdd input AFTER modal animation (prevents iOS freeze) ── */
-document.getElementById('quickAddModal').addEventListener('shown.bs.modal', function() {
-  var inp = document.getElementById('quickAddName');
-  if (inp) setTimeout(function(){ inp.focus(); }, 50);
-});
+/* ── iOS keyboard fix for modals ─────────────────────────────────────────
+   iOS Safari only opens the keyboard when focus() is called within the
+   SAME synchronous gesture chain as the user tap. setTimeout / shown.bs.modal
+   both break that chain — so we focus from the trigger button's click handler
+   directly. iOS queues the keyboard; it slides up once the modal is visible.  ── */
+(function() {
+  // Quick Add: focus name input on every trigger tap (gesture-synchronous)
+  document.querySelectorAll('[data-bs-target="#quickAddModal"]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var inp = document.getElementById('quickAddName');
+      if (inp) inp.focus();
+    });
+  });
+
+  // Import: focus first focusable input in the modal on trigger tap
+  document.querySelectorAll('[data-bs-target="#importModal"]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var first = document.querySelector('#importModal input, #importModal select');
+      if (first) first.focus();
+    });
+  });
+})();
 
 /* ── Call status update — Android + iOS compatible ────────── */
 const _leadsPageCsrf = '{{ session.get("_csrf_token", "") }}';
