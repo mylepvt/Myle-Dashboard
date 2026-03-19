@@ -833,7 +833,7 @@
 
 <!-- ── Import Modal ──────────────────────────────────── -->
 <div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
-  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+  <div class="modal-dialog modal-dialog-scrollable" style="margin-top:5vh;">
     <div class="modal-content border-0 shadow">
       <div class="modal-header border-0 pb-0 imp-modal-hdr" style="border-radius:12px 12px 0 0;">
         <h5 class="modal-title fw-bold imp-modal-title">
@@ -912,7 +912,7 @@
 <!-- ── Quick Add Lead Modal ───────────────────────────── -->
 <!-- data-bs-focus="false" stops Bootstrap overriding our iOS gesture-focus -->
 <div class="modal fade" id="quickAddModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
-  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+  <div class="modal-dialog modal-dialog-scrollable" style="margin-top:5vh;">
     <div class="modal-content border-0 shadow">
       <form id="quickAddForm">
         <div class="modal-header border-0 pb-0 qa-modal-hdr" style="border-radius:12px 12px 0 0;">
@@ -1187,6 +1187,30 @@ function setBatch(leadId, day, batchVal) {
 
   iosFocusModal('#quickAddModal', '#quickAddName');
   iosFocusModal('#importModal',   'input:not([type=file]), select');
+})();
+
+/* ── iOS visual-viewport fix ─────────────────────────────────────────────
+   When keyboard opens, iOS resizes the visual viewport but the modal's
+   position:fixed still covers the full layout viewport. Touch events are
+   now relative to the visual viewport, so taps land in the wrong place.
+   Fix: shrink the modal's bottom edge to match the keyboard height so the
+   dialog re-centres inside the visible area (above the keyboard).          ── */
+(function() {
+  if (!window.visualViewport) return;
+  function onVVChange() {
+    var kbH = Math.max(0, Math.round(
+      window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop
+    ));
+    document.querySelectorAll('.modal.show').forEach(function(m) {
+      m.style.bottom = kbH > 0 ? kbH + 'px' : '';
+    });
+  }
+  window.visualViewport.addEventListener('resize', onVVChange);
+  window.visualViewport.addEventListener('scroll', onVVChange);
+  // Reset when any modal hides
+  document.addEventListener('hidden.bs.modal', function() {
+    document.querySelectorAll('.modal').forEach(function(m) { m.style.bottom = ''; });
+  });
 })();
 
 /* ── Call status update — Android + iOS compatible ────────── */
