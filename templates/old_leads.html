@@ -67,14 +67,15 @@
             <td class="text-muted small">{{ lead.assigned_to or '—' }}</td>
             {% endif %}
             <td>
-              {% if lead.pipeline_stage %}
+              {% set ps = lead.pipeline_stage if lead.pipeline_stage is defined else '' %}
+              {% if ps %}
               <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"
                     style="font-size:.72rem;">
-                {{ lead.pipeline_stage|title }}
+                {{ ps|title }}
               </span>
               {% else %}—{% endif %}
             </td>
-            <td class="text-muted small">{{ lead.updated_at[:10] }}</td>
+            <td class="text-muted small">{{ (lead.updated_at or '')[:10] or '—' }}</td>
             <td>
               <form method="post"
                     action="{{ url_for('restore_from_lost', lead_id=lead.id) }}"
