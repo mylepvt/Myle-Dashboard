@@ -914,13 +914,16 @@
 <div class="modal fade" id="quickAddModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
   <div class="modal-dialog modal-dialog-scrollable" style="margin-top:5vh;">
     <div class="modal-content border-0 shadow">
+      <!-- Header OUTSIDE <form> — Bootstrap scrollable modal requires direct
+           flex children of .modal-content (.modal-header / body / footer).
+           Placing <form> here broke that flex chain → footer hidden on iOS. -->
+      <div class="modal-header border-0 pb-0 qa-modal-hdr" style="border-radius:12px 12px 0 0;">
+        <h5 class="modal-title fw-bold qa-modal-title">
+          <i class="bi bi-person-plus-fill me-2"></i>Quick Add Lead
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
       <form id="quickAddForm">
-        <div class="modal-header border-0 pb-0 qa-modal-hdr" style="border-radius:12px 12px 0 0;">
-          <h5 class="modal-title fw-bold qa-modal-title">
-            <i class="bi bi-person-plus-fill me-2"></i>Quick Add Lead
-          </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
         <div class="modal-body pt-3">
           <div class="row g-3">
             <div class="col-md-6">
@@ -959,7 +962,7 @@
               <select name="assigned_to" class="form-select">
                 <option value="">— Unassigned —</option>
                 {% for m in team %}
-                  <option>{{ m.name }}</option>
+                  <option value="{{ m.name }}">{{ m.name }}</option>
                 {% endfor %}
               </select>
             </div>
@@ -1267,6 +1270,33 @@ document.querySelectorAll('#importModal form').forEach(function(form) {
 </script>
 
 <style>
+/* ── Modal scrollable layout fix ──────────────────────────────────────────
+   Bootstrap's modal-dialog-scrollable needs .modal-content to have direct
+   flex children (.modal-header / .modal-body / .modal-footer).
+   Our <form> sits between .modal-content and those divs, breaking the chain.
+   Fix: make the form a flex container so flexbox passes through correctly,
+   keeping .modal-footer (Add Lead / Import buttons) always visible.       */
+#quickAddModal .modal-content > form,
+#importModal   .modal-content > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+#quickAddModal .modal-body,
+#importModal   .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+/* Cap modal height so footer is never pushed off-screen on small phones */
+#quickAddModal .modal-dialog,
+#importModal   .modal-dialog {
+  max-height: calc(100dvh - 8vh);
+}
+
 /* ══ Working section card styles ══════════════════════════ */
 .wl-card {
   background: #fff;
