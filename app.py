@@ -2904,7 +2904,11 @@ def _leads_inner():
     has_more_hist = len(hist_leads_raw) > _hist_limit
     if has_more_hist:
         hist_leads_raw = hist_leads_raw[:_hist_limit]
-    team            = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
+    # Use actual usernames from users table so assigned_to matches session['username']
+    team            = db.execute(
+        "SELECT username AS name FROM users "
+        "WHERE role IN ('team','leader') AND status='approved' ORDER BY username"
+    ).fetchall()
     db.close()
 
     # Enrich with heat + next_action
@@ -2990,7 +2994,10 @@ def set_lead_batch(lid):
 @safe_route
 def add_lead():
     db   = get_db()
-    team = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
+    team = db.execute(
+        "SELECT username AS name FROM users "
+        "WHERE role IN ('team','leader') AND status='approved' ORDER BY username"
+    ).fetchall()
 
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
@@ -3082,7 +3089,10 @@ def add_lead():
 @safe_route
 def edit_lead(lead_id):
     db   = get_db()
-    team = db.execute("SELECT name FROM team_members ORDER BY name").fetchall()
+    team = db.execute(
+        "SELECT username AS name FROM users "
+        "WHERE role IN ('team','leader') AND status='approved' ORDER BY username"
+    ).fetchall()
 
     if session.get('role') == 'admin':
         lead = db.execute(
@@ -4896,6 +4906,7 @@ def wallet():
 
 @app.route('/wallet/request-recharge', methods=['POST'])
 @login_required
+@safe_route
 def request_recharge():
     username = session['username']
     db       = get_db()
@@ -4905,7 +4916,7 @@ def request_recharge():
     except ValueError:
         amount = 0
 
-    utr = request.form.get('utr_number', '').strip()
+    utr = (request.form.get('utr_number') or '').strip()
 
     if amount <= 0:
         flash('Please enter a valid amount greater than 0.', 'danger')
@@ -4925,12 +4936,21 @@ def request_recharge():
         db.close()
         return redirect(url_for('wallet'))
 
-    db.execute(
-        "INSERT INTO wallet_recharges (username, amount, utr_number, status) "
-        "VALUES (?, ?, ?, 'pending')",
-        (username, amount, utr)
-    )
-    db.commit()
+    try:
+        db.execute(
+            "INSERT INTO wallet_recharges (username, amount, utr_number, status) "
+            "VALUES (?, ?, ?, 'pending')",
+            (username, amount, utr)
+        )
+        db.commit()
+    except Exception as _e:
+        app.logger.error(f"wallet recharge INSERT failed for {username}: {_e}")
+        try: db.execute("ROLLBACK")
+        except Exception: pass
+        db.close()
+        flash('Could not save your request. Please try again or contact admin.', 'danger')
+        return redirect(url_for('wallet'))
+
     db.close()
     flash(f'Recharge request of \u20b9{amount:.0f} submitted! UTR: {utr}. '
           f'Admin will credit your wallet within 24 hours.', 'success')

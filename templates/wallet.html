@@ -139,6 +139,8 @@
         {% endif %}
 
         <form method="POST" action="{{ url_for('request_recharge') }}">
+          <!-- Inline CSRF: more reliable than JS injection on iOS Chrome -->
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <div class="mb-3">
             <label class="form-label fw-semibold small">Amount You Paid (₹)</label>
             <div class="input-group">
