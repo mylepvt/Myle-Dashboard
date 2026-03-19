@@ -1882,6 +1882,7 @@ def inject_pending_count():
             return {'pending_count': row['pu'], 'wallet_pending': row['wp'],
                     'has_pending_work': False, 'lost_count': row['lc']}
         uname = session.get('username')
+        role  = session.get('role')
         if uname:
             db = get_db()
             has_pending_work = db.execute(
@@ -1889,10 +1890,18 @@ def inject_pending_count():
                 "WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status IN ('Day 1','Paid ₹196') AND d1_morning=0",
                 (uname,)
             ).fetchone()[0] > 0
-            lc = db.execute(
-                "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status='Lost'",
-                (uname,)
-            ).fetchone()[0]
+            if role == 'leader':
+                downline = _get_downline_usernames(db, uname)
+                ph = ','.join('?' * len(downline))
+                lc = db.execute(
+                    f"SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND status='Lost' AND assigned_to IN ({ph})",
+                    downline
+                ).fetchone()[0]
+            else:
+                lc = db.execute(
+                    "SELECT COUNT(*) FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to=? AND status='Lost'",
+                    (uname,)
+                ).fetchone()[0]
             db.close()
             return {'pending_count': 0, 'wallet_pending': 0,
                     'has_pending_work': has_pending_work, 'lost_count': lc}
@@ -3457,12 +3466,19 @@ def old_leads():
     base   = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' AND status='Lost'"
     params = []
 
-    if role not in ('admin', 'leader'):
+    if role == 'admin':
+        pass  # admin sees all lost leads
+    elif role == 'leader':
+        downline = _get_downline_usernames(db, session['username'])
+        placeholders = ','.join('?' * len(downline))
+        base   += f" AND assigned_to IN ({placeholders})"
+        params += downline
+    else:
         base  += " AND assigned_to=?"
         params.append(session['username'])
 
     if search:
-        if role == 'admin':
+        if role in ('admin', 'leader'):
             base  += " AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR assigned_to LIKE ?)"
             params += [f'%{search}%', f'%{search}%', f'%{search}%', f'%{search}%']
         else:
@@ -3472,7 +3488,7 @@ def old_leads():
     base += " ORDER BY updated_at DESC"
     leads_list = db.execute(base, params).fetchall()
     db.close()
-    return render_template('old_leads.html', leads=leads_list, search=search)
+    return render_template('old_leads.html', leads=leads_list, search=search, role=role)
 
 
 @app.route('/leads/<int:lead_id>/restore-from-lost', methods=['POST'])

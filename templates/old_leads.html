@@ -36,7 +36,7 @@
           <tr>
             <th class="ps-3">Name</th>
             <th>Phone</th>
-            {% if session.get('role') == 'admin' %}
+            {% if session.get('role') in ('admin', 'leader') %}
             <th>Assigned To</th>
             {% endif %}
             <th>Last Stage</th>
@@ -63,7 +63,7 @@
                 </a>
               </div>
             </td>
-            {% if session.get('role') == 'admin' %}
+            {% if session.get('role') in ('admin', 'leader') %}
             <td class="text-muted small">{{ lead.assigned_to or '—' }}</td>
             {% endif %}
             <td>
