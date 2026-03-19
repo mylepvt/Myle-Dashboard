@@ -1192,27 +1192,45 @@ function setBatch(leadId, day, batchVal) {
   iosFocusModal('#importModal',   'input:not([type=file]), select');
 })();
 
-/* ── iOS visual-viewport fix ─────────────────────────────────────────────
-   When keyboard opens, iOS resizes the visual viewport but the modal's
-   position:fixed still covers the full layout viewport. Touch events are
-   now relative to the visual viewport, so taps land in the wrong place.
-   Fix: shrink the modal's bottom edge to match the keyboard height so the
-   dialog re-centres inside the visible area (above the keyboard).          ── */
+/* ── iOS visual-viewport / keyboard fix ─────────────────────────────────
+   Problem: when iOS keyboard opens, it covers the bottom of the modal —
+   hiding the footer buttons (Cancel / Add Lead). The keyboard shrinks the
+   visual viewport but the modal's position:fixed is anchored to the full
+   layout viewport so the footer ends up behind the keyboard.
+
+   Fix: listen to visualViewport resize → dynamically cap .modal-content
+   max-height to visualViewport.height minus the modal's top margin. This
+   forces the body to scroll inside a shorter container and keeps the
+   footer always visible above the keyboard.                                ── */
 (function() {
   if (!window.visualViewport) return;
+  // Mirrors CSS `margin: 2vh auto` on .modal-dialog (snapshot before keyboard)
+  var TOP_MARGIN = Math.max(10, Math.round(window.innerHeight * 0.02));
+
   function onVVChange() {
-    var kbH = Math.max(0, Math.round(
-      window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop
-    ));
-    document.querySelectorAll('.modal.show').forEach(function(m) {
-      m.style.bottom = kbH > 0 ? kbH + 'px' : '';
+    var vvH  = Math.floor(window.visualViewport.height);
+    // Allow a small gap below the modal so it doesn't touch the keyboard edge
+    var maxH = Math.max(200, vvH - TOP_MARGIN - 10);
+
+    document.querySelectorAll('#quickAddModal.show, #importModal.show').forEach(function(m) {
+      var dlg = m.querySelector('.modal-dialog');
+      var cnt = m.querySelector('.modal-content');
+      if (dlg) dlg.style.maxHeight = maxH + 'px';
+      if (cnt) cnt.style.maxHeight = maxH + 'px';
     });
   }
+
   window.visualViewport.addEventListener('resize', onVVChange);
   window.visualViewport.addEventListener('scroll', onVVChange);
-  // Reset when any modal hides
+
+  // Reset inline styles when modal closes so CSS rules take over again
   document.addEventListener('hidden.bs.modal', function() {
-    document.querySelectorAll('.modal').forEach(function(m) { m.style.bottom = ''; });
+    document.querySelectorAll('#quickAddModal, #importModal').forEach(function(m) {
+      var dlg = m.querySelector('.modal-dialog');
+      var cnt = m.querySelector('.modal-content');
+      if (dlg) dlg.style.maxHeight = '';
+      if (cnt) cnt.style.maxHeight = '';
+    });
   });
 })();
 
