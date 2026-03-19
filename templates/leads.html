@@ -6,7 +6,7 @@
 
 {# ── Macro: compact lead card for Working section ──────────── #}
 {% macro wcard(lead, day=0) %}
-<div class="wl-card" id="wcard-{{ lead.id }}">
+<div class="wl-card" id="wcard-{{ lead.id }}" data-status="{{ lead.status|replace(' ','') }}">
   <div class="d-flex align-items-start justify-content-between gap-2 mb-1">
     <div>
       <div class="wl-name">{{ lead.name or ('Lead #' ~ lead.id) }}</div>
@@ -958,7 +958,7 @@
               </select>
             </div>
             {% if session.get('role') == 'admin' %}
-            <div class="col-12">
+            <div class="col-md-6">
               <label class="form-label fw-semibold small">Assign To</label>
               <select name="assigned_to" class="form-select">
                 <option value="">— Unassigned —</option>
@@ -1110,7 +1110,7 @@ function setBatch(leadId, day, batchVal) {
         if (container && container.classList.contains('row')) {
           var col = document.createElement('div');
           col.className = 'col-sm-6 col-lg-4';
-          col.innerHTML = '<div class="wl-card" style="border-left:3px solid #10b981;">' +
+          col.innerHTML = '<div class="wl-card" data-status="New">' +
             '<div class="d-flex align-items-start justify-content-between gap-2 mb-1">' +
               '<div><div class="wl-name">' + res.data.name + '</div>' +
               (res.data.city ? '<div class="wl-city"><i class="bi bi-geo-alt-fill me-1"></i>' + res.data.city + '</div>' : '') +
@@ -1389,12 +1389,27 @@ document.querySelectorAll('#importModal form').forEach(function(form) {
 .wl-card {
   background: #fff;
   border: 1.5px solid #e5e7eb;
+  border-left: 3px solid #d1d5db;
   border-radius: 12px;
   padding: .75rem;
   margin-bottom: .5rem;
   transition: box-shadow .15s;
 }
 .wl-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+/* Left border color by status */
+.wl-card[data-status="New"],.wl-card[data-status="NewLead"] { border-left-color:#9ca3af; }
+.wl-card[data-status="Contacted"] { border-left-color:#3b82f6; }
+.wl-card[data-status="VideoSent"] { border-left-color:#a78bfa; }
+.wl-card[data-status="VideoWatched"] { border-left-color:#8b5cf6; }
+.wl-card[data-status="Paid₹196"] { border-left-color:#10b981; }
+.wl-card[data-status="Day1"] { border-left-color:#0ea5e9; }
+.wl-card[data-status="Day2"] { border-left-color:#8b5cf6; }
+.wl-card[data-status="Interview"] { border-left-color:#f59e0b; }
+.wl-card[data-status="TrackSelected"] { border-left-color:#f97316; }
+.wl-card[data-status="SeatHoldConfirmed"] { border-left-color:#f97316; }
+.wl-card[data-status="FullyConverted"],.wl-card[data-status="Converted"] { border-left-color:#10b981; }
+.wl-card[data-status="Lost"] { border-left-color:#ef4444; }
+.wl-card[data-status="Retarget"] { border-left-color:#f59e0b; }
 .wl-name  { font-weight: 600; font-size: .88rem; line-height: 1.3; }
 .wl-city  { font-size: .72rem; color: #6b7280; }
 .wl-phone { font-size: .8rem; color: #374151; font-family: monospace; }
