@@ -119,6 +119,7 @@ def init_db():
             training_status       TEXT    NOT NULL DEFAULT 'not_required',
             joining_date          TEXT    NOT NULL DEFAULT '',
             certificate_path      TEXT    NOT NULL DEFAULT '',
+            certificate_blob      TEXT    NOT NULL DEFAULT '',
             badges_json           TEXT    NOT NULL DEFAULT '[]',
             created_at            TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
         )
@@ -398,6 +399,8 @@ def migrate_db():
         ("badges_json",           "TEXT NOT NULL DEFAULT '[]'"),
         ("test_score",            "INTEGER NOT NULL DEFAULT -1"),
         ("test_attempts",         "INTEGER NOT NULL DEFAULT 0"),
+        # Certificate stored as base64 so it persists on ephemeral filesystems (Render)
+        ("certificate_blob",      "TEXT NOT NULL DEFAULT ''"),
         # Pipeline role system (Part 2)
         ("upline_username",       "TEXT NOT NULL DEFAULT ''"),
     ]:

@@ -7079,7 +7079,10 @@ def training_certificate():
 
 @app.route('/training/upload-certificate', methods=['POST'])
 @login_required
+@safe_route
 def training_upload_certificate():
+    import base64 as _b64
+
     ts = session.get('training_status', 'pending')
     if ts not in ('completed', 'unlocked'):
         flash('Complete training first.', 'warning')
@@ -7103,16 +7106,31 @@ def training_upload_certificate():
         flash('File too large. Maximum size is 5 MB.', 'danger')
         return redirect(url_for('training_home'))
 
-    # Save file to persistent upload root (not /tmp)
-    upload_dir = os.path.join(_upload_root(), 'uploads', 'training_certs')
-    os.makedirs(upload_dir, exist_ok=True)
-    filename = f"{session['username']}_cert.{ext}"
-    f.save(os.path.join(upload_dir, filename))
+    # Read file bytes and encode as base64 for SQLite storage
+    # This avoids any dependency on the filesystem (Render has an ephemeral FS)
+    file_bytes = f.read()
+    cert_blob  = _b64.b64encode(file_bytes).decode('utf-8')
+    filename   = f"{session['username']}_cert.{ext}"
 
+    # Best-effort: also try to save to disk, but NEVER block unlock on failure
+    try:
+        upload_dir = os.path.join(_upload_root(), 'uploads', 'training_certs')
+        os.makedirs(upload_dir, exist_ok=True)
+        with open(os.path.join(upload_dir, filename), 'wb') as fh:
+            fh.write(file_bytes)
+    except Exception as _e:
+        app.logger.warning(f"training_upload_certificate: disk save failed for "
+                           f"{session['username']} ({_e}) — blob stored in DB instead")
+
+    # Always update DB — certificate_blob guarantees we have the file even on Render
     db = get_db()
     db.execute(
-        "UPDATE users SET training_status='unlocked', certificate_path=? WHERE username=?",
-        (filename, session['username'])
+        """UPDATE users
+              SET training_status='unlocked',
+                  certificate_path=?,
+                  certificate_blob=?
+            WHERE username=?""",
+        (filename, cert_blob, session['username'])
     )
     db.commit()
     db.close()
