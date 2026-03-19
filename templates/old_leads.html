@@ -80,7 +80,7 @@
               <form method="post"
                     action="{{ url_for('restore_from_lost', lead_id=lead.id) }}"
                     onsubmit="return confirm('{{ lead.name }} ko Retarget list mein restore karo?')">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <button type="submit" class="btn btn-xs btn-outline-success"
                         style="font-size:.75rem;">
                   <i class="bi bi-arrow-counterclockwise me-1"></i>Restore
