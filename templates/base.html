@@ -83,7 +83,7 @@
     </a>
     <hr />
 
-    <ul class="nav nav-pills flex-column mb-auto" id="sidebarNav">
+    <ul class="nav nav-pills flex-column" id="sidebarNav">
 
       <!-- ── Overview ─────────────────────────────────── -->
       <li class="nav-item">
@@ -351,9 +351,10 @@
 
     </ul>
 
-    <hr />
+    <hr style="flex-shrink:0;margin:0;" />
 
-    <!-- User info in sidebar footer -->
+    <!-- User info in sidebar footer — flex-shrink:0 keeps it always visible -->
+    <div style="flex-shrink:0;padding-top:0.5rem;">
     <a href="{{ url_for('profile') }}" class="sidebar-user-link d-flex align-items-center gap-2 px-1 mb-2">
       {% if session.get('has_dp') or session.get('dp') %}
         {# Profile image served via route to avoid 4 KB cookie overflow #}
@@ -385,6 +386,7 @@
         <i class="bi bi-box-arrow-right me-1"></i><span>Logout</span>
       </a>
     </div>
+    </div><!-- /sidebar footer -->
   </nav>
 
   <!-- ── Page content ─────────────────────────────────────── -->
