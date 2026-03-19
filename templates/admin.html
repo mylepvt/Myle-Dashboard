@@ -133,9 +133,9 @@
     </div>
   </div>
   <div class="col-4 col-md-2">
-    <div class="pulse-card" {% if pulse.stale_count > 0 %}style="border:1.5px solid #ef4444;"{% endif %}>
+    <div class="pulse-card" {% if pulse.stale_count > 0 %}style="border:1.5px solid #f59e0b;"{% endif %}>
       <div class="p-icon">⚠️</div>
-      <div class="p-val {% if pulse.stale_count > 0 %}text-danger{% else %}text-success{% endif %}">{{ pulse.stale_count }}</div>
+      <div class="p-val {% if pulse.stale_count > 0 %}text-warning{% else %}text-success{% endif %}">{{ pulse.stale_count }}</div>
       <div class="p-lbl">Stale >48h</div>
     </div>
   </div>
@@ -288,9 +288,9 @@
 
 {# Stale Leads #}
 {% if stale_leads %}
-<div class="card border-0 shadow-sm mb-3" style="border-left:4px solid #ef4444 !important;">
+<div class="card border-0 shadow-sm mb-3" style="border-left:4px solid #f59e0b !important;">
   <div class="card-header bg-transparent border-0 pt-3 pb-1">
-    <h6 class="mb-0 fw-bold text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Stale Leads — No update in 48h</h6>
+    <h6 class="mb-0 fw-bold text-warning"><i class="bi bi-exclamation-triangle-fill me-2"></i>Stale Leads — No update in 48h</h6>
   </div>
   <div class="card-body p-0">
     <div class="table-responsive">
