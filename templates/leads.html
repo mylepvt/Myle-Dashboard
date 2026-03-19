@@ -1159,7 +1159,7 @@ function setBatch(leadId, day, batchVal) {
     var t = document.createElement('input');
     t.setAttribute('type', 'text');
     t.setAttribute('inputmode', 'text');
-    t.style.cssText = 'position:fixed;top:50%;left:50%;width:1px;height:1px;opacity:0;font-size:16px;border:none;outline:none;z-index:-1;';
+    t.style.cssText = 'position:fixed;top:50%;left:50%;width:1px;height:1px;opacity:0;font-size:16px;border:none;outline:none;z-index:99999;pointer-events:none;';
     t.setAttribute('aria-hidden', 'true');
     t.setAttribute('tabindex', '-1');
     return t;
@@ -1301,6 +1301,15 @@ document.querySelectorAll('#importModal form').forEach(function(form) {
 #quickAddModal.modal,
 #importModal.modal {
   overflow-y: hidden !important;
+  touch-action: manipulation;
+}
+#quickAddModal .modal-content,
+#importModal   .modal-content,
+#quickAddModal .modal-body,
+#importModal   .modal-body,
+#quickAddModal .modal-footer,
+#importModal   .modal-footer {
+  touch-action: manipulation;
 }
 #quickAddModal .modal-dialog,
 #importModal   .modal-dialog {
