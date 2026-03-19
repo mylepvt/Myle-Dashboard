@@ -176,6 +176,14 @@
   --ios-teal:  #40CBE0;
 }
 
+/* ── Inline hardcoded grays (prevents “text not visible” in dark mode) ──
+   Some templates use inline `style="color:#9ca3af"` etc.
+   When those don’t get overridden, text becomes too dim on dark backgrounds.
+   Keep this narrow to only a few known gray hex values. */
+[data-theme="dark"] [style*="color:#9ca3af"] { color: var(--label-3) !important; }
+[data-theme="dark"] [style*="color:#6b7280"] { color: var(--label-3) !important; }
+[data-theme="dark"] [style*="color:#374151"] { color: var(--label-2) !important; }
+
 /* ── Base ───────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 
