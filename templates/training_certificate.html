@@ -143,11 +143,12 @@
     <a href="{{ url_for('training_home') }}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left me-1"></i> Back to Training
     </a>
-    <div class="d-flex gap-2">
-      <button onclick="window.print()" class="btn btn-primary btn-sm fw-semibold">
-        <i class="bi bi-printer-fill me-1"></i> Print / Save as PDF
-      </button>
-    </div>
+    <button id="downloadPdfBtn" class="btn btn-primary btn-sm fw-semibold">
+      <span id="dlBtnText"><i class="bi bi-download me-1"></i> Download Certificate PDF</span>
+      <span id="dlBtnLoading" style="display:none;">
+        <span class="spinner-border spinner-border-sm me-1" role="status"></span> Generating…
+      </span>
+    </button>
   </div>
 
   <!-- Certificate card -->
@@ -217,9 +218,8 @@
     <div>
       <div class="fw-semibold mb-1">Next step: Upload this certificate to unlock the app</div>
       <ol class="mb-2 small ps-3">
-        <li>Click <strong>Print / Save as PDF</strong> above</li>
-        <li>Save as PDF using your browser's print dialog</li>
-        <li>Go back to Training and upload the PDF to unlock all features</li>
+        <li>Click <strong>Download Certificate PDF</strong> above</li>
+        <li>Go back to Training and upload the downloaded PDF to unlock all features</li>
       </ol>
       <a href="{{ url_for('training_home') }}" class="btn btn-sm btn-info fw-semibold">
         <i class="bi bi-upload me-1"></i> Upload Certificate →
@@ -231,5 +231,36 @@
 </div>
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+document.getElementById('downloadPdfBtn').addEventListener('click', function() {
+  var btn    = this;
+  var txtEl  = document.getElementById('dlBtnText');
+  var loadEl = document.getElementById('dlBtnLoading');
+
+  btn.disabled = true;
+  txtEl.style.display  = 'none';
+  loadEl.style.display = 'inline';
+
+  var element = document.querySelector('.certificate-card');
+  var opt = {
+    margin:      [4, 4, 4, 4],
+    filename:    'Myle_Certificate_{{ username }}.pdf',
+    image:       { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF:       { unit: 'mm', format: 'a4', orientation: 'landscape' }
+  };
+
+  html2pdf().set(opt).from(element).save().then(function() {
+    btn.disabled = false;
+    txtEl.style.display  = 'inline';
+    loadEl.style.display = 'none';
+  }).catch(function() {
+    btn.disabled = false;
+    txtEl.style.display  = 'inline';
+    loadEl.style.display = 'none';
+  });
+});
+</script>
 </body>
 </html>

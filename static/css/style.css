@@ -298,8 +298,19 @@ button, .btn, .nav-link, .mbn-item {
   flex-shrink: 0;
   position: relative;
   z-index: 10;
+  /* Sidebar itself does NOT scroll — only the nav list inside scrolls */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+/* Nav list scrolls independently so footer is always reachable */
+#sidebarNav {
+  flex: 1 1 auto;
   overflow-y: auto;
   overflow-x: hidden;
+  min-height: 0;
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
 }
 
 #sidebar.collapsed { width:64px;overflow:hidden; }
@@ -1169,15 +1180,9 @@ p,span,td,li { color: inherit; }
 .text-purple { color:var(--ios-purple)!important; }
 .bg-purple   { background-color:var(--ios-purple)!important; }
 
-/* ── Scrollbar ──────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: var(--fill-1);
-  border-radius: 99px;
-  transition: background 0.15s ease;
-}
-::-webkit-scrollbar-thumb:hover { background: var(--fill-2); }
+/* ── Scrollbar — hidden globally ────────────────────────────────── */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+::-webkit-scrollbar { width: 0; height: 0; display: none; }
 @media (prefers-reduced-motion: no-preference) {
   html { scroll-behavior: smooth; }
 }
@@ -1234,13 +1239,14 @@ p,span,td,li { color: inherit; }
   #sidebar {
     position:fixed!important;top:0;left:0;height:100vh;height:100dvh;width:min(320px,85vw)!important;
     padding-top:env(safe-area-inset-top,0)!important;
+    padding-bottom:calc(68px + env(safe-area-inset-bottom,0px))!important;
     z-index:1060;transform:translateX(-100%);
     transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);
-    overflow-y:auto;overflow-x:hidden;
+    overflow:hidden;
     box-shadow:var(--shadow-lg);
     pointer-events:none;
   }
-  #sidebar.mobile-open { transform:translateX(0);pointer-events:auto;overflow-y:auto; }
+  #sidebar.mobile-open { transform:translateX(0);pointer-events:auto; }
   /* On mobile, .collapsed is meaningless — sidebar is either open or hidden off-screen */
   #sidebar.collapsed { width:min(320px,85vw)!important;overflow:hidden; }
   #sidebar.collapsed span,#sidebar.collapsed .fs-5,#sidebar.collapsed small,#sidebar.collapsed .badge { display:inline!important; }
