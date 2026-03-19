@@ -8728,4 +8728,4 @@ def day2_progress():
 
 if __name__ == '__main__':
     _debug = os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true', 'yes')
-    app.run(debug=_debug, host='0.0.0.0', port=int(os.environ.get('PORT', 5001)))
+    app.run(debug=_debug, host='0.0.0.0', port=int(os.environ.get('PORT', 5003)))

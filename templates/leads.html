@@ -833,10 +833,10 @@
 
 <!-- ── Import Modal ──────────────────────────────────── -->
 <div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content border-0 shadow">
-      <div class="modal-header border-0 pb-0" style="background:#eef2ff;border-radius:12px 12px 0 0;">
-        <h5 class="modal-title fw-bold" style="color:#4f46e5;">
+      <div class="modal-header border-0 pb-0 imp-modal-hdr" style="border-radius:12px 12px 0 0;">
+        <h5 class="modal-title fw-bold imp-modal-title">
           <i class="bi bi-upload me-2"></i>Import Leads
         </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -911,11 +911,11 @@
 
 <!-- ── Quick Add Lead Modal ───────────────────────────── -->
 <div class="modal fade" id="quickAddModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content border-0 shadow">
       <form id="quickAddForm">
-        <div class="modal-header border-0 pb-0" style="background:#d1fae5;border-radius:12px 12px 0 0;">
-          <h5 class="modal-title fw-bold" style="color:#065f46;">
+        <div class="modal-header border-0 pb-0 qa-modal-hdr" style="border-radius:12px 12px 0 0;">
+          <h5 class="modal-title fw-bold qa-modal-title">
             <i class="bi bi-person-plus-fill me-2"></i>Quick Add Lead
           </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -924,7 +924,7 @@
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label fw-semibold small">Full Name <span class="text-danger">*</span></label>
-              <input type="text" name="name" class="form-control" placeholder="e.g. Rahul Sharma" required autofocus>
+              <input type="text" name="name" id="quickAddName" class="form-control" placeholder="e.g. Rahul Sharma" required>
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold small">Phone <span class="text-danger">*</span></label>
@@ -1138,6 +1138,12 @@ function setBatch(leadId, day, batchVal) {
   });
 })();
 
+/* ── Focus quickAdd input AFTER modal animation (prevents iOS freeze) ── */
+document.getElementById('quickAddModal').addEventListener('shown.bs.modal', function() {
+  var inp = document.getElementById('quickAddName');
+  if (inp) setTimeout(function(){ inp.focus(); }, 50);
+});
+
 /* ── Call status update — Android + iOS compatible ────────── */
 const _leadsPageCsrf = '{{ session.get("_csrf_token", "") }}';
 
@@ -1287,32 +1293,44 @@ document.querySelectorAll('#importModal form').forEach(function(form) {
   background: linear-gradient(135deg,#4f46e5,#7c3aed); color: #fff;
 }
 
-/* ── Dark mode ─────────────────────────────────── */
+/* Modal headers — light mode */
+.qa-modal-hdr  { background: #d1fae5; }
+.qa-modal-title { color: #065f46; }
+.imp-modal-hdr  { background: #eef2ff; }
+.imp-modal-title { color: #4f46e5; }
+
+/* ── Dark mode overrides for all wl-* lead card styles ─── */
 [data-theme="dark"] .wl-card { background: var(--bg-card); border-color: var(--sep); }
-[data-theme="dark"] .wl-name { color: var(--label-1); }
-[data-theme="dark"] .wl-city { color: var(--label-3); }
+[data-theme="dark"] .wl-name  { color: var(--label-1); }
+[data-theme="dark"] .wl-city  { color: var(--label-3); }
 [data-theme="dark"] .wl-phone { color: var(--label-2); }
-[data-theme="dark"] .wl-batch-hdr { color: var(--label-1); }
+[data-theme="dark"] .wl-action-btn.call,
+[data-theme="dark"] .wl-action-btn.wa { background: rgba(48,209,88,0.15); color: var(--ios-green); }
+[data-theme="dark"] .wl-done-badge.done    { background: rgba(48,209,88,0.15); color: var(--ios-green); }
+[data-theme="dark"] .wl-done-badge.pending { background: var(--fill-3); color: var(--label-3); }
+[data-theme="dark"] .wl-b { background: var(--fill-3); border-color: var(--sep-opaque); color: var(--label-2); }
+[data-theme="dark"] .wl-b:hover { background: rgba(94,92,230,0.2); border-color: var(--ios-indigo); color: var(--ios-indigo); }
+[data-theme="dark"] .wl-b.active { background: var(--ios-indigo); border-color: var(--ios-indigo); color: #fff; }
+[data-theme="dark"] .wl-batch-col { background: var(--fill-4); border-color: var(--sep); }
+[data-theme="dark"] .wl-batch-hdr { color: var(--label-2); }
 [data-theme="dark"] .wl-empty-col { color: var(--label-4); }
 [data-theme="dark"] .wl-unassigned-hdr { color: var(--label-3); }
-[data-theme="dark"] .wl-batch-col { background: var(--fill-3); border-color: var(--sep); }
-[data-theme="dark"] .wl-b { background: var(--fill-3); border-color: var(--sep); color: var(--label-2); }
-[data-theme="dark"] .wl-b:hover { border-color: var(--ios-indigo); color: var(--ios-indigo); background: rgba(94,92,230,0.12); }
-[data-theme="dark"] .wl-b.active { background: var(--ios-indigo); border-color: var(--ios-indigo); color: #fff; }
-[data-theme="dark"] .wl-done-badge.pending { background: var(--fill-3); color: var(--label-3); }
-[data-theme="dark"] .wl-done-badge.done { background: rgba(50,215,75,0.15); color: var(--ios-green); }
-[data-theme="dark"] .wl-action-btn.call { background: rgba(50,215,75,0.15); color: var(--ios-green); }
-[data-theme="dark"] .wl-action-btn.wa { background: rgba(50,215,75,0.15); color: var(--ios-green); }
 [data-theme="dark"] .wl-status-badge { background: var(--fill-3); color: var(--label-2); }
-[data-theme="dark"] .wl-status-badge.status-Day1 { background: rgba(10,132,255,0.15); color: var(--ios-blue); }
+[data-theme="dark"] .wl-status-badge.status-Day1 { background: rgba(50,173,230,0.15); color: var(--ios-cyan); }
 [data-theme="dark"] .wl-status-badge.status-Day2 { background: rgba(191,90,242,0.15); color: var(--ios-purple); }
 [data-theme="dark"] .wl-status-badge.status-Interview { background: rgba(255,159,10,0.15); color: var(--ios-orange); }
 [data-theme="dark"] .wl-status-badge.status-FullyConverted,
-[data-theme="dark"] .wl-status-badge.status-Converted { background: rgba(50,215,75,0.15); color: var(--ios-green); }
+[data-theme="dark"] .wl-status-badge.status-Converted { background: rgba(48,209,88,0.15); color: var(--ios-green); }
 [data-theme="dark"] .wl-status-badge.status-Lost { background: rgba(255,69,58,0.15); color: var(--ios-red); }
-[data-theme="dark"] .wl-status-badge.status-Paid₹196 { background: rgba(50,215,75,0.12); color: var(--ios-green); }
-[data-theme="dark"] .wl-status-badge.status-MindsetLock { background: rgba(255,55,95,0.12); color: var(--ios-pink); }
+[data-theme="dark"] .wl-status-badge.status-Paid₹196 { background: rgba(48,209,88,0.12); color: var(--ios-green); }
+[data-theme="dark"] .wl-status-badge.status-MindsetLock { background: rgba(255,45,85,0.15); color: var(--ios-pink); }
 [data-theme="dark"] #outerTabs .nav-link { background: var(--fill-3); color: var(--label-2); }
-[data-theme="dark"] #outerTabs .nav-link.active { color: #fff; }
+[data-theme="dark"] #outerTabs .nav-link.active { background: linear-gradient(135deg, var(--ios-indigo), var(--ios-purple)); color: #fff; }
+/* Modal headers dark mode */
+[data-theme="dark"] .qa-modal-hdr  { background: rgba(48,209,88,0.12) !important; }
+[data-theme="dark"] .qa-modal-title { color: var(--ios-green) !important; }
+[data-theme="dark"] .imp-modal-hdr  { background: rgba(94,92,230,0.15) !important; }
+[data-theme="dark"] .imp-modal-title { color: var(--ios-indigo) !important; }
+[data-theme="dark"] .modal-content  { background: var(--bg-card); }
 </style>
 {% endblock %}

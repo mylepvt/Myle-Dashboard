@@ -4,6 +4,47 @@
 
 {% block extra_head %}
 <style>
+/* ── Leader stat badges (theme-aware, replaces hardcoded inline styles) ── */
+.wk-stat-badge {
+  display:inline-flex; align-items:center;
+  border-radius:20px; padding:5px 12px;
+  font-size:0.78rem; font-weight:600;
+}
+.wk-stat-indigo { background:rgba(94,92,230,0.12);  color:var(--ios-indigo); }
+.wk-stat-orange { background:rgba(255,159,10,0.12); color:var(--ios-orange); }
+.wk-stat-red    { background:rgba(255,69,58,0.12);  color:var(--ios-red); }
+.wk-stat-yellow { background:rgba(255,204,0,0.15);  color:#92400e; }
+.wk-stat-green  { background:rgba(48,209,88,0.12);  color:var(--ios-green); }
+
+[data-theme="dark"] .wk-stat-yellow {
+  background:rgba(255,204,0,0.12);
+  color:var(--ios-yellow);
+}
+
+/* inline hotspot badges in lead cards */
+.wk-hotspot-badge {
+  display:inline-block; border-radius:5px;
+  padding:2px 7px; font-size:0.67rem; font-weight:600; margin-bottom:4px;
+}
+.wk-hotspot-watched { background:rgba(48,209,88,0.12);  color:var(--ios-green); }
+.wk-hotspot-sent    { background:rgba(0,122,255,0.10);   color:var(--ios-blue); }
+
+/* member attribution badges in team lead cards */
+.wk-member-badge {
+  border-radius:4px; padding:2px 6px; font-size:0.62rem;
+  font-weight:700; display:inline-block; margin-bottom:4px;
+}
+.wk-member-indigo { background:rgba(94,92,230,0.12);   color:var(--ios-indigo); }
+.wk-member-cyan   { background:rgba(50,173,230,0.12);  color:var(--ios-cyan); }
+.wk-member-amber  { background:rgba(255,159,10,0.12);  color:var(--ios-orange); }
+.wk-member-red    { background:rgba(255,69,58,0.12);   color:var(--ios-red); }
+
+/* enroll section text in dark */
+[data-theme="dark"] .wk-enroll-text { color:var(--label-2); }
+
+/* Lead card misc hardcoded colors */
+[data-theme="dark"] .wk-heat-label { color:var(--label-3) !important; }
+
 /* ── Confetti ─────────────────────────────────────────────────── */
 @keyframes confetti-fall {
   0%   { transform: translateY(-10px) rotate(0deg) scale(1); opacity:1; }
@@ -161,31 +202,26 @@
 
 {# Score + Quick Stats bar #}
 <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-  <span class="badge rounded-pill px-3 py-2 fw-bold"
-        style="background:#eef2ff;color:#6366f1;font-size:0.82rem;">
+  <span class="wk-stat-badge wk-stat-indigo fw-bold">
     <i class="bi bi-trophy-fill me-1"></i>{{ today_score }} pts
   </span>
   {% if streak > 0 %}
-  <span class="badge rounded-pill px-3 py-2 fw-bold"
-        style="background:#fff7ed;color:#d97706;font-size:0.82rem;">
+  <span class="wk-stat-badge wk-stat-orange fw-bold">
     🔥 {{ streak }}-day streak
   </span>
   {% endif %}
   {% if own_pending_calls > 0 %}
-  <span class="badge rounded-pill px-3 py-2"
-        style="background:#fee2e2;color:#dc2626;font-size:0.75rem;">
+  <span class="wk-stat-badge wk-stat-red">
     <i class="bi bi-telephone-fill me-1"></i>{{ own_pending_calls }} apne calls
   </span>
   {% endif %}
   {% if team_pending_calls > 0 %}
-  <span class="badge rounded-pill px-3 py-2"
-        style="background:#fef9c3;color:#854d0e;font-size:0.75rem;">
+  <span class="wk-stat-badge wk-stat-yellow">
     <i class="bi bi-people-fill me-1"></i>{{ team_pending_calls }} team calls
   </span>
   {% endif %}
   {% if own_batches_due + team_batches_due > 0 %}
-  <span class="badge rounded-pill px-3 py-2"
-        style="background:#f0fdf4;color:#16a34a;font-size:0.75rem;">
+  <span class="wk-stat-badge wk-stat-green">
     <i class="bi bi-check-square-fill me-1"></i>{{ own_batches_due + team_batches_due }} batches due
   </span>
   {% endif %}
@@ -260,12 +296,12 @@
           {% endfor %}
         </select>
         {% if lead.call_status == 'Video Watched' %}
-        <div style="background:#dcfce7;border-radius:5px;padding:2px 7px;font-size:0.67rem;font-weight:600;color:#16a34a;margin-bottom:4px;">👀 Video dekha — call karo!</div>
+        <div class="wk-hotspot-badge wk-hotspot-watched">👀 Video dekha — call karo!</div>
         {% elif lead.call_status == 'Video Sent' %}
-        <div style="background:#dbeafe;border-radius:5px;padding:2px 7px;font-size:0.67rem;color:#1d4ed8;margin-bottom:4px;">📤 Video bheji — response pending</div>
+        <div class="wk-hotspot-badge wk-hotspot-sent">📤 Video bheji — response pending</div>
         {% endif %}
         {% if lead.heat is defined %}
-        <div class="d-flex justify-content-between" style="font-size:0.6rem;color:#9ca3af;">
+        <div class="d-flex justify-content-between" style="font-size:0.6rem;color:var(--label-3);">
           <span>HEAT</span>
           <span style="color:{% if lead.heat >= 75 %}#dc2626{% elif lead.heat >= 40 %}#d97706{% else %}#9ca3af{% endif %};">
             {% if lead.heat >= 75 %}🔥{% elif lead.heat >= 40 %}🌤{% else %}❄{% endif %} {{ lead.heat }}
@@ -323,7 +359,7 @@
         <span class="wk-col-title"><i class="bi bi-2-circle me-2 text-warning"></i>My Day 2</span>
         <span class="badge bg-warning text-dark">{{ own_day2|length }}</span>
       </div>
-      <div class="text-center mb-2" style="font-size:0.68rem;background:#fef9c3;border-radius:6px;padding:4px 8px;color:#92400e;">
+      <div class="text-center mb-2 wk-stat-badge wk-stat-yellow" style="font-size:0.68rem;border-radius:6px;justify-content:center;width:100%;">
         <i class="bi bi-lock-fill me-1"></i>Admin conduct kar raha hai
       </div>
       {% if own_day2 %}{% for lead in own_day2 %}
@@ -463,7 +499,7 @@
       </div>
       {% if team_stage1 %}{% for lead in team_stage1 %}
       <div class="wk-lead-card" id="lead-{{ lead.id }}" data-member="{{ lead.assigned_to }}">
-        <div style="background:#f0f4ff;border-radius:4px;padding:2px 6px;font-size:0.62rem;color:#6366f1;font-weight:700;display:inline-block;margin-bottom:4px;">
+        <div class="wk-member-badge wk-member-indigo">
           <i class="bi bi-person-fill me-1"></i>Member: {{ lead.assigned_to }}
         </div>
         <div class="fw-semibold text-truncate mb-1">{{ lead.name }}</div>
@@ -476,12 +512,12 @@
           {% endfor %}
         </select>
         {% if lead.call_status == 'Video Watched' %}
-        <div style="background:#dcfce7;border-radius:5px;padding:2px 7px;font-size:0.67rem;font-weight:600;color:#16a34a;margin-bottom:4px;">👀 Video dekha — call karo!</div>
+        <div class="wk-hotspot-badge wk-hotspot-watched">👀 Video dekha — call karo!</div>
         {% elif lead.call_status == 'Video Sent' %}
-        <div style="background:#dbeafe;border-radius:5px;padding:2px 7px;font-size:0.67rem;color:#1d4ed8;margin-bottom:4px;">📤 Video bheji — response pending</div>
+        <div class="wk-hotspot-badge wk-hotspot-sent">📤 Video bheji — response pending</div>
         {% endif %}
         {% if lead.heat is defined %}
-        <div class="d-flex justify-content-between mb-1" style="font-size:0.6rem;color:#9ca3af;">
+        <div class="d-flex justify-content-between mb-1" style="font-size:0.6rem;color:var(--label-3);">
           <span>HEAT</span>
           <span style="color:{% if lead.heat >= 75 %}#dc2626{% elif lead.heat >= 40 %}#d97706{% else %}#9ca3af{% endif %};">{% if lead.heat >= 75 %}🔥{% elif lead.heat >= 40 %}🌤{% else %}❄{% endif %} {{ lead.heat }}</span>
         </div>
@@ -510,7 +546,7 @@
       {% set bd = lead.d1_morning + lead.d1_afternoon + lead.d1_evening %}
       {% set all_done = bd == 3 %}
       <div class="wk-lead-card {% if all_done %}wk-lead-complete{% endif %}" id="lead-{{ lead.id }}" data-member="{{ lead.assigned_to }}">
-        <div style="background:#e0f2fe;border-radius:4px;padding:2px 6px;font-size:0.62rem;color:#0891b2;font-weight:700;display:inline-block;margin-bottom:4px;">
+        <div class="wk-member-badge wk-member-cyan">
           <i class="bi bi-person-fill me-1"></i>Member: {{ lead.assigned_to }}
         </div>
         <div class="fw-semibold text-truncate mb-1">{{ lead.name }}</div>
@@ -538,13 +574,13 @@
         <span class="wk-col-title"><i class="bi bi-2-circle me-2 text-warning"></i>Team Day 2</span>
         <span class="badge bg-warning text-dark">{{ team_day2|length }}</span>
       </div>
-      <div class="text-center mb-2" style="font-size:0.68rem;background:#fef9c3;border-radius:6px;padding:4px 8px;color:#92400e;">
+      <div class="text-center mb-2 wk-stat-badge wk-stat-yellow" style="font-size:0.68rem;border-radius:6px;justify-content:center;width:100%;">
         <i class="bi bi-lock-fill me-1"></i>Admin conduct kar raha hai
       </div>
       {% if team_day2 %}{% for lead in team_day2 %}
       {% set bd = lead.d2_morning + lead.d2_afternoon + lead.d2_evening %}
       <div class="wk-lead-card" id="lead-{{ lead.id }}" data-member="{{ lead.assigned_to }}">
-        <div style="background:#fef3c7;border-radius:4px;padding:2px 6px;font-size:0.62rem;color:#92400e;font-weight:700;display:inline-block;margin-bottom:4px;">
+        <div class="wk-member-badge wk-member-amber">
           <i class="bi bi-person-fill me-1"></i>Member: {{ lead.assigned_to }}
         </div>
         <div class="fw-semibold text-truncate mb-1">{{ lead.name }}</div>
@@ -573,7 +609,7 @@
       </div>
       {% if team_day3 %}{% for lead in team_day3 %}
       <div class="wk-lead-card" id="lead-{{ lead.id }}" data-member="{{ lead.assigned_to }}">
-        <div style="background:#fef2f2;border-radius:4px;padding:2px 6px;font-size:0.62rem;color:#dc2626;font-weight:700;display:inline-block;margin-bottom:4px;">
+        <div class="wk-member-badge wk-member-red">
           <i class="bi bi-person-fill me-1"></i>Member: {{ lead.assigned_to }}
         </div>
         <div class="fw-semibold text-truncate mb-1">{{ lead.name }}</div>
@@ -702,8 +738,8 @@
       <span class="badge bg-success">{{ stage1_leads|length }}</span>
     </div>
     {% if enrollment_video_url %}
-    <div class="wk-lead-card mb-2" style="background:#f5f3ff;">
-      <a href="{{ enrollment_watch_url or enrollment_video_url }}" class="video-in-app d-flex align-items-center gap-2 text-decoration-none" style="color:#6366f1;">
+    <div class="wk-lead-card mb-2" style="background:rgba(94,92,230,0.08);">
+      <a href="{{ enrollment_watch_url or enrollment_video_url }}" class="video-in-app d-flex align-items-center gap-2 text-decoration-none" style="color:var(--ios-indigo);">
         <i class="bi bi-play-circle-fill fs-5 flex-shrink-0"></i>
         <span class="fw-semibold small">{{ enrollment_video_title|default('Enrollment Video') }}</span>
         <i class="bi bi-play-btn ms-auto small"></i>
@@ -743,7 +779,7 @@
           {% endfor %}
         </div>
         {% if lead.current_owner %}
-        <div class="mt-1" style="font-size:0.65rem;color:#9ca3af;">With: <span style="font-weight:700;color:#6366f1;">{{ lead.current_owner }}</span></div>
+        <div class="mt-1" style="font-size:0.65rem;color:var(--label-3);">With: <span style="font-weight:700;color:var(--ios-indigo);">{{ lead.current_owner }}</span></div>
         {% endif %}
       </div>
       <select class="form-select form-select-sm mb-2"
@@ -787,11 +823,11 @@
       </div>
       {% endif %}
       {% if lead.call_status == 'Video Watched' %}
-      <div style="background:#dcfce7; border-radius:6px; padding:4px 8px; font-size:0.68rem; font-weight:600; color:#16a34a; margin-top:4px;">
+      <div class="wk-hotspot-badge wk-hotspot-watched mt-1" style="font-size:0.68rem;">
         👀 Prospect watched the video — call now!
       </div>
       {% elif lead.call_status == 'Video Sent' %}
-      <div style="background:#dbeafe; border-radius:6px; padding:4px 8px; font-size:0.68rem; color:#1d4ed8; margin-top:4px;">
+      <div class="wk-hotspot-badge wk-hotspot-sent mt-1" style="font-size:0.68rem;">
         📤 Video sent — waiting for response
       </div>
       {% endif %}
@@ -799,7 +835,7 @@
       {% if lead.heat is defined %}
       <div class="heat-bar-wrap">
         <div class="d-flex justify-content-between mb-1">
-          <span style="font-size:0.6rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Heat</span>
+          <span class="wk-heat-label" style="font-size:0.6rem;font-weight:700;text-transform:uppercase;color:var(--label-3);">Heat</span>
           <span style="font-size:0.6rem;font-weight:700;
             color:{% if lead.heat >= 75 %}#dc2626{% elif lead.heat >= 40 %}#d97706{% else %}#9ca3af{% endif %}">
             {% if lead.heat >= 75 %}🔥{% elif lead.heat >= 40 %}🌤{% else %}❄{% endif %} {{ lead.heat }}
@@ -918,7 +954,7 @@
       {% if lead.heat is defined %}
       <div class="heat-bar-wrap mt-1 mb-1">
         <div class="d-flex justify-content-between mb-1">
-          <span style="font-size:0.6rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Heat</span>
+          <span class="wk-heat-label" style="font-size:0.6rem;font-weight:700;text-transform:uppercase;color:var(--label-3);">Heat</span>
           <span style="font-size:0.6rem;font-weight:700;
             color:{% if lead.heat >= 75 %}#dc2626{% elif lead.heat >= 40 %}#d97706{% else %}#9ca3af{% endif %}">
             {% if lead.heat >= 75 %}🔥{% elif lead.heat >= 40 %}🌤{% else %}❄{% endif %} {{ lead.heat }}
@@ -1111,7 +1147,7 @@
       {% if lead.heat is defined %}
       <div class="heat-bar-wrap mt-1 mb-1">
         <div class="d-flex justify-content-between mb-1">
-          <span style="font-size:0.6rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Heat</span>
+          <span class="wk-heat-label" style="font-size:0.6rem;font-weight:700;text-transform:uppercase;color:var(--label-3);">Heat</span>
           <span style="font-size:0.6rem;font-weight:700;color:{% if lead.heat >= 75 %}#dc2626{% elif lead.heat >= 40 %}#d97706{% else %}#9ca3af{% endif %}">
             {% if lead.heat >= 75 %}🔥{% elif lead.heat >= 40 %}🌤{% else %}❄{% endif %} {{ lead.heat }}
           </span>
@@ -1588,7 +1624,7 @@ function openBatchPopup(leadId, batchKey, phone, leadName, btnEl) {
     linksDiv.dataset.v1 = link1;
     linksDiv.dataset.v2 = link2;
     linksDiv.innerHTML = `
-      <div style="font-size:0.75rem;font-weight:700;color:#6b7280;margin-bottom:8px;">
+      <div style="font-size:0.75rem;font-weight:700;color:var(--label-3,#6b7280);margin-bottom:8px;">
         Prospect ko ye link bhejoge — video humari site pe open hogi, YouTube nahi. Nice focus! 🎯
       </div>
       ${link1 ? `<div style="font-size:0.8rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
