@@ -923,7 +923,8 @@
         </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form id="quickAddForm">
+      <form id="quickAddForm" method="post" action="{{ url_for('add_lead') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div class="modal-body pt-3">
           <div class="row g-3">
             <div class="col-md-6">
@@ -971,7 +972,7 @@
         </div>
         <div class="modal-footer border-0 pt-0">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-success px-4 fw-semibold" id="quickAddBtn">
+          <button type="submit" class="btn btn-success px-4 fw-semibold" id="quickAddBtn" data-noloading="1">
             <i class="bi bi-plus-circle-fill me-1"></i>Add Lead
           </button>
         </div>
@@ -1181,7 +1182,7 @@ function setBatch(leadId, day, batchVal) {
         var tmp = makeTempInput();
         document.body.appendChild(tmp);
         tmp.removeAttribute('readonly');  // allow focus to trigger keyboard
-        tmp.focus();
+        try { tmp.focus(); } catch (e) {}  // some iOS versions may throw
 
         var cleaned = false;
         function cleanup() {
@@ -1217,17 +1218,30 @@ function setBatch(leadId, day, batchVal) {
    Fix: listen to visualViewport resize → dynamically cap .modal-content
    max-height to visualViewport.height minus the modal's top margin. This
    forces the body to scroll inside a shorter container and keeps the
-   footer always visible above the keyboard.                                ── */
+   footer always visible above the keyboard.
+
+   CRITICAL: visualViewport fires 30–60×/sec when keyboard animates. Without
+   throttling, onVVChange caused layout thrashing → app freeze on iOS.       ── */
 (function() {
   if (!window.visualViewport) return;
-  // Mirrors CSS `margin: 2vh auto` on .modal-dialog (snapshot before keyboard)
   var TOP_MARGIN = Math.max(10, Math.round(window.innerHeight * 0.02));
+  var lastRun = 0;
+  var rafId = null;
 
   function onVVChange() {
+    var now = Date.now();
+    if (now - lastRun < 80) {
+      if (!rafId) rafId = requestAnimationFrame(function() {
+        rafId = null; lastRun = Date.now(); doResize();
+      });
+      return;
+    }
+    lastRun = now;
+    doResize();
+  }
+  function doResize() {
     var vvH  = Math.floor(window.visualViewport.height);
-    // Allow a small gap below the modal so it doesn't touch the keyboard edge
     var maxH = Math.max(200, vvH - TOP_MARGIN - 10);
-
     document.querySelectorAll('#quickAddModal.show, #importModal.show').forEach(function(m) {
       var dlg = m.querySelector('.modal-dialog');
       var cnt = m.querySelector('.modal-content');
