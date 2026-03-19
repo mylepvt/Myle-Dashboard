@@ -1159,9 +1159,14 @@ function setBatch(leadId, day, batchVal) {
     var t = document.createElement('input');
     t.setAttribute('type', 'text');
     t.setAttribute('inputmode', 'text');
-    t.style.cssText = 'position:fixed;top:50%;left:50%;width:1px;height:1px;opacity:0;font-size:16px;border:none;outline:none;z-index:99999;pointer-events:none;';
+    // opacity:0.01 (not 0) + no pointer-events override so iOS WebKit
+    // still treats this as a valid focusable / touchable element.
+    // z-index:99999 ensures it's above backdrop so iOS hit-testing sees it.
+    // width/height 2px so it doesn't visually affect layout.
+    t.style.cssText = 'position:fixed;top:50%;left:50%;width:2px;height:2px;opacity:0.01;font-size:16px;border:none;outline:none;z-index:99999;background:transparent;color:transparent;caret-color:transparent;';
     t.setAttribute('aria-hidden', 'true');
     t.setAttribute('tabindex', '-1');
+    t.setAttribute('readonly', 'true');   // prevent its own keyboard on some browsers
     return t;
   }
 
@@ -1172,18 +1177,29 @@ function setBatch(leadId, day, batchVal) {
 
     triggers.forEach(function(btn) {
       btn.addEventListener('click', function() {
-        // Step 1: focus temp input within the synchronous gesture chain
+        // Step 1: focus temp input within the synchronous gesture chain → keyboard opens
         var tmp = makeTempInput();
         document.body.appendChild(tmp);
+        tmp.removeAttribute('readonly');  // allow focus to trigger keyboard
         tmp.focus();
+
+        var cleaned = false;
+        function cleanup() {
+          if (cleaned) return;
+          cleaned = true;
+          var real = modalEl.querySelector(realInputSelector);
+          if (real) real.focus();
+          tmp.remove();
+        }
 
         // Step 2: once modal animation completes, shift focus to real input
         modalEl.addEventListener('shown.bs.modal', function handler() {
           modalEl.removeEventListener('shown.bs.modal', handler);
-          var real = modalEl.querySelector(realInputSelector);
-          if (real) real.focus();
-          tmp.remove();
+          cleanup();
         });
+
+        // Safety net: cleanup after 1.5s even if shown.bs.modal never fires
+        setTimeout(cleanup, 1500);
       });
     });
   }
