@@ -1,6 +1,5 @@
--e 
 # Environment files
-*.env
+.env
 *.env.*
 
 # Claude Code worktrees
@@ -14,6 +13,9 @@ __pycache__/
 # Virtual environments
 .venv/
 venv/
+
+# SQLite database
+leads.db
 
 # Local dev artifacts
 .scheduler.lock
