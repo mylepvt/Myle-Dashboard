@@ -39,6 +39,44 @@
   </div>
 </div>
 
+<!-- Day 2 Batch Videos -->
+{% set has_d2_videos = d2_videos.morning_v1 or d2_videos.afternoon_v1 or d2_videos.evening_v1 %}
+{% if has_d2_videos %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-transparent border-0 pt-3 pb-0">
+    <h6 class="mb-0 fw-semibold"><i class="bi bi-play-circle me-2 text-warning"></i>Day 2 Batch Videos</h6>
+  </div>
+  <div class="card-body pb-3">
+    <div class="row g-2">
+      {% set batches = [
+        ('🌅 Morning',   d2_videos.morning_v1,   d2_videos.morning_v2),
+        ('☀️ Afternoon', d2_videos.afternoon_v1, d2_videos.afternoon_v2),
+        ('🌙 Evening',   d2_videos.evening_v1,   d2_videos.evening_v2),
+      ] %}
+      {% for label, v1, v2 in batches %}
+      {% if v1 or v2 %}
+      <div class="col-12 col-md-4">
+        <div class="border rounded p-2 h-100" style="background:var(--bs-tertiary-bg,#f8f9fa);">
+          <div class="fw-semibold small mb-2">{{ label }}</div>
+          {% if v1 %}
+          <a href="{{ v1 }}" target="_blank" class="btn btn-sm btn-outline-warning w-100 mb-1">
+            <i class="bi bi-play-fill me-1"></i>Video 1
+          </a>
+          {% endif %}
+          {% if v2 %}
+          <a href="{{ v2 }}" target="_blank" class="btn btn-sm btn-outline-secondary w-100">
+            <i class="bi bi-play-fill me-1"></i>Video 2
+          </a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% if day2_leads %}
 <!-- Progress table -->
 <div class="card border-0 shadow-sm">

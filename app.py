@@ -1659,7 +1659,7 @@ def enroll_generate_link():
     db.commit()
     db.close()
 
-    watch_url = url_for('watch_video', token=token, _external=True)
+    watch_url = _public_external_url('watch_video', token=token)
     return jsonify({'ok': True, 'token': token, 'watch_url': watch_url})
 
 
@@ -1670,13 +1670,27 @@ def _youtube_embed_url(raw_url):
     s = raw_url.strip()
     # Support: watch?v=, youtu.be/, embed/, shorts/
     m = _re.search(
-        r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/|youtube\.com/shorts/)([a-zA-Z0-9_-]{11})',
+        # Also supports live stream URLs: youtube.com/live/<id>
+        r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/|youtube\.com/shorts/|youtube\.com/live/)([a-zA-Z0-9_-]{11})',
         s
     )
     if m:
         vid = m.group(1)
         return 'https://www.youtube-nocookie.com/embed/' + vid + '?rel=0&modestbranding=1&playsinline=1'
     return ''
+
+
+def _public_external_url(endpoint, **values):
+    """Build stable absolute URLs behind proxies (Render/Cloudflare/Nginx)."""
+    path = url_for(endpoint, _external=False, **values)
+    try:
+        proto = (request.headers.get('X-Forwarded-Proto') or request.scheme or 'https').split(',')[0].strip()
+        host = (request.headers.get('X-Forwarded-Host') or request.host or '').split(',')[0].strip()
+        if host:
+            return f"{proto}://{host}{path}"
+    except RuntimeError:
+        pass
+    return url_for(endpoint, _external=True, **values)
 
 
 @app.route('/watch/enrollment')
@@ -1702,8 +1716,8 @@ _BATCH_LABELS = {
 def _batch_watch_urls():
     """In-app watch URLs for each batch slot (v1, v2). Prospect opens our page, not YouTube."""
     return {
-        slot: {'v1': url_for('watch_batch', slot=slot, v=1, _external=True),
-               'v2': url_for('watch_batch', slot=slot, v=2, _external=True)}
+        slot: {'v1': _public_external_url('watch_batch', slot=slot, v=1),
+               'v2': _public_external_url('watch_batch', slot=slot, v=2)}
         for slot in _BATCH_SLOTS
     }
 
@@ -1744,7 +1758,9 @@ def watch_batch(slot, v):
         return render_template('watch_video.html', error='Invalid link', title='Batch Video'), 404
     db = get_db()
     # Auto-mark batch done when prospect opens tokenized link
-    token = request.args.get('token', '').strip()
+    token = (request.args.get('token', '') or '').strip()
+    # WhatsApp/in-app browsers sometimes pass trailing punctuation in query text.
+    token = _re.sub(r'[^A-Za-z0-9_-]', '', token)
     if token:
         try:
             link = db.execute(
@@ -1756,22 +1772,55 @@ def watch_batch(slot, v):
             pass
     setting_key = f'batch_{slot}_v{v}'
     yt_url = _get_setting(db, setting_key, '')
-    db.close()
     embed_url = _youtube_embed_url(yt_url)
+    fallback_used = False
+
+    # Fallback: If Watch 1's embed URL can't be derived (empty OR invalid URL),
+    # open Video 2 embed instead. Token auto-marking is based only on `slot`,
+    # so using v2 is safe for marking completion.
+    if int(v) == 1 and not embed_url:
+        yt_url_v2 = _get_setting(db, f'batch_{slot}_v2', '')
+        embed_url = _youtube_embed_url(yt_url_v2)
+        yt_url = yt_url_v2
+        fallback_used = bool(embed_url)
+
+    db.close()
+
     if not embed_url:
-        return render_template('watch_video.html', error='Video not configured', title=_BATCH_LABELS.get(slot, 'Batch Video')), 404
+        return render_template(
+            'watch_video.html',
+            error='Video not configured',
+            title=_BATCH_LABELS.get(slot, 'Batch Video')
+        ), 404
+
     title = _BATCH_LABELS.get(slot, 'Batch Video') + ' — Video ' + str(v)
+    if fallback_used:
+        title = _BATCH_LABELS.get(slot, 'Batch Video') + ' — Video 1 (using Video 2)'
+
     return render_template('watch_batch.html', embed_url=embed_url, title=title, slot=slot, v=v)
 
 
 @app.route('/watch/<token>')
 def watch_video(token):
     """Public watch page; first view syncs to lead (Video Watched) and notifies sharer."""
+    token = (token or '').strip()
+    token = _re.sub(r'[^A-Za-z0-9_-]', '', token)
     db = get_db()
     link = db.execute(
         "SELECT * FROM enroll_share_links WHERE token=?", (token,)
     ).fetchone()
     if not link:
+        # Defensive fallback: if a batch token is opened on /watch/<token>,
+        # redirect to the proper batch watch route instead of showing expired.
+        try:
+            b = db.execute(
+                "SELECT slot FROM batch_share_links WHERE token=? LIMIT 1", (token,)
+            ).fetchone()
+            if b and b['slot'] in _BATCH_SLOTS:
+                db.close()
+                return redirect(url_for('watch_batch', slot=b['slot'], v=1, token=token))
+        except Exception:
+            pass
         db.close()
         return render_template('watch_video.html', error='Link not found or expired'), 404
 
@@ -4171,6 +4220,9 @@ def admin_settings():
         _set_setting(db, 'enrollment_video_url', request.form.get('enrollment_video_url', '').strip())
         _set_setting(db, 'enrollment_video_title', request.form.get('enrollment_video_title', '').strip())
 
+        # App tutorial link (sent to fully converted leads by leader)
+        _set_setting(db, 'app_tutorial_link', request.form.get('app_tutorial_link', '').strip())
+
         db.commit()
         db.close()
         flash('Settings saved successfully.', 'success')
@@ -4192,6 +4244,7 @@ def admin_settings():
     # ── Enrollment Video (Stage 1) ────────────────────────────────
     enrollment_video_url   = _get_setting(db, 'enrollment_video_url', '')
     enrollment_video_title = _get_setting(db, 'enrollment_video_title', 'Enrollment Video')
+    app_tutorial_link      = _get_setting(db, 'app_tutorial_link', '')
 
     # ── Batch Video Links ────────────────────────────────────────
     batch_videos = {
@@ -4211,7 +4264,8 @@ def admin_settings():
 
     db.close()
     return render_template('admin_settings.html', settings=settings, batch_videos=batch_videos,
-                           enrollment_video_url=enrollment_video_url, enrollment_video_title=enrollment_video_title)
+                           enrollment_video_url=enrollment_video_url, enrollment_video_title=enrollment_video_title,
+                           app_tutorial_link=app_tutorial_link)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -4370,7 +4424,10 @@ def admin_edit_member(username):
         else:
             # Update all related tables
             db.execute("UPDATE leads SET assigned_to=? WHERE assigned_to=?", (new_username, username))
-            db.execute("UPDATE leads SET added_by=? WHERE added_by=?", (new_username, username))
+            try:
+                db.execute("UPDATE leads SET added_by=? WHERE added_by=?", (new_username, username))
+            except Exception:
+                pass
             db.execute("UPDATE wallet_recharges SET username=? WHERE username=?", (new_username, username))
             db.execute("UPDATE push_subscriptions SET username=? WHERE username=?", (new_username, username))
             db.execute("UPDATE daily_reports SET username=? WHERE username=?", (new_username, username))
@@ -8057,8 +8114,12 @@ def working():
             _base + _own_where + " AND status='Seat Hold Confirmed' ORDER BY updated_at DESC",
             _own_params
         ).fetchall()
+        own_closing = db.execute(
+            _base + _own_where + " AND status='Fully Converted' ORDER BY updated_at DESC",
+            _own_params
+        ).fetchall()
         own_past = db.execute(
-            _base + _own_where + " AND status IN ('Fully Converted','Converted','Lost') ORDER BY updated_at DESC LIMIT 20",
+            _base + _own_where + " AND status IN ('Converted','Lost') ORDER BY updated_at DESC LIMIT 20",
             _own_params
         ).fetchall()
 
@@ -8087,8 +8148,12 @@ def working():
                 _team_base + "AND status='Seat Hold Confirmed' ORDER BY assigned_to, updated_at DESC",
                 _team_params
             ).fetchall()
+            team_closing = db.execute(
+                _team_base + "AND status='Fully Converted' ORDER BY assigned_to, updated_at DESC",
+                _team_params
+            ).fetchall()
             team_past = db.execute(
-                _team_base + "AND status IN ('Fully Converted','Converted','Lost') ORDER BY assigned_to, updated_at DESC LIMIT 50",
+                _team_base + "AND status IN ('Converted','Lost') ORDER BY assigned_to, updated_at DESC LIMIT 50",
                 _team_params
             ).fetchall()
             _d_phs = ','.join('?' * len(_downline_only))
@@ -8098,7 +8163,7 @@ def working():
             ).fetchall()
         else:
             team_stage1 = team_day1 = team_day2 = team_day3 = []
-            team_pending = team_past = []
+            team_pending = team_closing = team_past = []
             downline_members = []
 
         # ── Pending action counts ────────────────────────────────
@@ -8147,11 +8212,13 @@ def working():
         own_day2     = _enrich_leads(own_day2)
         own_day3     = _enrich_leads(own_day3)
         own_pending  = _enrich_leads(own_pending)
+        own_closing  = _enrich_leads(own_closing)
         team_stage1  = _enrich_leads(team_stage1)
         team_day1    = _enrich_leads(team_day1)
         team_day2    = _enrich_leads(team_day2)
         team_day3    = _enrich_leads(team_day3)
         team_pending = _enrich_leads(team_pending)
+        team_closing = _enrich_leads(team_closing)
 
         today_score, streak = _get_today_score(db, username)
 
@@ -8213,7 +8280,13 @@ def working():
         enrollment_video_url   = _get_setting(db, 'enrollment_video_url', '')
         enrollment_video_title = _get_setting(db, 'enrollment_video_title', 'Enrollment Video')
 
+        # Tutorial / onboarding data for fully converted leads
+        app_tutorial_link = _get_setting(db, 'app_tutorial_link', '')
+        _leader_row = db.execute("SELECT fbo_id FROM users WHERE username=?", (username,)).fetchone()
+        leader_fbo_id = (_leader_row['fbo_id'] if _leader_row and _leader_row['fbo_id'] else '')
+
         db.close()
+        app_register_url = url_for('register', _external=True)
 
         return render_template('working.html',
             is_admin=False,
@@ -8225,6 +8298,7 @@ def working():
             own_day2=own_day2,
             own_day3=own_day3,
             own_pending=own_pending,
+            own_closing=own_closing,
             own_past=own_past,
 
             # Team leads
@@ -8233,7 +8307,13 @@ def working():
             team_day2=team_day2,
             team_day3=team_day3,
             team_pending=team_pending,
+            team_closing=team_closing,
             team_past=team_past,
+
+            # Tutorial onboarding
+            leader_fbo_id=leader_fbo_id,
+            app_register_url=app_register_url,
+            app_tutorial_link=app_tutorial_link,
 
             # Counts
             own_pending_calls=own_pending_calls,
@@ -8435,8 +8515,8 @@ def batch_share_url(lead_id):
         )
         db.commit()
     db.close()
-    watch_url_v1 = url_for('watch_batch', slot=slot, v=1, _external=True) + '?token=' + token
-    watch_url_v2 = url_for('watch_batch', slot=slot, v=2, _external=True) + '?token=' + token
+    watch_url_v1 = _public_external_url('watch_batch', slot=slot, v=1) + '?token=' + token
+    watch_url_v2 = _public_external_url('watch_batch', slot=slot, v=2) + '?token=' + token
     return {'ok': True, 'watch_url_v1': watch_url_v1, 'watch_url_v2': watch_url_v2}
 
 
@@ -8460,23 +8540,22 @@ def batch_toggle(lead_id):
     role  = session.get('role', 'team')
     owner = row['assigned_to']
 
-    # Day 1 batches: only leader or admin can mark (team cannot send Day 1 task from dashboard)
+    # Day 1 batches: only leader or admin can mark (leader runs/tracks Day 1 sessions)
     if batch.startswith('d1_'):
         if role not in ('leader', 'admin'):
-            db.close(); return {'ok': False, 'error': 'Only leader/admin can send Day 1 batches'}, 403
+            db.close(); return {'ok': False, 'error': 'Only leader/admin can mark Day 1 batches'}, 403
         if role == 'leader':
             downline = _get_network_usernames(db, session['username'])
             if owner != session['username'] and owner not in downline:
                 db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
-    else:
+    elif batch.startswith('d2_'):
         # Day 2 batches: admin only
-        if batch.startswith('d2_'):
-            if role != 'admin':
-                db.close(); return {'ok': False, 'error': 'Only admin can mark Day 2 batches'}, 403
-        else:
-            # Other batches (d3_, etc.): team can mark own; admin unrestricted
-            if role != 'admin' and owner != session['username']:
-                db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
+        if role != 'admin':
+            db.close(); return {'ok': False, 'error': 'Only admin can mark Day 2 batches'}, 403
+    else:
+        # Other batches: team can mark own; admin unrestricted
+        if role != 'admin' and owner != session['username']:
+            db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
 
     # Toggle (or force-mark if force_mark=true, used by "already sent" button)
     force_mark = data.get('force_mark', False)
@@ -8678,7 +8757,7 @@ def stage_advance(lead_id):
         'enroll_complete':   ('enrollment',),
         'day1_complete':     ('day1',),
         'day2_complete':     ('day2',),
-        'interview_done':    ('day2',),
+        'interview_done':    ('day2', 'day3'),
         'seat_hold_done':    ('day3',),
         'fully_converted':   ('seat_hold', 'closing'),
         'training_complete': ('training',),
@@ -8971,11 +9050,21 @@ def day2_progress():
         if usernames_list:
             ph = ','.join('?' * len(usernames_list))
             urows = db.execute(
-                f"SELECT username, upline_name FROM users WHERE username IN ({ph})",
+                f"SELECT username, upline_username, upline_name FROM users WHERE username IN ({ph})",
                 usernames_list
             ).fetchall()
             for r in urows:
-                leader_map[r['username']] = r['upline_name'] or '—'
+                leader_map[r['username']] = r['upline_username'] or r['upline_name'] or '—'
+
+    # Day 2 batch videos for quick access
+    d2_videos = {
+        'morning_v1':   _get_setting(db, 'batch_d2_morning_v1', ''),
+        'morning_v2':   _get_setting(db, 'batch_d2_morning_v2', ''),
+        'afternoon_v1': _get_setting(db, 'batch_d2_afternoon_v1', ''),
+        'afternoon_v2': _get_setting(db, 'batch_d2_afternoon_v2', ''),
+        'evening_v1':   _get_setting(db, 'batch_d2_evening_v1', ''),
+        'evening_v2':   _get_setting(db, 'batch_d2_evening_v2', ''),
+    }
 
     db.close()
     return render_template('day2_progress.html',
@@ -8986,6 +9075,7 @@ def day2_progress():
         can_edit=can_edit,
         current_user=username,
         leader_map=leader_map,
+        d2_videos=d2_videos,
         csrf_token=session.get('_csrf_token', ''),
     )
 

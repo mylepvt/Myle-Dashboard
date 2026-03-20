@@ -63,120 +63,18 @@
 {# ─── ADMIN VIEW ─────────────────────────────────────────────── #}
 {% if is_admin %}
 
-<div class="mb-3 d-flex align-items-center gap-3 flex-wrap">
-  <h5 class="mb-0 fw-bold"><i class="bi bi-diagram-3 me-2 text-primary"></i>Team Pipeline</h5>
-  {% if total_pipeline_value %}
-  <span class="badge bg-success fs-6">₹{{ "{:,.0f}".format(total_pipeline_value) }} in pipeline</span>
-  {% endif %}
-  <a href="{{ url_for('day2_progress') }}" class="btn btn-sm btn-outline-primary ms-auto">
+<div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+  <a href="{{ url_for('day2_progress') }}" class="btn btn-outline-primary">
     <i class="bi bi-eye me-1"></i>Day 2 Live Board
+  </a>
+  <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+    <i class="bi bi-speedometer2 me-1"></i>Admin Dashboard
   </a>
 </div>
 
-<!-- Stage overview cards -->
-<div class="row g-3 mb-4">
-  {% set stage_items = [
-    ('Ready for Day 1', stage_counts.stage1 or 0, 'bi-check-circle', 'success'),
-    ('Day 1',   stage_counts.day1   or 0, 'bi-1-circle', 'info'),
-    ('Day 2',   stage_counts.day2   or 0, 'bi-2-circle', 'warning'),
-    ('Day 3',   stage_counts.day3   or 0, 'bi-3-circle', 'danger'),
-    ('Pending', stage_counts.pending or 0, 'bi-hourglass-split', 'secondary'),
-    ('Converted', stage_counts.converted or 0, 'bi-trophy', 'success'),
-  ] %}
-  {% for label, count, icon, color in stage_items %}
-  <div class="col-6 col-md-4 col-lg-2">
-    <div class="card border-0 shadow-sm h-100 text-center">
-      <div class="card-body py-3">
-        <i class="bi {{ icon }} text-{{ color }} fs-4 mb-1 d-block"></i>
-        <div class="fs-3 fw-bold">{{ count }}</div>
-        <div class="text-muted small">{{ label }}</div>
-      </div>
-    </div>
-  </div>
-  {% endfor %}
-</div>
-
-<!-- Batch completion rates -->
-<div class="card border-0 shadow-sm mb-4">
-  <div class="card-header bg-transparent border-0 pt-3 pb-0">
-    <h6 class="mb-0 fw-semibold"><i class="bi bi-check2-all me-2"></i>Batch Completion Today</h6>
-  </div>
-  <div class="card-body">
-    <div class="mb-3">
-      <div class="d-flex justify-content-between small text-muted mb-1">
-        <span>Day 1 — {{ batch_completion.d1_done }}/{{ batch_completion.d1_total }} leads ne sabhi batches complete ki</span>
-        <span class="fw-semibold">{{ batch_completion.d1_pct }}%</span>
-      </div>
-      <div class="progress" style="height:8px;">
-        <div class="progress-bar bg-info" style="width:{{ batch_completion.d1_pct }}%"></div>
-      </div>
-    </div>
-    <div>
-      <div class="d-flex justify-content-between small text-muted mb-1">
-        <span>Day 2 — {{ batch_completion.d2_done }}/{{ batch_completion.d2_total }} leads ne sabhi batches complete ki</span>
-        <span class="fw-semibold">{{ batch_completion.d2_pct }}%</span>
-      </div>
-      <div class="progress" style="height:8px;">
-        <div class="progress-bar bg-warning" style="width:{{ batch_completion.d2_pct }}%"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Member activity table -->
-<div class="card border-0 shadow-sm mb-4">
-  <div class="card-header bg-transparent border-0 pt-3 pb-0">
-    <h6 class="mb-0 fw-semibold"><i class="bi bi-people me-2"></i>Member Pipeline</h6>
-  </div>
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0 small">
-        <thead class="table-light">
-          <tr>
-            <th>Member</th>
-            <th class="text-muted" style="font-size:0.7rem;">FBO ID</th>
-            <th class="text-center">Today Score</th>
-            <th class="text-center">Ready for Day 1</th>
-            <th class="text-center">Day 1</th>
-            <th class="text-center">Day 2</th>
-            <th class="text-center">Day 3</th>
-            <th class="text-center">Pending</th>
-            <th class="text-center">Converted</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for uname, data in team_pipeline.items() %}
-          {% set score = data.score %}
-          <tr class="{% if score >= 50 %}table-success{% elif score >= 10 %}table-warning{% else %}{% endif %}">
-            <td class="fw-semibold">{{ uname }}</td>
-            <td class="text-muted small" style="font-size:0.72rem;">
-              {{ data.fbo_id or '—' }}
-            </td>
-            <td class="text-center">
-              <span class="badge {% if score >= 50 %}bg-success{% elif score >= 10 %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
-                {{ score }} pts
-              </span>
-            </td>
-            <td class="text-center">{{ data.stage1 or '—' }}</td>
-            <td class="text-center">{{ data.day1 or '—' }}</td>
-            <td class="text-center">{{ data.day2 or '—' }}</td>
-            <td class="text-center">{{ data.day3 or '—' }}</td>
-            <td class="text-center">{{ data.pending or '—' }}</td>
-            <td class="text-center text-success fw-semibold">{{ data.converted or '—' }}</td>
-          </tr>
-          {% else %}
-          <tr><td colspan="9" class="text-center text-muted py-3">No team members yet.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- Stale leads alert -->
 {% if stale_leads %}
 <div class="alert alert-warning border-0 shadow-sm mb-4">
-  <h6 class="alert-heading mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Stale Leads — Not updated in 48h</h6>
+  <h6 class="alert-heading mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Stale Leads — 48h se update nahi hua</h6>
   <div class="table-responsive">
     <table class="table table-sm mb-0">
       <thead><tr><th>Name</th><th>Member</th><th>Status</th><th>Last Update</th></tr></thead>
@@ -192,6 +90,12 @@
       </tbody>
     </table>
   </div>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-check2-circle fs-1 d-block mb-2 text-success opacity-75"></i>
+  <div class="fw-semibold">Sab leads updated hain</div>
+  <div class="small mt-1">Koi stale lead nahi — team active hai!</div>
 </div>
 {% endif %}
 
@@ -259,7 +163,7 @@
 
   <div class="wk-kanban-tabs mb-3">
     <button class="wk-tab active" data-col="own-stage1">
-      Ready for Day 1 <span class="badge bg-success ms-1">{{ own_stage1|length }}</span>
+      Enrollment <span class="badge bg-success ms-1">{{ own_stage1|length }}</span>
     </button>
     <button class="wk-tab" data-col="own-day1">
       Day 1 <span class="badge bg-info ms-1">{{ own_day1|length }}</span>
@@ -274,13 +178,13 @@
 
   <div class="wk-kanban-grid">
 
-    {# Own Stage 1 — Ready for Day 1 (Paid ₹196 / Mindset Lock). Call status "Payment Done" select karoge to lead Day 1 me auto chala jayega. #}
+    {# Own Stage 1 — Enrollment: all pre-Day-1 leads (New Lead → Contacted → Video Sent → Paid ₹196 / Mindset Lock). Enrollment video send karo, ₹196 pay hone par "Day 1" button appear hoga. #}
     <div class="wk-kanban-col" id="zone-own-stage1" data-col="own-stage1">
       <div class="wk-col-header">
-        <span class="wk-col-title"><i class="bi bi-check-circle me-2 text-success"></i>Ready for Day 1</span>
+        <span class="wk-col-title"><i class="bi bi-play-circle me-2" style="color:var(--ios-indigo);"></i>Enrollment</span>
         <span class="badge bg-success">{{ own_stage1|length }}</span>
       </div>
-      <div class="small text-muted mb-2" style="font-size:0.65rem;">₹196 pay hua to <strong>Call Status → Payment Done</strong> karo — lead Day 1 me auto shift ho jayegi.</div>
+      <div class="small text-muted mb-2" style="font-size:0.65rem;">📹 Video bhejo → lead interested ho → ₹196 pay kare → <strong>Day 1</strong> button appear hoga.</div>
       {% if own_stage1 %}{% for lead in own_stage1 %}
       <div class="wk-lead-card" id="lead-{{ lead.id }}">
         <div class="d-flex justify-content-between align-items-start mb-1">
@@ -314,9 +218,16 @@
         <div class="d-flex gap-2">
           <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
           <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+          {% if enrollment_watch_url %}
+          <button class="btn btn-sm wk-btn" style="background:rgba(94,92,230,0.15);color:var(--ios-indigo);border:1px solid rgba(94,92,230,0.3);" onclick="sendEnrollVideo({{ lead.id }}, '{{ lead.phone }}', {{ lead.name|tojson }})" title="Enrollment video bhejo">
+            <i class="bi bi-play-circle-fill"></i>
+          </button>
+          {% endif %}
+          {% if lead.status in ('Paid ₹196', 'Mindset Lock') %}
           <button class="btn btn-sm btn-success wk-btn ms-auto" onclick="pushToDay1({{ lead.id }}, this)" title="Day 1 mein bhejo">
             <i class="bi bi-arrow-right me-1"></i>Day 1
           </button>
+          {% endif %}
         </div>
       </div>
       {% endfor %}{% else %}
@@ -440,6 +351,42 @@
   </div>
   {% endif %}
 
+  {# Own Closing — Fully Converted: Send Tutorial #}
+  {% if own_closing %}
+  <div class="mb-3 mt-2">
+    <button class="btn w-100 text-start d-flex justify-content-between align-items-center mb-2"
+            style="background:rgba(52,199,89,0.12);border:1px solid rgba(52,199,89,0.3);color:#1a7f3c;border-radius:12px;"
+            onclick="toggleZone('zone-own-closing', this)">
+      <span><i class="bi bi-star-fill me-2"></i><strong>🎉 Fully Converted — Onboard Karo</strong>
+      <span class="badge ms-2" style="background:#34c759;">{{ own_closing|length }}</span></span>
+      <i class="bi bi-chevron-down"></i>
+    </button>
+    <div id="zone-own-closing" class="d-none row g-3">
+      {% for lead in own_closing %}
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border-0 shadow-sm h-100" style="border-left:3px solid #34c759 !important;">
+          <div class="card-body">
+            <div class="fw-semibold mb-1">{{ lead.name }}</div>
+            <div class="small text-muted mb-1">{{ lead.phone }}</div>
+            {% if leader_fbo_id or app_tutorial_link or app_register_url %}
+            {% set wa_msg = "Hi " ~ lead.name ~ "! 🎉 Aap Myle Community join kar chuke ho. Ab apna account banao aur tutorial dekho:\n\n📱 Register karo: " ~ app_register_url ~ "\n🔑 Upline FBO ID: " ~ leader_fbo_id ~ (("\n📖 Tutorial: " ~ app_tutorial_link) if app_tutorial_link else "") ~ "\n\nKoi bhi help chahiye to bata dena! 🙏" %}
+            <a href="https://wa.me/{{ lead.phone|wa_phone }}?text={{ wa_msg|urlencode }}" target="_blank"
+               class="btn btn-sm btn-success w-100 mt-2">
+              <i class="bi bi-whatsapp me-1"></i>Send Tutorial
+            </a>
+            {% else %}
+            <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success w-100 mt-2">
+              <i class="bi bi-whatsapp me-1"></i>WhatsApp
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
 </div>{# end leader-section-own #}
 
 {# ══════════════════════════════════
@@ -476,7 +423,7 @@
   {# Team sub-tabs #}
   <div class="wk-kanban-tabs mb-3">
     <button class="wk-tab active" data-col="team-stage1">
-      Ready for Day 1 <span class="badge bg-success ms-1">{{ team_stage1|length }}</span>
+      Enrollment <span class="badge bg-success ms-1">{{ team_stage1|length }}</span>
     </button>
     <button class="wk-tab" data-col="team-day1">
       Day 1 <span class="badge bg-info ms-1">{{ team_day1|length }}</span>
@@ -491,10 +438,10 @@
 
   <div class="wk-kanban-grid">
 
-    {# Team Stage 1 — Ready for Day 1 (Paid ₹196 / Mindset Lock) #}
+    {# Team Stage 1 — Enrollment: all pre-Day-1 leads #}
     <div class="wk-kanban-col" id="zone-team-stage1" data-col="team-stage1">
       <div class="wk-col-header">
-        <span class="wk-col-title"><i class="bi bi-check-circle me-2 text-success"></i>Ready for Day 1</span>
+        <span class="wk-col-title"><i class="bi bi-play-circle me-2" style="color:var(--ios-indigo);"></i>Enrollment</span>
         <span class="badge bg-success">{{ team_stage1|length }}</span>
       </div>
       {% if team_stage1 %}{% for lead in team_stage1 %}
@@ -526,9 +473,16 @@
         <div class="d-flex gap-2">
           <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
           <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+          {% if enrollment_watch_url %}
+          <button class="btn btn-sm wk-btn" style="background:rgba(94,92,230,0.15);color:var(--ios-indigo);border:1px solid rgba(94,92,230,0.3);" onclick="sendEnrollVideo({{ lead.id }}, '{{ lead.phone }}', {{ lead.name|tojson }})" title="Enrollment video bhejo">
+            <i class="bi bi-play-circle-fill"></i>
+          </button>
+          {% endif %}
+          {% if lead.status in ('Paid ₹196', 'Mindset Lock') %}
           <button class="btn btn-sm btn-success wk-btn ms-auto" onclick="pushToDay1({{ lead.id }}, this)" title="Day 1 mein bhejo">
             <i class="bi bi-arrow-right me-1"></i>Day 1
           </button>
+          {% endif %}
         </div>
       </div>
       {% endfor %}{% else %}
@@ -632,6 +586,46 @@
     </div>
 
   </div>{# end team kanban grid #}
+
+  {# Team Closing — Fully Converted: Send Tutorial #}
+  {% if team_closing %}
+  <div class="mb-3 mt-3">
+    <button class="btn w-100 text-start d-flex justify-content-between align-items-center mb-2"
+            style="background:rgba(52,199,89,0.12);border:1px solid rgba(52,199,89,0.3);color:#1a7f3c;border-radius:12px;"
+            onclick="toggleZone('zone-team-closing', this)">
+      <span><i class="bi bi-star-fill me-2"></i><strong>🎉 Team Fully Converted — Onboard Karo</strong>
+      <span class="badge ms-2" style="background:#34c759;">{{ team_closing|length }}</span></span>
+      <i class="bi bi-chevron-down"></i>
+    </button>
+    <div id="zone-team-closing" class="d-none row g-3">
+      {% for lead in team_closing %}
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border-0 shadow-sm h-100" style="border-left:3px solid #34c759 !important;">
+          <div class="card-body">
+            <div class="wk-member-badge wk-member-cyan mb-2">
+              <i class="bi bi-person-fill me-1"></i>Member: {{ lead.assigned_to }}
+            </div>
+            <div class="fw-semibold mb-1">{{ lead.name }}</div>
+            <div class="small text-muted mb-1">{{ lead.phone }}</div>
+            {% if leader_fbo_id or app_tutorial_link or app_register_url %}
+            {% set wa_msg = "Hi " ~ lead.name ~ "! 🎉 Aap Myle Community join kar chuke ho. Ab apna account banao aur tutorial dekho:\n\n📱 Register karo: " ~ app_register_url ~ "\n🔑 Upline FBO ID: " ~ leader_fbo_id ~ (("\n📖 Tutorial: " ~ app_tutorial_link) if app_tutorial_link else "") ~ "\n\nKoi bhi help chahiye to bata dena! 🙏" %}
+            <a href="https://wa.me/{{ lead.phone|wa_phone }}?text={{ wa_msg|urlencode }}" target="_blank"
+               class="btn btn-sm btn-success w-100 mt-2">
+              <i class="bi bi-whatsapp me-1"></i>Send Tutorial
+            </a>
+            {% else %}
+            <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success w-100 mt-2">
+              <i class="bi bi-whatsapp me-1"></i>WhatsApp
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   {% endif %}{# end has_team #}
 </div>{# end leader-section-team #}
 
@@ -723,7 +717,7 @@
 
 <!-- Zone 2: Kanban Pipeline (desktop) / Tabs (mobile) -->
 <div class="wk-kanban-tabs mb-3">
-  <button class="wk-tab active" data-col="stage1">Ready for Day 1 <span class="badge bg-success ms-1">{{ stage1_leads|length }}</span></button>
+  <button class="wk-tab active" data-col="stage1">Enrollment <span class="badge bg-success ms-1">{{ stage1_leads|length }}</span></button>
   <button class="wk-tab" data-col="day1">Day 1 <span class="badge bg-info ms-1">{{ day1_leads|length }}</span></button>
   <button class="wk-tab" data-col="day2">Day 2 <span class="badge bg-warning text-dark ms-1">{{ day2_leads|length }}</span></button>
   <button class="wk-tab" data-col="day3">Day 3 <span class="badge bg-danger ms-1">{{ day3_leads|length }}</span></button>
@@ -731,10 +725,10 @@
 
 <div class="wk-kanban-grid">
 
-  {# ── Stage 1 Column (Ready for Day 1) ───────────────────────── #}
+  {# ── Stage 1 Column (Enrollment — all pre-Day-1 leads) ──────── #}
   <div class="wk-kanban-col" id="zone-stage1" data-col="stage1">
     <div class="wk-col-header">
-      <span class="wk-col-title"><i class="bi bi-check-circle me-2 text-success"></i>Ready for Day 1</span>
+      <span class="wk-col-title"><i class="bi bi-play-circle me-2 text-indigo"></i>Enrollment</span>
       <span class="badge bg-success">{{ stage1_leads|length }}</span>
     </div>
     {% if enrollment_video_url %}
@@ -861,11 +855,18 @@
            class="btn btn-sm btn-outline-success wk-btn" title="WhatsApp">
           <i class="bi bi-whatsapp"></i>
         </a>
+        {% if enrollment_watch_url %}
+        <button class="btn btn-sm wk-btn" style="background:rgba(94,92,230,0.15);color:var(--ios-indigo);border:1px solid rgba(94,92,230,0.3);" onclick="sendEnrollVideo({{ lead.id }}, '{{ lead.phone }}', {{ lead.name|tojson }})" title="Enrollment video bhejo">
+          <i class="bi bi-play-circle-fill"></i>
+        </button>
+        {% endif %}
+        {% if lead.status in ('Paid ₹196', 'Mindset Lock') %}
         <button class="btn btn-sm btn-success wk-btn ms-auto"
                 onclick="pushToDay1({{ lead.id }}, this)"
                 title="Day 1 mein bhejo">
           <i class="bi bi-arrow-right me-1"></i>Day 1
         </button>
+        {% endif %}
       </div>
     </div>
     {% endfor %}
@@ -1608,32 +1609,65 @@ let _popupState = {
   cardEl: null,
 };
 
-function openBatchPopup(leadId, batchKey, phone, leadName, btnEl) {
+async function openBatchPopup(leadId, batchKey, phone, leadName, btnEl) {
   _popupState = { leadId, batchKey, phone, cardEl: btnEl.closest('.wk-lead-card') };
   document.getElementById('popupBatchName').textContent = BATCH_LABELS[batchKey] || batchKey;
   document.getElementById('popupLeadName').textContent = leadName;
 
-  const videos = BATCH_VIDEOS[batchKey] || {};
-  const watchUrls = (typeof BATCH_WATCH_URLS !== 'undefined' && BATCH_WATCH_URLS[batchKey]) ? BATCH_WATCH_URLS[batchKey] : {};
-  const link1 = watchUrls.v1 || videos.v1 || '';
-  const link2 = watchUrls.v2 || videos.v2 || '';
-  const hasLinks = link1 || link2;
   const linksDiv = document.getElementById('popupVideoLinks');
+  document.getElementById('popupSendBtn').style.display = 'none';
 
+  // Show popup first with loading state
+  const popup = document.getElementById('batchPopup');
+  popup.style.display = 'flex';
+  popup.style.opacity = '0';
+  document.body.style.overflow = 'hidden';
+  requestAnimationFrame(function() {
+    popup.style.transition = 'opacity 0.25s cubic-bezier(0.25,0.1,0.25,1)';
+    popup.style.opacity = '1';
+  });
+
+  linksDiv.innerHTML = `<div style="font-size:0.8rem;color:#9ca3af;text-align:center;">
+    <span class="spinner-border spinner-border-sm me-2"></span>Link generate ho rahi hai...
+  </div>`;
+
+  // Fetch lead-specific token URLs (prospect opens → batch auto-marks)
+  let link1 = '', link2 = '';
+  try {
+    const res = await fetch(`/leads/${leadId}/batch-share-url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf },
+      body: JSON.stringify({ slot: batchKey })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      link1 = data.watch_url_v1 || '';
+      link2 = data.watch_url_v2 || '';
+    }
+  } catch (e) {
+    // Fallback to static URLs if network error
+    const videos = BATCH_VIDEOS[batchKey] || {};
+    link1 = videos.v1 || '';
+    link2 = videos.v2 || '';
+  }
+
+  const hasLinks = link1 || link2;
   if (hasLinks) {
     linksDiv.dataset.v1 = link1;
     linksDiv.dataset.v2 = link2;
+    _popupState.link1 = link1;
+    _popupState.link2 = link2;
     linksDiv.innerHTML = `
       <div style="font-size:0.75rem;font-weight:700;color:var(--label-3,#6b7280);margin-bottom:8px;">
         Prospect ko ye link bhejoge — video humari site pe open hogi, YouTube nahi. Nice focus! 🎯
       </div>
       ${link1 ? `<div style="font-size:0.8rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <button type="button" class="btn btn-sm btn-primary py-1 btn-watch-batch" data-video-key="v1"><i class="bi bi-play-fill me-1"></i>Watch 1</button>
-        <span style="word-break:break-all;color:#6366f1;">${link1}</span>
+        <span style="word-break:break-all;color:#6366f1;font-size:0.7rem;">${link1}</span>
       </div>` : ''}
       ${link2 ? `<div style="font-size:0.8rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <button type="button" class="btn btn-sm btn-primary py-1 btn-watch-batch" data-video-key="v2"><i class="bi bi-play-fill me-1"></i>Watch 2</button>
-        <span style="word-break:break-all;color:#6366f1;">${link2}</span>
+        <span style="word-break:break-all;color:#6366f1;font-size:0.7rem;">${link2}</span>
       </div>` : ''}
     `;
     linksDiv.querySelectorAll('.btn-watch-batch').forEach(function(btn) {
@@ -1652,15 +1686,6 @@ function openBatchPopup(leadId, batchKey, phone, leadName, btnEl) {
     `;
     document.getElementById('popupSendBtn').style.display = 'none';
   }
-
-  const popup = document.getElementById('batchPopup');
-  popup.style.display = 'flex';
-  popup.style.opacity = '0';
-  document.body.style.overflow = 'hidden';
-  requestAnimationFrame(function() {
-    popup.style.transition = 'opacity 0.25s cubic-bezier(0.25,0.1,0.25,1)';
-    popup.style.opacity = '1';
-  });
 }
 
 function closeBatchPopup() {
@@ -1675,10 +1700,9 @@ function closeBatchPopup() {
 
 async function sendAndMark() {
   const { leadId, batchKey, phone } = _popupState;
-  var watchUrls = (typeof BATCH_WATCH_URLS !== 'undefined' && BATCH_WATCH_URLS[batchKey]) ? BATCH_WATCH_URLS[batchKey] : {};
-  var videos = BATCH_VIDEOS[batchKey] || {};
-  var link1 = (watchUrls.v1 || videos.v1) || '';
-  var link2 = (watchUrls.v2 || videos.v2) || '';
+  // Use token URLs already fetched in openBatchPopup (lead-specific, auto-marks when prospect watches)
+  var link1 = _popupState.link1 || '';
+  var link2 = _popupState.link2 || '';
 
   await _markBatchDone(leadId, batchKey);
 
@@ -1837,6 +1861,37 @@ function pushToDay1(leadId, btnEl) {
     btnEl.disabled = false;
     btnEl.innerHTML = origHTML;
   });
+}
+
+// ── Send Enrollment Video via WhatsApp ─────────────────────────
+function sendEnrollVideo(leadId, phone, name) {
+  var watchBase = '{{ enrollment_watch_url or "" }}';
+  if (!watchBase) {
+    showToast('Enrollment video set nahi hai — admin se contact karo', 'warning');
+    return;
+  }
+  fetch('/enroll/generate-link', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf },
+    body: JSON.stringify({ lead_id: leadId, content_id: null })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok && data.watch_url) {
+      var msg = 'Hii ' + (name || 'Ji') + ' 👋\n\nYe link click karo aur presentation dekho 👇\n' + data.watch_url;
+      var cleanPhone = String(phone).replace(/[^\d]/g, '');
+      if (cleanPhone.length === 10 && '6789'.includes(cleanPhone[0])) {
+        cleanPhone = '91' + cleanPhone;
+      } else if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
+        cleanPhone = '91' + cleanPhone.substring(1);
+      }
+      window.open('https://wa.me/' + cleanPhone + '?text=' + encodeURIComponent(msg), '_blank');
+      showToast('Video link bheji WhatsApp par! 📹', 'success');
+    } else {
+      showToast('Link generate nahi hua. Dobara try karo.', 'danger');
+    }
+  })
+  .catch(() => showToast('Network error. Dobara try karo.', 'danger'));
 }
 
 // ── Call Status Update ─────────────────────────────────────────
