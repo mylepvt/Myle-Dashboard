@@ -9020,11 +9020,21 @@ def day2_progress():
         if usernames_list:
             ph = ','.join('?' * len(usernames_list))
             urows = db.execute(
-                f"SELECT username, upline_name FROM users WHERE username IN ({ph})",
+                f"SELECT username, upline_username, upline_name FROM users WHERE username IN ({ph})",
                 usernames_list
             ).fetchall()
             for r in urows:
-                leader_map[r['username']] = r['upline_name'] or '—'
+                leader_map[r['username']] = r['upline_username'] or r['upline_name'] or '—'
+
+    # Day 2 batch videos for quick access
+    d2_videos = {
+        'morning_v1':   _get_setting(db, 'batch_d2_morning_v1', ''),
+        'morning_v2':   _get_setting(db, 'batch_d2_morning_v2', ''),
+        'afternoon_v1': _get_setting(db, 'batch_d2_afternoon_v1', ''),
+        'afternoon_v2': _get_setting(db, 'batch_d2_afternoon_v2', ''),
+        'evening_v1':   _get_setting(db, 'batch_d2_evening_v1', ''),
+        'evening_v2':   _get_setting(db, 'batch_d2_evening_v2', ''),
+    }
 
     db.close()
     return render_template('day2_progress.html',
@@ -9035,6 +9045,7 @@ def day2_progress():
         can_edit=can_edit,
         current_user=username,
         leader_map=leader_map,
+        d2_videos=d2_videos,
         csrf_token=session.get('_csrf_token', ''),
     )
 
