@@ -143,7 +143,7 @@
               {% if can_toggle %}
               <button class="d2-batch-toggle {% if lead.d2_morning %}d2-batch-done{% endif %}"
                       data-lead-id="{{ lead.id }}" data-batch="d2_morning"
-                      {% if not can_toggle %}disabled{% endif %}>
+                      data-phone="{{ lead.phone }}" data-name="{{ lead.name|e }}">
                 {% if lead.d2_morning %}<i class="bi bi-check-circle-fill"></i>
                 {% else %}<i class="bi bi-circle"></i>{% endif %}
               </button>
@@ -160,7 +160,8 @@
             <td class="text-center">
               {% if can_toggle %}
               <button class="d2-batch-toggle {% if lead.d2_afternoon %}d2-batch-done{% endif %}"
-                      data-lead-id="{{ lead.id }}" data-batch="d2_afternoon">
+                      data-lead-id="{{ lead.id }}" data-batch="d2_afternoon"
+                      data-phone="{{ lead.phone }}" data-name="{{ lead.name|e }}">
                 {% if lead.d2_afternoon %}<i class="bi bi-check-circle-fill"></i>
                 {% else %}<i class="bi bi-circle"></i>{% endif %}
               </button>
@@ -177,7 +178,8 @@
             <td class="text-center">
               {% if can_toggle %}
               <button class="d2-batch-toggle {% if lead.d2_evening %}d2-batch-done{% endif %}"
-                      data-lead-id="{{ lead.id }}" data-batch="d2_evening">
+                      data-lead-id="{{ lead.id }}" data-batch="d2_evening"
+                      data-phone="{{ lead.phone }}" data-name="{{ lead.name|e }}">
                 {% if lead.d2_evening %}<i class="bi bi-check-circle-fill"></i>
                 {% else %}<i class="bi bi-circle"></i>{% endif %}
               </button>
@@ -241,71 +243,180 @@
 </div>
 {% endif %}
 
+<!-- D2 Batch Send Popup -->
+<div id="d2BatchPopup" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);">
+  <div style="position:absolute;bottom:0;left:0;right:0;background:var(--card-bg,#fff);border-radius:20px 20px 0 0;padding:20px;max-height:80vh;overflow-y:auto;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <div class="fw-bold" id="d2PopupTitle">Batch Video</div>
+        <div class="small text-muted" id="d2PopupSubtitle"></div>
+      </div>
+      <button onclick="closeD2Popup()" class="btn-close"></button>
+    </div>
+    <div id="d2PopupLinks" class="mb-3">
+      <div class="text-muted small text-center py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading links...</div>
+    </div>
+    <div class="d-flex gap-2">
+      <a id="d2PopupWA" href="#" target="_blank" class="btn btn-success flex-grow-1" style="display:none!important;">
+        <i class="bi bi-whatsapp me-1"></i>Send & Mark Done
+      </a>
+      <button id="d2PopupMarkOnly" class="btn btn-outline-secondary flex-grow-1">
+        <i class="bi bi-check-circle me-1"></i>Mark Done Only
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
 const _csrf = window._csrfToken || '{{ csrf_token }}';
+const D2_WATCH_URLS = {
+  'd2_morning':   {v1:'{{ url_for("watch_batch", slot="d2_morning",   v=1) }}', v2:'{{ url_for("watch_batch", slot="d2_morning",   v=2) }}'},
+  'd2_afternoon': {v1:'{{ url_for("watch_batch", slot="d2_afternoon", v=1) }}', v2:'{{ url_for("watch_batch", slot="d2_afternoon", v=2) }}'},
+  'd2_evening':   {v1:'{{ url_for("watch_batch", slot="d2_evening",   v=1) }}', v2:'{{ url_for("watch_batch", slot="d2_evening",   v=2) }}'},
+};
 
-// Batch toggle
+const D2_BATCH_LABELS = {
+  'd2_morning':   '🌅 Day 2 Morning',
+  'd2_afternoon': '☀️ Day 2 Afternoon',
+  'd2_evening':   '🌙 Day 2 Evening',
+};
+
+let _d2Popup = { leadId: null, batch: null, btn: null, phone: null };
+
+function closeD2Popup() {
+  document.getElementById('d2BatchPopup').style.display = 'none';
+  _d2Popup = { leadId: null, batch: null, btn: null, phone: null };
+}
+
+function openD2BatchPopup(leadId, batch, phone, name, btn) {
+  _d2Popup = { leadId, batch, btn, phone };
+  document.getElementById('d2BatchPopup').style.display = 'block';
+  document.getElementById('d2PopupTitle').textContent = D2_BATCH_LABELS[batch] || batch;
+  document.getElementById('d2PopupSubtitle').textContent = name;
+  document.getElementById('d2PopupLinks').innerHTML = '<div class="text-muted small text-center py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</div>';
+  document.getElementById('d2PopupWA').style.cssText = 'display:none!important';
+
+  // Fetch token-based watch URL
+  fetch(`/leads/${leadId}/batch-token?slot=${batch}`, {
+    headers: { 'X-CSRF-Token': _csrf }
+  })
+  .then(r => r.json())
+  .then(d => {
+    let link1 = '', link2 = '';
+    if (d.ok) {
+      link1 = d.watch_url_v1 || '';
+      link2 = d.watch_url_v2 || '';
+    } else {
+      const w = D2_WATCH_URLS[batch] || {};
+      link1 = w.v1 || '';
+      link2 = w.v2 || '';
+    }
+
+    if (link1 || link2) {
+      let html = '<div class="small fw-semibold text-muted mb-2">Lead ko ye links bhejo:</div>';
+      if (link1) html += `<div class="mb-2 p-2 rounded" style="background:rgba(99,102,241,.08);font-size:0.78rem;word-break:break-all;">${link1}</div>`;
+      if (link2) html += `<div class="p-2 rounded" style="background:rgba(99,102,241,.08);font-size:0.78rem;word-break:break-all;">${link2}</div>`;
+      document.getElementById('d2PopupLinks').innerHTML = html;
+
+      const label = D2_BATCH_LABELS[batch] || batch;
+      const msg = `${label}\n\n` +
+        (link1 ? `📹 Video 1:\n${link1}\n` : '') +
+        (link2 ? `📹 Video 2:\n${link2}\n` : '') +
+        `\nDono videos dekho aur reply karo ✅`;
+      let cleanPhone = phone.replace(/[^\d]/g, '');
+      if (cleanPhone.length === 10 && '6789'.includes(cleanPhone[0])) cleanPhone = '91' + cleanPhone;
+      const waEl = document.getElementById('d2PopupWA');
+      waEl.href = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+      waEl.style.cssText = '';
+    } else {
+      document.getElementById('d2PopupLinks').innerHTML = '<div class="text-muted small text-center">⚠️ Video links set nahi hain. Admin Settings mein add karo.</div>';
+    }
+  })
+  .catch(() => {
+    const w = D2_WATCH_URLS[batch] || {};
+    const link1 = w.v1 || '', link2 = w.v2 || '';
+    document.getElementById('d2PopupLinks').innerHTML = link1 || link2
+      ? `<div class="small text-muted mb-1">Fallback links:</div>${link1?`<div class="mb-1">${link1}</div>`:''}${link2?`<div>${link2}</div>`:''}`
+      : '<div class="text-muted small text-center">Network error</div>';
+  });
+}
+
+function _d2MarkBatch(leadId, batch, btn) {
+  return fetch(`/leads/${leadId}/batch-toggle`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf },
+    body: JSON.stringify({ batch }),
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (!d.ok) { showToast(d.error || 'Error', 'danger'); return; }
+    const newVal = d.new_val;
+    btn.classList.toggle('d2-batch-done', !!newVal);
+    btn.innerHTML = newVal ? '<i class="bi bi-check-circle-fill"></i>' : '<i class="bi bi-circle"></i>';
+    if (d.points > 0) showToast(`+${d.points} pts!`, 'success');
+    _updateRowStatus(btn);
+  });
+}
+
+function _updateRowStatus(btn) {
+  const row = btn.closest('tr');
+  if (!row) return;
+  const allBtns = row.querySelectorAll('.d2-batch-toggle');
+  const doneCount = [...allBtns].filter(b => b.classList.contains('d2-batch-done')).length;
+  const statusCell = row.querySelector('.d2-status-cell');
+  if (statusCell) {
+    if (doneCount === 3) {
+      statusCell.innerHTML = '<span class="badge bg-success"><i class="bi bi-check2-all me-1"></i>Complete</span>';
+      row.className = row.className.replace(/d2-row-\w+/g, '') + ' d2-row-complete';
+    } else if (doneCount > 0) {
+      statusCell.innerHTML = `<span class="badge bg-warning text-dark">${doneCount}/3</span>`;
+      row.className = row.className.replace(/d2-row-\w+/g, '') + ' d2-row-progress';
+    } else {
+      statusCell.innerHTML = '<span class="badge bg-light text-muted">Not started</span>';
+      row.className = row.className.replace(/d2-row-\w+/g, '') + ' d2-row-notstarted';
+    }
+  }
+  const actionCell = row.querySelector('.d2-action-cell');
+  if (actionCell) {
+    const leadId = row.dataset.leadId;
+    if (doneCount === 3) {
+      actionCell.innerHTML = `<button class="btn btn-sm btn-success d2-advance-btn" data-lead-id="${leadId}"><i class="bi bi-arrow-right-circle me-1"></i>Day 3</button>`;
+      bindAdvanceBtn(actionCell.querySelector('.d2-advance-btn'));
+    } else {
+      actionCell.innerHTML = '<span class="text-muted small">—</span>';
+    }
+  }
+}
+
+// Mark Only button
+document.getElementById('d2PopupMarkOnly').addEventListener('click', function() {
+  if (!_d2Popup.leadId) return;
+  _d2MarkBatch(_d2Popup.leadId, _d2Popup.batch, _d2Popup.btn)
+    .then(() => closeD2Popup());
+});
+
+// WA button also marks done after opening
+document.getElementById('d2PopupWA').addEventListener('click', function() {
+  if (!_d2Popup.leadId) return;
+  _d2MarkBatch(_d2Popup.leadId, _d2Popup.batch, _d2Popup.btn)
+    .then(() => closeD2Popup());
+});
+
+// Batch toggle — open popup if not done, unmark directly if done
 document.querySelectorAll('.d2-batch-toggle').forEach(btn => {
   btn.addEventListener('click', function() {
     const leadId = this.dataset.leadId;
     const batch  = this.dataset.batch;
-    const self   = this;
+    const phone  = this.dataset.phone || '';
+    const name   = this.dataset.name  || '';
 
-    fetch(`/leads/${leadId}/batch-toggle`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': _csrf,
-      },
-      body: JSON.stringify({ batch }),
-    })
-    .then(r => r.json())
-    .then(d => {
-      if (!d.ok) { showToast(d.error || 'Error', 'danger'); return; }
-
-      const newVal = d.new_val;
-      self.classList.toggle('d2-batch-done', !!newVal);
-      self.innerHTML = newVal
-        ? '<i class="bi bi-check-circle-fill"></i>'
-        : '<i class="bi bi-circle"></i>';
-
-      const pts = d.points;
-      if (pts > 0) showToast(`+${pts} pts!`, 'success');
-
-      // Update row status + action cell
-      const row = self.closest('tr');
-      if (row) {
-        const allBtns = row.querySelectorAll('.d2-batch-toggle');
-        const doneCount = [...allBtns].filter(b => b.classList.contains('d2-batch-done')).length;
-
-        const statusCell = row.querySelector('.d2-status-cell');
-        if (statusCell) {
-          if (doneCount === 3) {
-            statusCell.innerHTML = '<span class="badge bg-success"><i class="bi bi-check2-all me-1"></i>Complete</span>';
-            row.className = row.className.replace(/d2-row-\w+/g, '') + ' d2-row-complete';
-          } else if (doneCount > 0) {
-            statusCell.innerHTML = `<span class="badge bg-warning text-dark">${doneCount}/3</span>`;
-            row.className = row.className.replace(/d2-row-\w+/g, '') + ' d2-row-progress';
-          } else {
-            statusCell.innerHTML = '<span class="badge bg-light text-muted">Not started</span>';
-            row.className = row.className.replace(/d2-row-\w+/g, '') + ' d2-row-notstarted';
-          }
-        }
-
-        // Show/hide advance button
-        const actionCell = row.querySelector('.d2-action-cell');
-        if (actionCell) {
-          const leadId = row.dataset.leadId;
-          if (doneCount === 3) {
-            actionCell.innerHTML = `<button class="btn btn-sm btn-success d2-advance-btn" data-lead-id="${leadId}" title="Advance to Day 3"><i class="bi bi-arrow-right-circle me-1"></i>Day 3</button>`;
-            bindAdvanceBtn(actionCell.querySelector('.d2-advance-btn'));
-          } else {
-            actionCell.innerHTML = '<span class="text-muted small">—</span>';
-          }
-        }
-      }
-    })
-    .catch(() => showToast('Network error', 'danger'));
+    if (this.classList.contains('d2-batch-done')) {
+      // Already done — unmark directly
+      _d2MarkBatch(leadId, batch, this);
+    } else {
+      // Not done — show popup with send option
+      openD2BatchPopup(leadId, batch, phone, name, this);
+    }
   });
 });
 
