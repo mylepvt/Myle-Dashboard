@@ -280,7 +280,11 @@ function openD2BatchPopup(leadId, batch, phone, name, btn) {
     '<div class="text-center py-3 text-muted small"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</div>';
   document.getElementById('d2PopupWA').style.cssText = 'display:none!important';
 
-  fetch(`/leads/${leadId}/batch-token?slot=${batch}`, { headers:{'X-CSRF-Token':_csrf} })
+  fetch(`/leads/${leadId}/batch-share-url`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-CSRF-Token':_csrf},
+    body: JSON.stringify({slot: batch}),
+  })
   .then(r => r.json())
   .then(d => {
     let link1 = '', link2 = '';
@@ -309,10 +313,21 @@ function openD2BatchPopup(leadId, batch, phone, name, btn) {
   })
   .catch(() => {
     const w = D2_WATCH_URLS[batch]||{};
-    document.getElementById('d2PopupLinks').innerHTML =
-      (w.v1||w.v2)
-        ? `<div class="d2-link-box mb-2">${w.v1||''}</div><div class="d2-link-box">${w.v2||''}</div>`
-        : '<div class="text-muted small text-center">Network error</div>';
+    const link1 = w.v1||'', link2 = w.v2||'';
+    document.getElementById('d2PopupLinks').innerHTML = (link1||link2)
+      ? `<div class="d2-link-box mb-2">${link1}</div>${link2?`<div class="d2-link-box">${link2}</div>`:''}`
+      : '<div class="text-muted small text-center">Network error</div>';
+    if (link1||link2) {
+      const msg = `${D2_BATCH_LABELS[batch]||batch}\n\n`
+        + (link1?`📹 Video 1:\n${link1}\n`:'')
+        + (link2?`📹 Video 2:\n${link2}\n`:'')
+        + `\nDono videos dekho aur reply karo ✅`;
+      let ph = (_d2Popup.phone||'').replace(/[^\d]/g,'');
+      if (ph.length===10 && '6789'.includes(ph[0])) ph = '91'+ph;
+      const wa = document.getElementById('d2PopupWA');
+      wa.href = `https://wa.me/${ph}?text=${encodeURIComponent(msg)}`;
+      wa.style.cssText = '';
+    }
   });
 }
 
