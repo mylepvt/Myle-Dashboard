@@ -4220,6 +4220,9 @@ def admin_settings():
         _set_setting(db, 'enrollment_video_url', request.form.get('enrollment_video_url', '').strip())
         _set_setting(db, 'enrollment_video_title', request.form.get('enrollment_video_title', '').strip())
 
+        # App tutorial link (sent to fully converted leads by leader)
+        _set_setting(db, 'app_tutorial_link', request.form.get('app_tutorial_link', '').strip())
+
         db.commit()
         db.close()
         flash('Settings saved successfully.', 'success')
@@ -4241,6 +4244,7 @@ def admin_settings():
     # ── Enrollment Video (Stage 1) ────────────────────────────────
     enrollment_video_url   = _get_setting(db, 'enrollment_video_url', '')
     enrollment_video_title = _get_setting(db, 'enrollment_video_title', 'Enrollment Video')
+    app_tutorial_link      = _get_setting(db, 'app_tutorial_link', '')
 
     # ── Batch Video Links ────────────────────────────────────────
     batch_videos = {
@@ -4260,7 +4264,8 @@ def admin_settings():
 
     db.close()
     return render_template('admin_settings.html', settings=settings, batch_videos=batch_videos,
-                           enrollment_video_url=enrollment_video_url, enrollment_video_title=enrollment_video_title)
+                           enrollment_video_url=enrollment_video_url, enrollment_video_title=enrollment_video_title,
+                           app_tutorial_link=app_tutorial_link)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -8109,8 +8114,12 @@ def working():
             _base + _own_where + " AND status='Seat Hold Confirmed' ORDER BY updated_at DESC",
             _own_params
         ).fetchall()
+        own_closing = db.execute(
+            _base + _own_where + " AND status='Fully Converted' ORDER BY updated_at DESC",
+            _own_params
+        ).fetchall()
         own_past = db.execute(
-            _base + _own_where + " AND status IN ('Fully Converted','Converted','Lost') ORDER BY updated_at DESC LIMIT 20",
+            _base + _own_where + " AND status IN ('Converted','Lost') ORDER BY updated_at DESC LIMIT 20",
             _own_params
         ).fetchall()
 
@@ -8139,8 +8148,12 @@ def working():
                 _team_base + "AND status='Seat Hold Confirmed' ORDER BY assigned_to, updated_at DESC",
                 _team_params
             ).fetchall()
+            team_closing = db.execute(
+                _team_base + "AND status='Fully Converted' ORDER BY assigned_to, updated_at DESC",
+                _team_params
+            ).fetchall()
             team_past = db.execute(
-                _team_base + "AND status IN ('Fully Converted','Converted','Lost') ORDER BY assigned_to, updated_at DESC LIMIT 50",
+                _team_base + "AND status IN ('Converted','Lost') ORDER BY assigned_to, updated_at DESC LIMIT 50",
                 _team_params
             ).fetchall()
             _d_phs = ','.join('?' * len(_downline_only))
@@ -8150,7 +8163,7 @@ def working():
             ).fetchall()
         else:
             team_stage1 = team_day1 = team_day2 = team_day3 = []
-            team_pending = team_past = []
+            team_pending = team_closing = team_past = []
             downline_members = []
 
         # ── Pending action counts ────────────────────────────────
@@ -8199,11 +8212,13 @@ def working():
         own_day2     = _enrich_leads(own_day2)
         own_day3     = _enrich_leads(own_day3)
         own_pending  = _enrich_leads(own_pending)
+        own_closing  = _enrich_leads(own_closing)
         team_stage1  = _enrich_leads(team_stage1)
         team_day1    = _enrich_leads(team_day1)
         team_day2    = _enrich_leads(team_day2)
         team_day3    = _enrich_leads(team_day3)
         team_pending = _enrich_leads(team_pending)
+        team_closing = _enrich_leads(team_closing)
 
         today_score, streak = _get_today_score(db, username)
 
@@ -8265,7 +8280,13 @@ def working():
         enrollment_video_url   = _get_setting(db, 'enrollment_video_url', '')
         enrollment_video_title = _get_setting(db, 'enrollment_video_title', 'Enrollment Video')
 
+        # Tutorial / onboarding data for fully converted leads
+        app_tutorial_link = _get_setting(db, 'app_tutorial_link', '')
+        _leader_row = db.execute("SELECT fbo_id FROM users WHERE username=?", (username,)).fetchone()
+        leader_fbo_id = (_leader_row['fbo_id'] if _leader_row and _leader_row['fbo_id'] else '')
+
         db.close()
+        app_register_url = url_for('register', _external=True)
 
         return render_template('working.html',
             is_admin=False,
@@ -8277,6 +8298,7 @@ def working():
             own_day2=own_day2,
             own_day3=own_day3,
             own_pending=own_pending,
+            own_closing=own_closing,
             own_past=own_past,
 
             # Team leads
@@ -8285,7 +8307,13 @@ def working():
             team_day2=team_day2,
             team_day3=team_day3,
             team_pending=team_pending,
+            team_closing=team_closing,
             team_past=team_past,
+
+            # Tutorial onboarding
+            leader_fbo_id=leader_fbo_id,
+            app_register_url=app_register_url,
+            app_tutorial_link=app_tutorial_link,
 
             # Counts
             own_pending_calls=own_pending_calls,

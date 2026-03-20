@@ -63,120 +63,18 @@
 {# ─── ADMIN VIEW ─────────────────────────────────────────────── #}
 {% if is_admin %}
 
-<div class="mb-3 d-flex align-items-center gap-3 flex-wrap">
-  <h5 class="mb-0 fw-bold"><i class="bi bi-diagram-3 me-2 text-primary"></i>Team Pipeline</h5>
-  {% if total_pipeline_value %}
-  <span class="badge bg-success fs-6">₹{{ "{:,.0f}".format(total_pipeline_value) }} in pipeline</span>
-  {% endif %}
-  <a href="{{ url_for('day2_progress') }}" class="btn btn-sm btn-outline-primary ms-auto">
+<div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+  <a href="{{ url_for('day2_progress') }}" class="btn btn-outline-primary">
     <i class="bi bi-eye me-1"></i>Day 2 Live Board
+  </a>
+  <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+    <i class="bi bi-speedometer2 me-1"></i>Admin Dashboard
   </a>
 </div>
 
-<!-- Stage overview cards -->
-<div class="row g-3 mb-4">
-  {% set stage_items = [
-    ('Ready for Day 1', stage_counts.stage1 or 0, 'bi-check-circle', 'success'),
-    ('Day 1',   stage_counts.day1   or 0, 'bi-1-circle', 'info'),
-    ('Day 2',   stage_counts.day2   or 0, 'bi-2-circle', 'warning'),
-    ('Day 3',   stage_counts.day3   or 0, 'bi-3-circle', 'danger'),
-    ('Pending', stage_counts.pending or 0, 'bi-hourglass-split', 'secondary'),
-    ('Converted', stage_counts.converted or 0, 'bi-trophy', 'success'),
-  ] %}
-  {% for label, count, icon, color in stage_items %}
-  <div class="col-6 col-md-4 col-lg-2">
-    <div class="card border-0 shadow-sm h-100 text-center">
-      <div class="card-body py-3">
-        <i class="bi {{ icon }} text-{{ color }} fs-4 mb-1 d-block"></i>
-        <div class="fs-3 fw-bold">{{ count }}</div>
-        <div class="text-muted small">{{ label }}</div>
-      </div>
-    </div>
-  </div>
-  {% endfor %}
-</div>
-
-<!-- Batch completion rates -->
-<div class="card border-0 shadow-sm mb-4">
-  <div class="card-header bg-transparent border-0 pt-3 pb-0">
-    <h6 class="mb-0 fw-semibold"><i class="bi bi-check2-all me-2"></i>Batch Completion Today</h6>
-  </div>
-  <div class="card-body">
-    <div class="mb-3">
-      <div class="d-flex justify-content-between small text-muted mb-1">
-        <span>Day 1 — {{ batch_completion.d1_done }}/{{ batch_completion.d1_total }} leads ne sabhi batches complete ki</span>
-        <span class="fw-semibold">{{ batch_completion.d1_pct }}%</span>
-      </div>
-      <div class="progress" style="height:8px;">
-        <div class="progress-bar bg-info" style="width:{{ batch_completion.d1_pct }}%"></div>
-      </div>
-    </div>
-    <div>
-      <div class="d-flex justify-content-between small text-muted mb-1">
-        <span>Day 2 — {{ batch_completion.d2_done }}/{{ batch_completion.d2_total }} leads ne sabhi batches complete ki</span>
-        <span class="fw-semibold">{{ batch_completion.d2_pct }}%</span>
-      </div>
-      <div class="progress" style="height:8px;">
-        <div class="progress-bar bg-warning" style="width:{{ batch_completion.d2_pct }}%"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Member activity table -->
-<div class="card border-0 shadow-sm mb-4">
-  <div class="card-header bg-transparent border-0 pt-3 pb-0">
-    <h6 class="mb-0 fw-semibold"><i class="bi bi-people me-2"></i>Member Pipeline</h6>
-  </div>
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0 small">
-        <thead class="table-light">
-          <tr>
-            <th>Member</th>
-            <th class="text-muted" style="font-size:0.7rem;">FBO ID</th>
-            <th class="text-center">Today Score</th>
-            <th class="text-center">Ready for Day 1</th>
-            <th class="text-center">Day 1</th>
-            <th class="text-center">Day 2</th>
-            <th class="text-center">Day 3</th>
-            <th class="text-center">Pending</th>
-            <th class="text-center">Converted</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for uname, data in team_pipeline.items() %}
-          {% set score = data.score %}
-          <tr class="{% if score >= 50 %}table-success{% elif score >= 10 %}table-warning{% else %}{% endif %}">
-            <td class="fw-semibold">{{ uname }}</td>
-            <td class="text-muted small" style="font-size:0.72rem;">
-              {{ data.fbo_id or '—' }}
-            </td>
-            <td class="text-center">
-              <span class="badge {% if score >= 50 %}bg-success{% elif score >= 10 %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
-                {{ score }} pts
-              </span>
-            </td>
-            <td class="text-center">{{ data.stage1 or '—' }}</td>
-            <td class="text-center">{{ data.day1 or '—' }}</td>
-            <td class="text-center">{{ data.day2 or '—' }}</td>
-            <td class="text-center">{{ data.day3 or '—' }}</td>
-            <td class="text-center">{{ data.pending or '—' }}</td>
-            <td class="text-center text-success fw-semibold">{{ data.converted or '—' }}</td>
-          </tr>
-          {% else %}
-          <tr><td colspan="9" class="text-center text-muted py-3">No team members yet.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- Stale leads alert -->
 {% if stale_leads %}
 <div class="alert alert-warning border-0 shadow-sm mb-4">
-  <h6 class="alert-heading mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Stale Leads — Not updated in 48h</h6>
+  <h6 class="alert-heading mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Stale Leads — 48h se update nahi hua</h6>
   <div class="table-responsive">
     <table class="table table-sm mb-0">
       <thead><tr><th>Name</th><th>Member</th><th>Status</th><th>Last Update</th></tr></thead>
@@ -192,6 +90,12 @@
       </tbody>
     </table>
   </div>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-check2-circle fs-1 d-block mb-2 text-success opacity-75"></i>
+  <div class="fw-semibold">Sab leads updated hain</div>
+  <div class="small mt-1">Koi stale lead nahi — team active hai!</div>
 </div>
 {% endif %}
 
@@ -447,6 +351,42 @@
   </div>
   {% endif %}
 
+  {# Own Closing — Fully Converted: Send Tutorial #}
+  {% if own_closing %}
+  <div class="mb-3 mt-2">
+    <button class="btn w-100 text-start d-flex justify-content-between align-items-center mb-2"
+            style="background:rgba(52,199,89,0.12);border:1px solid rgba(52,199,89,0.3);color:#1a7f3c;border-radius:12px;"
+            onclick="toggleZone('zone-own-closing', this)">
+      <span><i class="bi bi-star-fill me-2"></i><strong>🎉 Fully Converted — Onboard Karo</strong>
+      <span class="badge ms-2" style="background:#34c759;">{{ own_closing|length }}</span></span>
+      <i class="bi bi-chevron-down"></i>
+    </button>
+    <div id="zone-own-closing" class="d-none row g-3">
+      {% for lead in own_closing %}
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border-0 shadow-sm h-100" style="border-left:3px solid #34c759 !important;">
+          <div class="card-body">
+            <div class="fw-semibold mb-1">{{ lead.name }}</div>
+            <div class="small text-muted mb-1">{{ lead.phone }}</div>
+            {% if leader_fbo_id or app_tutorial_link or app_register_url %}
+            {% set wa_msg = "Hi " ~ lead.name ~ "! 🎉 Aap Myle Community join kar chuke ho. Ab apna account banao aur tutorial dekho:\n\n📱 Register karo: " ~ app_register_url ~ "\n🔑 Upline FBO ID: " ~ leader_fbo_id ~ (("\n📖 Tutorial: " ~ app_tutorial_link) if app_tutorial_link else "") ~ "\n\nKoi bhi help chahiye to bata dena! 🙏" %}
+            <a href="https://wa.me/{{ lead.phone|wa_phone }}?text={{ wa_msg|urlencode }}" target="_blank"
+               class="btn btn-sm btn-success w-100 mt-2">
+              <i class="bi bi-whatsapp me-1"></i>Send Tutorial
+            </a>
+            {% else %}
+            <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success w-100 mt-2">
+              <i class="bi bi-whatsapp me-1"></i>WhatsApp
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
 </div>{# end leader-section-own #}
 
 {# ══════════════════════════════════
@@ -646,6 +586,46 @@
     </div>
 
   </div>{# end team kanban grid #}
+
+  {# Team Closing — Fully Converted: Send Tutorial #}
+  {% if team_closing %}
+  <div class="mb-3 mt-3">
+    <button class="btn w-100 text-start d-flex justify-content-between align-items-center mb-2"
+            style="background:rgba(52,199,89,0.12);border:1px solid rgba(52,199,89,0.3);color:#1a7f3c;border-radius:12px;"
+            onclick="toggleZone('zone-team-closing', this)">
+      <span><i class="bi bi-star-fill me-2"></i><strong>🎉 Team Fully Converted — Onboard Karo</strong>
+      <span class="badge ms-2" style="background:#34c759;">{{ team_closing|length }}</span></span>
+      <i class="bi bi-chevron-down"></i>
+    </button>
+    <div id="zone-team-closing" class="d-none row g-3">
+      {% for lead in team_closing %}
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border-0 shadow-sm h-100" style="border-left:3px solid #34c759 !important;">
+          <div class="card-body">
+            <div class="wk-member-badge wk-member-cyan mb-2">
+              <i class="bi bi-person-fill me-1"></i>Member: {{ lead.assigned_to }}
+            </div>
+            <div class="fw-semibold mb-1">{{ lead.name }}</div>
+            <div class="small text-muted mb-1">{{ lead.phone }}</div>
+            {% if leader_fbo_id or app_tutorial_link or app_register_url %}
+            {% set wa_msg = "Hi " ~ lead.name ~ "! 🎉 Aap Myle Community join kar chuke ho. Ab apna account banao aur tutorial dekho:\n\n📱 Register karo: " ~ app_register_url ~ "\n🔑 Upline FBO ID: " ~ leader_fbo_id ~ (("\n📖 Tutorial: " ~ app_tutorial_link) if app_tutorial_link else "") ~ "\n\nKoi bhi help chahiye to bata dena! 🙏" %}
+            <a href="https://wa.me/{{ lead.phone|wa_phone }}?text={{ wa_msg|urlencode }}" target="_blank"
+               class="btn btn-sm btn-success w-100 mt-2">
+              <i class="bi bi-whatsapp me-1"></i>Send Tutorial
+            </a>
+            {% else %}
+            <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success w-100 mt-2">
+              <i class="bi bi-whatsapp me-1"></i>WhatsApp
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   {% endif %}{# end has_team #}
 </div>{# end leader-section-team #}
 
