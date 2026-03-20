@@ -2,3 +2,18 @@
 # Environment files
 *.env
 *.env.*
+
+# Claude Code worktrees
+.claude/worktrees/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+
+# Local dev artifacts
+.scheduler.lock
