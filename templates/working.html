@@ -721,6 +721,7 @@
   <button class="wk-tab" data-col="day1">Day 1 <span class="badge bg-info ms-1">{{ day1_leads|length }}</span></button>
   <button class="wk-tab" data-col="day2">Day 2 <span class="badge bg-warning text-dark ms-1">{{ day2_leads|length }}</span></button>
   <button class="wk-tab" data-col="day3">Day 3 <span class="badge bg-danger ms-1">{{ day3_leads|length }}</span></button>
+  <button class="wk-tab" data-col="action-queue" id="aqTabBtn" onclick="buildActionQueue()">⚡ Action Queue <span class="badge bg-danger ms-1" id="aqBadge" style="display:none;">0</span></button>
 </div>
 
 <div class="wk-kanban-grid">
@@ -1192,6 +1193,34 @@
     </div>
     {% endif %}
   </div>
+
+  <!-- Action Queue col (Module 2) -->
+  <div class="wk-kanban-col d-none" id="zone-action-queue" data-col="action-queue" style="min-width:100%;max-width:100%;">
+    <div class="wk-col-header">
+      <span class="wk-col-title"><i class="bi bi-lightning-charge-fill me-2 text-warning"></i>Action Queue</span>
+      <span class="badge bg-danger" id="aqCountBadge">0</span>
+    </div>
+    <div id="aqBody">
+      <div class="text-muted text-center py-4 small">Click "Action Queue" tab to load.</div>
+    </div>
+  </div>
+
+  <!-- Lead data for Action Queue (enriched) -->
+  <script type="application/json" id="aqLeadsData">
+  [
+    {% set all_q_leads = stage1_leads + day1_leads + day2_leads + day3_leads + pending_leads %}
+    {% for l in all_q_leads %}
+    {"id":{{ l.id }},"name":{{ l.name|tojson }},"phone":"{{ l.phone or '' }}",
+     "stage":"{{ l.pipeline_stage or 'enrollment' }}","heat":{{ l.heat|default(0) }},
+     "next_action":{{ (l.next_action or '')|tojson }},"next_action_type":"{{ l.next_action_type or 'followup' }}",
+     "updated_at":"{{ l.updated_at or '' }}",
+     "d1_morning":{{ l.d1_morning|int }},"d1_afternoon":{{ l.d1_afternoon|int }},"d1_evening":{{ l.d1_evening|int }},
+     "d2_morning":{{ l.d2_morning|int }},"d2_afternoon":{{ l.d2_afternoon|int }},"d2_evening":{{ l.d2_evening|int }},
+     "assigned_to":"{{ l.assigned_to or '' }}"
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]
+  </script>
 
 </div>{# end kanban grid #}
 
@@ -1972,6 +2001,107 @@ function reactivateLead(leadId, selectEl) {
     selectEl.disabled = false;
   });
 }
+
+// ── Module 2: Action Queue ────────────────────────────────────────
+var _aqBuilt = false;
+function buildActionQueue() {
+  if (_aqBuilt) return;
+  _aqBuilt = true;
+
+  var dataEl = document.getElementById('aqLeadsData');
+  if (!dataEl) return;
+  var leads;
+  try { leads = JSON.parse(dataEl.textContent); } catch(e) { leads = []; }
+
+  var now = Date.now();
+  var callsDue = [], batchesDue = [], followupDue = [];
+
+  leads.forEach(function(l) {
+    var hoursStale = 9999;
+    if (l.updated_at) {
+      var upd = new Date(l.updated_at.replace(' ','T'));
+      if (!isNaN(upd)) hoursStale = (now - upd.getTime()) / 3600000;
+    }
+    var staleClass = hoursStale > 48 ? 'aq-row-stale-red' :
+                     hoursStale > 24 ? 'aq-row-stale-orange' : '';
+
+    if (l.stage === 'enrollment' || l.next_action_type === 'urgent') {
+      callsDue.push(Object.assign({}, l, {staleClass: staleClass}));
+    } else if (l.next_action_type === 'today') {
+      callsDue.push(Object.assign({}, l, {staleClass: staleClass}));
+    }
+    if ((l.stage === 'day1' && !(l.d1_morning && l.d1_afternoon && l.d1_evening)) ||
+        (l.stage === 'day2' && !(l.d2_morning && l.d2_afternoon && l.d2_evening))) {
+      batchesDue.push(Object.assign({}, l, {staleClass: staleClass}));
+    }
+    if (l.next_action_type === 'followup') {
+      followupDue.push(Object.assign({}, l, {staleClass: staleClass}));
+    }
+  });
+
+  // Sort each section by heat DESC
+  [callsDue, batchesDue, followupDue].forEach(function(arr) {
+    arr.sort(function(a,b){ return b.heat - a.heat; });
+  });
+
+  var totalUrgent = callsDue.length + batchesDue.length;
+  var badgeEl = document.getElementById('aqBadge');
+  var countBadge = document.getElementById('aqCountBadge');
+  if (badgeEl) { badgeEl.textContent = totalUrgent; badgeEl.style.display = totalUrgent ? '' : 'none'; }
+  if (countBadge) countBadge.textContent = totalUrgent;
+
+  function _makeRow(l) {
+    var phone = l.phone || '';
+    var waPhone = phone.replace(/[^\d]/g,'');
+    if (waPhone.length === 10 && '6789'.indexOf(waPhone[0]) >= 0) waPhone = '91'+waPhone;
+    return '<div class="aq-lead-row ' + (l.staleClass||'') + '">' +
+      '<div class="aq-name" style="cursor:pointer;" onclick="openTimeline('+l.id+','+JSON.stringify(l.name)+')">' +
+        '<span>'+_escAQ(l.name)+'</span>' +
+        ' <i class="bi bi-clock-history" style="font-size:0.6rem;opacity:0.4;"></i>' +
+      '</div>' +
+      '<span class="badge bg-secondary-subtle text-secondary me-1" style="font-size:0.65rem;">' + _escAQ(l.stage) + '</span>' +
+      (l.heat >= 75 ? '<span class="badge bg-danger-subtle text-danger me-1" style="font-size:0.65rem;">🔥'+l.heat+'</span>' :
+       l.heat >= 40 ? '<span class="badge bg-warning-subtle text-warning me-1" style="font-size:0.65rem;">🌤'+l.heat+'</span>' :
+       '<span class="badge bg-secondary-subtle text-muted me-1" style="font-size:0.65rem;">❄'+l.heat+'</span>') +
+      (phone ? '<a href="tel:'+_escAQ(phone)+'" class="btn btn-xs btn-outline-primary me-1"><i class="bi bi-telephone-fill"></i></a>' : '') +
+      (waPhone ? '<a href="https://wa.me/'+waPhone+'" target="_blank" class="btn btn-xs btn-outline-success"><i class="bi bi-whatsapp"></i></a>' : '') +
+      '</div>';
+  }
+  function _escAQ(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function _makeSection(title, icon, arr) {
+    if (!arr.length) return '';
+    return '<div class="aq-section-title">'+icon+' '+title+'</div>' +
+           arr.map(_makeRow).join('');
+  }
+
+  var html = _makeSection('Calls & Urgent Actions', '📞', callsDue) +
+             _makeSection('Batch Videos Pending', '📹', batchesDue) +
+             _makeSection('Follow-ups Due', '🔄', followupDue);
+
+  if (!html) {
+    html = '<div class="tl-empty"><i class="bi bi-check-circle-fill fs-3 text-success d-block mb-2"></i>Sab kuch done! Koi pending action nahi.</div>';
+  }
+  document.getElementById('aqBody').innerHTML = html;
+}
+
+// ── Module 1: Timeline click — delegate on all lead name elements ──
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('[id^="lead-"]').forEach(function(card) {
+    var m = card.id.match(/^lead-(\d+)$/);
+    if (!m) return;
+    var leadId = parseInt(m[1], 10);
+    var nameEl = card.querySelector('.fw-semibold.text-truncate');
+    if (!nameEl) nameEl = card.querySelector('.fw-semibold');
+    if (!nameEl) return;
+    nameEl.style.cursor = 'pointer';
+    nameEl.title = 'Click to view history';
+    nameEl.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (typeof openTimeline === 'function') openTimeline(leadId, nameEl.textContent.trim());
+    });
+  });
+});
 </script>
 
 <!-- Batch Popup HTML -->

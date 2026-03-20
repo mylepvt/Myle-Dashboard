@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Coaching Panel — Myle Community{% endblock %}
+{% block page_title %}Coaching Panel{% endblock %}
+
+{% block content %}
+
+<!-- Summary bar -->
+<div class="row g-3 mb-4">
+  <div class="col-4">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fw-bold fs-4" style="color:var(--ios-indigo);">{{ coaching_cards|length }}</div>
+      <div class="text-muted small">Members</div>
+    </div>
+  </div>
+  <div class="col-4">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fw-bold fs-4" style="color:var(--ios-blue);">{{ total_active }}</div>
+      <div class="text-muted small">Active Leads</div>
+    </div>
+  </div>
+  <div class="col-4">
+    <div class="card border-0 shadow-sm text-center py-3 {% if total_stuck > 0 %}border-warning{% endif %}">
+      <div class="fw-bold fs-4" style="color:{% if total_stuck > 0 %}var(--ios-red){% else %}var(--ios-green){% endif %};">{{ total_stuck }}</div>
+      <div class="text-muted small">Stuck &gt;24h</div>
+    </div>
+  </div>
+</div>
+
+{% if not coaching_cards %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body text-center py-5">
+    <i class="bi bi-people-fill fs-1 d-block mb-3 opacity-25"></i>
+    <div class="text-muted">
+      {% if role == 'leader' %}
+        Abhi koi downline team member nahi hai. Admin se upline set karwao.
+      {% else %}
+        Koi leader nahi mila. All Members page se leader promote karo.
+      {% endif %}
+    </div>
+    {% if role == 'admin' %}
+    <a href="{{ url_for('admin_members') }}" class="btn btn-primary mt-3">
+      <i class="bi bi-people me-1"></i>All Members
+    </a>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+
+{% for card in coaching_cards %}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body">
+
+    <!-- Header: avatar + name + actions -->
+    <div class="d-flex justify-content-between align-items-start mb-3 gap-2">
+      <div class="d-flex align-items-center gap-2 flex-shrink-1 min-width-0">
+        <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white flex-shrink-0"
+             style="width:38px;height:38px;background:linear-gradient(135deg,var(--ios-indigo),var(--ios-purple));font-size:1rem;">
+          {{ card.username[0]|upper }}
+        </div>
+        <div class="min-width-0">
+          <div class="fw-semibold text-truncate">@{{ card.username }}</div>
+          {% if role == 'admin' %}
+          <div class="text-muted small">under @{{ card.upline }}</div>
+          {% endif %}
+        </div>
+      </div>
+      <a href="{{ url_for('leads') }}?assigned_to={{ card.username }}"
+         class="btn btn-sm btn-outline-secondary flex-shrink-0">
+        <i class="bi bi-eye me-1"></i>Leads
+      </a>
+    </div>
+
+    <!-- Stats badges -->
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <span class="wk-stat-badge wk-stat-indigo">
+        <i class="bi bi-people me-1"></i>{{ card.active_count }} active
+      </span>
+      <span class="wk-stat-badge {% if card.stuck_count > 0 %}wk-stat-red{% else %}wk-stat-green{% endif %}">
+        <i class="bi bi-clock me-1"></i>{{ card.stuck_count }} stuck
+      </span>
+      <span class="wk-stat-badge {% if card.batch_pct < 50 %}wk-stat-orange{% else %}wk-stat-green{% endif %}">
+        <i class="bi bi-check-square me-1"></i>{{ card.batch_pct }}% batches
+      </span>
+      <span class="wk-stat-badge wk-stat-green">
+        <i class="bi bi-telephone me-1"></i>{{ card.calls_today }} calls today
+      </span>
+      {% if card.pts_today > 0 %}
+      <span class="wk-stat-badge wk-stat-yellow">
+        <i class="bi bi-trophy me-1"></i>{{ card.pts_today }} pts
+      </span>
+      {% endif %}
+    </div>
+
+    <!-- Pipeline stage mini-bar -->
+    {% if card.stage_counts %}
+    <div class="d-flex flex-wrap gap-1 mb-3">
+      {% for stage_id, label in [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
+      {% if card.stage_counts.get(stage_id, 0) > 0 %}
+      <span class="badge rounded-pill"
+            style="background:rgba(94,92,230,0.1);color:var(--ios-indigo);font-size:0.7rem;">
+        {{ label }}: {{ card.stage_counts[stage_id] }}
+      </span>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Stuck lead chips (clickable → timeline) -->
+    {% if card.stuck_leads %}
+    <div class="alert alert-warning border-0 py-2 mb-0 small" style="border-radius:10px;">
+      <i class="bi bi-exclamation-triangle-fill me-1"></i>
+      <strong>Stuck leads:</strong>
+      {% for l in card.stuck_leads %}
+      <span class="badge bg-warning text-dark ms-1"
+            style="cursor:pointer;font-size:0.72rem;"
+            onclick="openTimeline({{ l.id }}, {{ l.name|tojson }})"
+            title="Click to view history">
+        {{ l.name }}
+      </span>
+      {% endfor %}
+      {% if card.stuck_count > 3 %}
+      <span class="text-muted ms-1">+{{ card.stuck_count - 3 }} more</span>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endfor %}
+
+{% endif %}
+
+{% endblock %}

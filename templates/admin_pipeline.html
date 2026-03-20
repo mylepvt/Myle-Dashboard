@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Pipeline Analytics — Myle Community{% endblock %}
+{% block page_title %}Pipeline Analytics{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+<!-- Bottleneck Alert -->
+{% if bottlenecks %}
+<div class="alert alert-danger border-0 shadow-sm mb-4" style="border-radius:14px;">
+  <h6 class="alert-heading mb-2">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>Stage Bottlenecks — 48h+ stuck leads
+  </h6>
+  <div class="d-flex flex-wrap gap-2">
+    {% for b in bottlenecks %}
+    <span class="badge bg-danger rounded-pill" style="font-size:0.8rem;">
+      {{ b.pipeline_stage|title }}: {{ b.stuck_count }} leads
+    </span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- 1. Stage Funnel Chart -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <h6 class="fw-semibold mb-3">
+      <i class="bi bi-funnel-fill me-2 text-primary"></i>Active Leads by Stage
+    </h6>
+    <canvas id="funnelChart" height="130"></canvas>
+  </div>
+</div>
+
+<!-- 2. Avg Time-in-Stage Table -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header fw-semibold">
+    <i class="bi bi-stopwatch me-2"></i>Average Time per Stage
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0 small">
+      <thead class="table-light text-muted">
+        <tr>
+          <th>Stage</th>
+          <th class="text-center">Transitions</th>
+          <th class="text-center">Avg Time</th>
+          <th class="text-center">Max Time</th>
+          <th class="text-center">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in stage_time %}
+        <tr>
+          <td>
+            <span class="pipeline-step {% if row.is_bottleneck %}active{% endif %}"
+                  style="display:inline-flex;">
+              {{ {'enrollment':'E','day1':'1','day2':'2','day3':'3','seat_hold':'S','closing':'C','training':'T'}.get(row.stage, '?') }}
+            </span>
+            <span class="ms-2">{{ row.stage|title|replace('_',' ') }}</span>
+          </td>
+          <td class="text-center text-muted">{{ row.transitions }}</td>
+          <td class="text-center fw-semibold {% if row.avg_hours > 48 %}text-danger{% elif row.avg_hours > 24 %}text-warning{% else %}text-success{% endif %}">
+            {% if row.avg_hours >= 24 %}
+              {{ (row.avg_hours / 24)|round(1) }}d
+            {% else %}
+              {{ row.avg_hours }}h
+            {% endif %}
+          </td>
+          <td class="text-center text-muted small">
+            {% if row.max_hours >= 24 %}
+              {{ (row.max_hours / 24)|round(1) }}d
+            {% else %}
+              {{ row.max_hours }}h
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if row.is_bottleneck %}
+            <span class="badge bg-danger" style="font-size:0.65rem;">Bottleneck</span>
+            {% elif row.avg_hours > 24 %}
+            <span class="badge bg-warning text-dark" style="font-size:0.65rem;">Slow</span>
+            {% elif row.transitions > 0 %}
+            <span class="badge bg-success" style="font-size:0.65rem;">OK</span>
+            {% else %}
+            <span class="text-muted small">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 3. Heat Score Distribution -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <h6 class="fw-semibold mb-3">
+      <i class="bi bi-thermometer-half me-2 text-danger"></i>Lead Heat Distribution
+    </h6>
+    <canvas id="heatChart" height="90"></canvas>
+  </div>
+</div>
+
+<!-- 4. Member Pipeline Comparison -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header">
+    <div class="d-flex align-items-center justify-content-between">
+      <span class="fw-semibold"><i class="bi bi-bar-chart-steps me-2"></i>Member Pipeline Performance</span>
+      <span class="badge bg-secondary-subtle text-secondary">{{ member_stats|length }} members</span>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0 small">
+      <thead class="table-light text-muted">
+        <tr>
+          <th>Member</th>
+          <th class="d-none d-md-table-cell">Upline</th>
+          <th class="text-center">Total</th>
+          <th class="text-center">D1</th>
+          <th class="text-center">D2</th>
+          <th class="text-center">S</th>
+          <th class="text-center text-success">Conv</th>
+          <th class="text-center text-danger">Stuck</th>
+          <th class="text-center">Conv%</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in member_stats %}
+        <tr>
+          <td class="fw-semibold">@{{ m.assigned_to }}</td>
+          <td class="d-none d-md-table-cell text-muted small">{{ m.upline_username or m.upline_name or '—' }}</td>
+          <td class="text-center">{{ m.total_leads }}</td>
+          <td class="text-center text-muted">{{ m.day1_count }}</td>
+          <td class="text-center text-muted">{{ m.day2_count }}</td>
+          <td class="text-center text-muted">{{ m.seat_hold_count }}</td>
+          <td class="text-center fw-semibold text-success">{{ m.converted_count }}</td>
+          <td class="text-center {% if m.stuck_count > 3 %}fw-bold text-danger{% else %}text-muted{% endif %}">
+            {{ m.stuck_count }}
+          </td>
+          <td class="text-center">
+            <span class="badge rounded-pill
+              {% if (m.conv_pct or 0) >= 20 %}bg-success
+              {% elif (m.conv_pct or 0) >= 10 %}bg-warning text-dark
+              {% else %}bg-secondary{% endif %}"
+              style="font-size:0.68rem;">
+              {{ m.conv_pct or 0 }}%
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not member_stats %}
+        <tr><td colspan="9" class="text-muted text-center py-3">Koi data nahi mila.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(function() {
+  var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  var gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  var labelColor = isDark ? '#aeaeb2' : '#6c6c70';
+
+  // Funnel chart
+  new Chart(document.getElementById('funnelChart'), {
+    type: 'bar',
+    data: {
+      labels: {{ stage_labels | tojson }},
+      datasets: [{
+        label: 'Active Leads',
+        data: {{ stage_counts | tojson }},
+        backgroundColor: [
+          'rgba(94,92,230,0.75)',
+          'rgba(0,122,255,0.75)',
+          'rgba(255,159,10,0.75)',
+          'rgba(255,69,58,0.75)',
+          'rgba(48,209,88,0.75)',
+          'rgba(64,203,224,0.75)',
+          'rgba(191,90,242,0.75)',
+        ],
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: function(ctx){ return ' '+ctx.raw+' leads'; } } }
+      },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: labelColor, stepSize: 1 } },
+        y: { grid: { display: false }, ticks: { color: labelColor } }
+      }
+    }
+  });
+
+  // Heat doughnut
+  new Chart(document.getElementById('heatChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Hot (Day3+ / 5+ batches)', 'Warm (Day1/Day2)', 'Cold (Enrollment)'],
+      datasets: [{
+        data: {{ heat_data | tojson }},
+        backgroundColor: ['rgba(255,69,58,0.8)', 'rgba(255,159,10,0.8)', 'rgba(99,99,102,0.6)'],
+        borderWidth: 0,
+        hoverOffset: 4,
+      }]
+    },
+    options: {
+      cutout: '65%',
+      plugins: {
+        legend: { position: 'right', labels: { color: labelColor, font: { size: 11 } } }
+      }
+    }
+  });
+})();
+</script>
+
+{% endblock %}
