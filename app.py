@@ -1188,6 +1188,12 @@ from routes.auth_routes import register_auth_routes
 
 register_auth_routes(app)
 
+from routes.webhook_routes import register_webhook_routes
+from routes.misc_routes import register_misc_routes
+
+register_webhook_routes(app)
+register_misc_routes(app)
+
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Admin \u2013 Approvals
@@ -1255,27 +1261,6 @@ def delete_user(user_id):
             flash(f'User "{user["username"]}" has been permanently deleted.', 'success')
     db.close()
     return redirect(url_for('admin_approvals', filter=request.form.get('current_filter', 'all')))
-
-
-# ─────────────────────────────────────────────
-#  PWA support routes
-# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-
-@app.route('/sw.js')
-def service_worker():
-    """Serve service worker from root scope (required for full PWA control)."""
-    return app.send_static_file('sw.js'), 200, {
-        'Content-Type': 'application/javascript',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Service-Worker-Allowed': '/'
-    }
-
-@app.route('/manifest.json')
-def pwa_manifest():
-    """Serve PWA manifest from root."""
-    return app.send_static_file('manifest.json'), 200, {
-        'Content-Type': 'application/manifest+json'
-    }
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -4187,99 +4172,6 @@ def claim_leads():
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-#  Meta Webhook
-# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-
-@app.route('/meta/webhook', methods=['GET'])
-def meta_webhook_verify():
-    """Meta webhook verification (hub.challenge handshake)."""
-    db           = get_db()
-    verify_token = _get_setting(db, 'meta_webhook_token', '')
-    db.close()
-
-    mode      = request.args.get('hub.mode')
-    token     = request.args.get('hub.verify_token')
-    challenge = request.args.get('hub.challenge')
-
-    if mode == 'subscribe' and token == verify_token and verify_token:
-        return challenge, 200
-    return 'Forbidden', 403
-
-
-@app.route('/meta/webhook', methods=['POST'])
-def meta_webhook_receive():
-    """Receive Meta Lead Ads leads via webhook."""
-    db = get_db()
-
-    app_secret = _get_setting(db, 'meta_app_secret', '')
-    if app_secret:
-        sig_header = request.headers.get('X-Hub-Signature-256', '')
-        if not sig_header.startswith('sha256='):
-            db.close()
-            return 'Forbidden', 403
-        expected = 'sha256=' + hmac.new(
-            app_secret.encode(), request.data, hashlib.sha256
-        ).hexdigest()
-        if not hmac.compare_digest(sig_header, expected):
-            db.close()
-            return 'Forbidden', 403
-
-    data = request.get_json(silent=True)
-    if not data:
-        db.close()
-        return 'OK', 200
-
-    default_price = float(_get_setting(db, 'default_lead_price', '50') or 50)
-
-    imported = 0
-    for entry in data.get('entry', []):
-        for change in entry.get('changes', []):
-            try:
-                if change.get('field') != 'leadgen':
-                    continue
-                value      = change.get('value', {})
-                field_data = value.get('field_data', [])
-                lead_fields = {
-                    f['name']: (f['values'][0] if f.get('values') else '')
-                    for f in field_data
-                }
-
-                name  = (lead_fields.get('full_name') or lead_fields.get('name') or
-                         lead_fields.get('full name') or '').strip()
-                phone = lead_fields.get('phone_number', lead_fields.get('phone', '')).strip()
-                email = lead_fields.get('email', '').strip()
-
-                if not phone:
-                    phone = str(value.get('leadgen_id', 'N/A'))
-                if not name:
-                    name = phone
-
-                leadgen_id = str(value.get('leadgen_id', ''))
-                if leadgen_id:
-                    existing = db.execute(
-                        "SELECT id FROM leads WHERE notes LIKE ?",
-                        (f'%meta_id:{leadgen_id}%',)
-                    ).fetchone()
-                    if existing:
-                        continue
-
-                db.execute("""
-                    INSERT INTO leads
-                        (name, phone, email, assigned_to, source, status,
-                         in_pool, pool_price, claimed_at, notes)
-                    VALUES (?, ?, ?, '', 'Meta', 'New', 1, ?, '', ?)
-                """, (name, phone, email, default_price,
-                      f'meta_id:{leadgen_id}' if leadgen_id else ''))
-                imported += 1
-            except Exception:
-                continue
-
-    db.commit()
-    db.close()
-    return 'OK', 200
-
-
-# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 #  Change Password
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
@@ -5286,42 +5178,6 @@ def bulk_update_leads():
     db.close()
     return {'ok': True, 'updated': updated}
 
-
-@app.route('/push/vapid-key')
-@login_required
-def push_vapid_key():
-    """Return VAPID public key for browser subscription."""
-    db = get_db()
-    _, public_key = _get_or_create_vapid_keys(db)
-    db.close()
-    return {'public_key': public_key or ''}
-
-
-@app.route('/push/subscribe', methods=['POST'])
-@login_required
-def push_subscribe():
-    """Save a browser push subscription for the logged-in user."""
-    data = request.get_json(silent=True)
-    if not data or not data.get('endpoint'):
-        return {'ok': False, 'error': 'Missing endpoint'}, 400
-
-    endpoint = data.get('endpoint', '')
-    auth     = data.get('keys', {}).get('auth', '')
-    p256dh   = data.get('keys', {}).get('p256dh', '')
-    username = session['username']
-
-    db = get_db()
-    db.execute("""
-        INSERT INTO push_subscriptions (username, endpoint, auth, p256dh)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(endpoint) DO UPDATE SET
-            username=excluded.username,
-            auth=excluded.auth,
-            p256dh=excluded.p256dh
-    """, (username, endpoint, auth, p256dh))
-    db.commit()
-    db.close()
-    return {'ok': True}
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -6745,10 +6601,6 @@ def api_chat_clear():
     session.modified = True
     return {'ok': True}
 
-
-@app.route('/health')
-def health():
-    return {'status': 'ok'}, 200
 
 
 # ─────────────────────────────────────────────────────────────────
