@@ -1720,9 +1720,6 @@ async function sendAndMark() {
   // Use token URLs already fetched in openBatchPopup (lead-specific, auto-marks when prospect watches)
   var link1 = _popupState.link1 || '';
   var link2 = _popupState.link2 || '';
-
-  await _markBatchDone(leadId, batchKey);
-
   const label = BATCH_LABELS[batchKey];
   const msg = `${label}\n\n` +
     (link1 ? `📹 Video 1:\n${link1}\n` : '') +
@@ -1735,9 +1732,23 @@ async function sendAndMark() {
   } else if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
     cleanPhone = '91' + cleanPhone.substring(1);
   }
+  if (!cleanPhone) {
+    showToast('Lead phone missing hai. Pehle valid number add karo.', 'warning');
+    return;
+  }
+
   const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+
+  // Open WhatsApp immediately in click gesture context (avoids popup blocking on iOS/PWA).
+  const waWin = window.open(waUrl, '_blank');
+  if (!waWin) {
+    // Fallback for strict popup blockers / in-app webviews.
+    window.location.href = waUrl;
+  }
+
   closeBatchPopup();
-  window.open(waUrl, '_blank');
+  // Mark in background; do not block WhatsApp opening.
+  _markBatchDone(leadId, batchKey);
 }
 
 async function alreadySentMark() {

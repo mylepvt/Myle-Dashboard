@@ -1785,6 +1785,17 @@ def watch_video(token):
         "SELECT * FROM enroll_share_links WHERE token=?", (token,)
     ).fetchone()
     if not link:
+        # Defensive fallback: if a batch token is opened on /watch/<token>,
+        # redirect to the proper batch watch route instead of showing expired.
+        try:
+            b = db.execute(
+                "SELECT slot FROM batch_share_links WHERE token=? LIMIT 1", (token,)
+            ).fetchone()
+            if b and b['slot'] in _BATCH_SLOTS:
+                db.close()
+                return redirect(url_for('watch_batch', slot=b['slot'], v=1, token=token))
+        except Exception:
+            pass
         db.close()
         return render_template('watch_video.html', error='Link not found or expired'), 404
 
