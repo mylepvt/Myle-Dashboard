@@ -143,12 +143,16 @@
 
 {# ═══ SECTION 4: TEAM LEADERBOARD ═══ #}
 <div class="card border-0 shadow-sm mb-3">
-  <div class="card-header bg-transparent border-0 pt-3 pb-1 d-flex justify-content-between align-items-center">
+  <div class="card-header bg-transparent border-0 pt-3 pb-1 d-flex justify-content-between align-items-center" style="cursor:pointer;" onclick="toggleLeaderboard()">
     <h6 class="mb-0 fw-bold"><i class="bi bi-trophy-fill me-2 text-warning"></i>Team Leaderboard</h6>
-    <a href="{{ url_for('working') }}" class="btn btn-sm btn-outline-primary py-0" style="font-size:.72rem;">
-      Working Section <i class="bi bi-arrow-right ms-1"></i>
-    </a>
+    <div class="d-flex align-items-center gap-2">
+      <a href="{{ url_for('working') }}" class="btn btn-sm btn-outline-primary py-0" style="font-size:.72rem;" onclick="event.stopPropagation()">
+        Working Section <i class="bi bi-arrow-right ms-1"></i>
+      </a>
+      <i class="bi bi-chevron-down" id="lbChevron" style="transition:transform .2s;color:var(--label-3,#6b7280);"></i>
+    </div>
   </div>
+  <div class="collapse" id="lbBody">
   <div class="card-body p-0">
     <div class="table-responsive">
       <div class="d-none d-md-flex lb-row fw-bold" style="background:var(--bg-muted,#f9fafb);font-size:.68rem;color:var(--label-3,#6b7280);">
@@ -203,6 +207,7 @@
       {% endfor %}
     </div>
   </div>
+  </div>{# /collapse #}
 </div>
 
 {# ═══ SECTION 5: CHARTS ROW — Revenue + Trend + Status ═══ #}
@@ -393,34 +398,48 @@
   {% endfor %}
 </div>
 
-{# Recent Leads #}
+{# Live Activity Feed #}
 <div class="card border-0 shadow-sm mb-3">
   <div class="card-header bg-transparent border-0 pt-3 pb-1 d-flex justify-content-between align-items-center">
-    <h6 class="mb-0 fw-bold" style="font-size:.82rem;"><i class="bi bi-clock-history me-2 text-secondary"></i>Recent Leads</h6>
-    <a href="{{ url_for('leads') }}" class="btn btn-sm btn-outline-primary py-0" style="font-size:.68rem;">View All</a>
+    <h6 class="mb-0 fw-bold" style="font-size:.82rem;"><i class="bi bi-activity me-2 text-primary"></i>Live Activity</h6>
+    <a href="{{ url_for('leads') }}" class="btn btn-sm btn-outline-primary py-0" style="font-size:.68rem;">All Leads</a>
   </div>
   <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-sm table-hover mb-0 align-middle" style="font-size:.78rem;">
-        <thead class="table-light"><tr><th>Name</th><th>Assigned</th><th>Status</th><th>Payment</th><th></th></tr></thead>
-        <tbody>
-          {% for lead in recent %}
-          <tr>
-            <td class="fw-semibold">{{ lead.name }}</td>
-            <td class="text-muted">{{ lead.assigned_to or '—' }}</td>
-            <td><span class="badge status-{{ lead.status|replace(' ','') }}" style="font-size:.6rem;">{{ lead.status }}</span></td>
-            <td>
-              {% if lead.payment_done %}<span class="badge bg-success" style="font-size:.6rem;">₹{{ lead.payment_amount|int }}</span>
-              {% else %}<span class="badge bg-secondary" style="font-size:.6rem;">—</span>{% endif %}
-            </td>
-            <td><a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-xs btn-outline-secondary py-0"><i class="bi bi-pencil-fill"></i></a></td>
-          </tr>
-          {% else %}
-          <tr><td colspan="5" class="text-center text-muted py-3 small">No leads yet.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+    {% if recent_activity %}
+    <ul class="list-unstyled mb-0" id="activityFeed">
+      {% for act in recent_activity %}
+      <li class="d-flex align-items-start gap-2 px-3 py-2 activity-item">
+        {% if act.type == 'stage' %}
+          <span class="act-icon text-info"><i class="bi bi-arrow-right-circle-fill"></i></span>
+          <div class="flex-grow-1 min-w-0">
+            <span class="fw-semibold" style="font-size:.8rem;">{{ act.actor or '—' }}</span>
+            <span class="text-muted" style="font-size:.78rem;"> moved </span>
+            <a href="{{ url_for('edit_lead', lead_id=act.lead_id) }}" class="fw-semibold text-decoration-none" style="font-size:.8rem;">{{ act.lead_name }}</a>
+            <span class="text-muted" style="font-size:.78rem;"> → </span>
+            <span class="badge bg-secondary" style="font-size:.62rem;">{{ act.stage }}</span>
+          </div>
+        {% elif act.type == 'new_lead' %}
+          <span class="act-icon text-success"><i class="bi bi-person-plus-fill"></i></span>
+          <div class="flex-grow-1 min-w-0">
+            <span class="fw-semibold" style="font-size:.8rem;">{{ act.actor or 'Someone' }}</span>
+            <span class="text-muted" style="font-size:.78rem;"> added </span>
+            <a href="{{ url_for('edit_lead', lead_id=act.lead_id) }}" class="fw-semibold text-decoration-none" style="font-size:.8rem;">{{ act.lead_name }}</a>
+          </div>
+        {% elif act.type == 'payment' %}
+          <span class="act-icon text-warning"><i class="bi bi-currency-rupee"></i></span>
+          <div class="flex-grow-1 min-w-0">
+            <span class="text-muted" style="font-size:.78rem;">Payment from </span>
+            <a href="{{ url_for('edit_lead', lead_id=act.lead_id) }}" class="fw-semibold text-decoration-none" style="font-size:.8rem;">{{ act.lead_name }}</a>
+            <span class="text-muted" style="font-size:.78rem;"> via {{ act.actor or '—' }}</span>
+          </div>
+        {% endif %}
+        <span class="text-muted flex-shrink-0 act-time" data-ts="{{ act.created_at }}" style="font-size:.68rem;white-space:nowrap;"></span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="text-center text-muted py-4 small"><i class="bi bi-clock" style="font-size:1.5rem;opacity:.3;"></i><p class="mt-2 mb-0">No recent activity</p></div>
+    {% endif %}
   </div>
 </div>
 
@@ -428,7 +447,23 @@
 
 {% block scripts %}
 <script>
-const _isMobile = window.innerWidth < 576;
+// ── Leaderboard collapse ──
+function toggleLeaderboard() {
+  const body = document.getElementById('lbBody');
+  const chev = document.getElementById('lbChevron');
+  const expanded = body.classList.toggle('show');
+  chev.style.transform = expanded ? 'rotate(180deg)' : '';
+  localStorage.setItem('lbExpanded', expanded ? '1' : '0');
+}
+(function() {
+  if (localStorage.getItem('lbExpanded') === '1') {
+    const body = document.getElementById('lbBody');
+    const chev = document.getElementById('lbChevron');
+    if (body) { body.classList.add('show'); chev.style.transform = 'rotate(180deg)'; }
+  }
+})();
+
+const _isMobile = window.innerWidth < 992;
 
 // ── Status Doughnut ──
 new Chart(document.getElementById('statusChart'), {
@@ -467,5 +502,22 @@ new Chart(document.getElementById('trendChart'), {
   },
   options: { responsive:true, plugins:{legend:{labels:{boxWidth:8,font:{size:9}}}}, scales:{y:{beginAtZero:true,ticks:{stepSize:1,font:{size:9}}},x:{ticks:{font:{size:9}}}} }
 });
+
+// ── Activity Feed timestamps ──
+(function() {
+  function timeAgo(ts) {
+    if (!ts) return '';
+    const d = new Date(ts.replace(' ', 'T'));
+    if (isNaN(d)) return '';
+    const s = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (s < 60) return s + 's ago';
+    if (s < 3600) return Math.floor(s/60) + 'm ago';
+    if (s < 86400) return Math.floor(s/3600) + 'h ago';
+    return Math.floor(s/86400) + 'd ago';
+  }
+  document.querySelectorAll('.act-time[data-ts]').forEach(function(el) {
+    el.textContent = timeAgo(el.dataset.ts);
+  });
+})();
 </script>
 {% endblock %}

@@ -314,6 +314,7 @@
         <div class="d-flex gap-2">
           <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
           <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+          {% if enrollment_video_url %}<button class="btn btn-sm btn-outline-warning wk-btn" onclick="shareEnrollVideo({{ lead.id }}, '{{ lead.phone }}')" title="Enrollment video share karo"><i class="bi bi-play-circle"></i></button>{% endif %}
           <button class="btn btn-sm btn-success wk-btn ms-auto" onclick="pushToDay1({{ lead.id }}, this)" title="Day 1 mein bhejo">
             <i class="bi bi-arrow-right me-1"></i>Day 1
           </button>
@@ -526,6 +527,7 @@
         <div class="d-flex gap-2">
           <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
           <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+          {% if enrollment_video_url %}<button class="btn btn-sm btn-outline-warning wk-btn" onclick="shareEnrollVideo({{ lead.id }}, '{{ lead.phone }}')" title="Enrollment video share karo"><i class="bi bi-play-circle"></i></button>{% endif %}
           <button class="btn btn-sm btn-success wk-btn ms-auto" onclick="pushToDay1({{ lead.id }}, this)" title="Day 1 mein bhejo">
             <i class="bi bi-arrow-right me-1"></i>Day 1
           </button>
@@ -1855,6 +1857,28 @@ function updateCallStatus(leadId, newStatus, selectEl) {
     }
   })
   .catch(() => { showToast('Network error', 'danger'); });
+}
+
+// ── Share Enrollment Video via WhatsApp ────────────────────────
+async function shareEnrollVideo(leadId, phone) {
+  try {
+    const res = await fetch('/enroll/generate-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf },
+      body: JSON.stringify({ lead_id: leadId }),
+    });
+    const data = await res.json();
+    if (!data.ok) { showToast(data.error || 'Link generate nahi hua', 'danger'); return; }
+    const watchUrl = data.watch_url;
+    let cleanPhone = phone.replace(/[^\d]/g, '');
+    if (cleanPhone.length === 10 && '6789'.includes(cleanPhone[0])) {
+      cleanPhone = '91' + cleanPhone;
+    } else if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
+      cleanPhone = '91' + cleanPhone.substring(1);
+    }
+    const msg = `Enrollment video dekho — yahan click karo 🎬\n${watchUrl}`;
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+  } catch (e) { showToast('Network error', 'danger'); }
 }
 
 // ── Re-activate Past Lead ──────────────────────────────────────

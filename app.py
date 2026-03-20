@@ -1675,7 +1675,7 @@ def _youtube_embed_url(raw_url):
     )
     if m:
         vid = m.group(1)
-        return 'https://www.youtube.com/embed/' + vid + '?rel=0&modestbranding=1'
+        return 'https://www.youtube-nocookie.com/embed/' + vid + '?rel=0&modestbranding=1&playsinline=1'
     return ''
 
 
@@ -2458,10 +2458,37 @@ def admin_dashboard():
         })
     team_board.sort(key=lambda x: x['score'], reverse=True)
 
-    # ── 4. Existing metrics kept ─────────────────────────────────────
-    recent = db.execute(
-        f"SELECT * FROM leads WHERE {_base_w} ORDER BY created_at DESC LIMIT 5"
-    ).fetchall()
+    # ── 4. Recent Live Activity ───────────────────────────────────────
+    _stage_acts = db.execute(f"""
+        SELECT lsh.created_at, 'stage' AS type,
+               COALESCE(l.name,'Unknown') AS lead_name, lsh.lead_id,
+               lsh.stage, lsh.triggered_by AS actor
+        FROM lead_stage_history lsh
+        LEFT JOIN leads l ON l.id = lsh.lead_id
+        WHERE lsh.lead_id IN (SELECT id FROM leads WHERE {_base_w})
+        ORDER BY lsh.created_at DESC LIMIT 12
+    """).fetchall()
+    _new_acts = db.execute(f"""
+        SELECT created_at, 'new_lead' AS type,
+               COALESCE(name,'Unknown') AS lead_name, id AS lead_id,
+               status AS stage, assigned_to AS actor
+        FROM leads WHERE {_base_w} AND in_pool=0
+        AND created_at >= datetime('now','-7 days','localtime')
+        ORDER BY created_at DESC LIMIT 6
+    """).fetchall()
+    _pay_acts = db.execute(f"""
+        SELECT updated_at AS created_at, 'payment' AS type,
+               COALESCE(name,'Unknown') AS lead_name, id AS lead_id,
+               status AS stage, assigned_to AS actor
+        FROM leads WHERE {_base_w} AND payment_done=1
+        AND updated_at >= datetime('now','-7 days','localtime')
+        ORDER BY updated_at DESC LIMIT 6
+    """).fetchall()
+    _all_acts = [dict(r) for r in list(_stage_acts) + list(_new_acts) + list(_pay_acts)]
+    _all_acts.sort(key=lambda x: x.get('created_at') or '', reverse=True)
+    recent_activity = _all_acts[:12]
+
+    recent = []  # kept for template compat but unused
 
     _sc = db.execute(
         f"SELECT status, COUNT(*) as c FROM leads WHERE {_base_w} GROUP BY status"
@@ -2498,7 +2525,6 @@ def admin_dashboard():
         GROUP BY d ORDER BY d
     """, (today,)).fetchall()
 
-    recent = _enrich_leads(recent)
     db.close()
     resp = make_response(render_template('admin.html',
                            metrics=metrics,
@@ -2507,7 +2533,7 @@ def admin_dashboard():
                            pulse=pulse,
                            team_board=team_board,
                            stale_leads=stale_leads,
-                           recent=recent,
+                           recent_activity=recent_activity,
                            status_data=status_data,
                            monthly=monthly,
                            daily_trend=daily_trend,
