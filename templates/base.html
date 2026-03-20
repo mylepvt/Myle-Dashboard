@@ -36,7 +36,7 @@
   <!-- Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
   <!-- Custom -->
-  <link href="{{ url_for('static', filename='css/style.css') }}?v=20260318j" rel="stylesheet" />
+  <link href="{{ url_for('static', filename='css/style.css') }}?v=20260320a" rel="stylesheet" />
   {% block extra_head %}{% endblock %}
   <script>
   // ── Device Capability Detection ──────────────────────────
@@ -1962,7 +1962,13 @@ window.mayaSend=function(){};window.mayaClear=function(){};window.mayaToggle=fun
     document.getElementById('tlContent-calls').innerHTML = '';
     tlSwitchTab('history');
     drawer.classList.add('tl-open');
-    document.body.classList.add('tl-locked');
+    /* iOS-safe scroll lock — save position, lock body, restore on close */
+    var _tlScrollY = window.scrollY || window.pageYOffset || 0;
+    document.body.dataset.tlScrollY = String(_tlScrollY);
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = '-' + _tlScrollY + 'px';
+    document.body.style.width = '100%';
 
     fetch('/leads/' + leadId + '/timeline')
       .then(function(r){ return r.json(); })
@@ -1994,7 +2000,14 @@ window.mayaSend=function(){};window.mayaClear=function(){};window.mayaToggle=fun
 
   window.closeTimeline = function() {
     document.getElementById('timelineDrawer').classList.remove('tl-open');
-    document.body.classList.remove('tl-locked');
+    /* Restore scroll position — matches sidebar unlock pattern */
+    var savedY = parseInt(document.body.dataset.tlScrollY || '0', 10);
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
+    window.scrollTo(0, savedY);
+    delete document.body.dataset.tlScrollY;
   };
 
   window.tlSwitchTab = function(name) {
