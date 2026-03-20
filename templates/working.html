@@ -1976,10 +1976,11 @@ function reactivateLead(leadId, selectEl) {
 
 <!-- Batch Popup HTML -->
 <div id="batchPopup" style="display:none; position:fixed; inset:0; z-index:9999;
-  background:rgba(0,0,0,0.5); align-items:flex-end; justify-content:center;">
+  background:rgba(0,0,0,0.5); align-items:flex-end; justify-content:center; padding:8px;">
 
   <div style="background:#fff; border-radius:20px 20px 0 0;
-    width:100%; max-width:480px; padding:20px;
+    width:100%; max-width:480px; padding:16px;
+    max-height:min(88dvh, 88vh); overflow-y:auto; -webkit-overflow-scrolling:touch;
     animation: slideUp 0.4s cubic-bezier(0.32,0.72,0,1);">
 
     <!-- Header -->
@@ -2003,6 +2004,7 @@ function reactivateLead(leadId, selectEl) {
     </div>
 
     <!-- Buttons -->
+    <div style="position:sticky; bottom:0; background:#fff; padding-top:8px; border-top:1px solid #eef2f7;">
     <button id="popupSendBtn"
       onclick="sendAndMark()"
       style="width:100%; padding:14px; border-radius:12px;
@@ -2028,6 +2030,7 @@ function reactivateLead(leadId, selectEl) {
         font-weight:600; font-size:0.85rem; cursor:pointer;">
       Cancel
     </button>
+    </div>
   </div>
 </div>
 
