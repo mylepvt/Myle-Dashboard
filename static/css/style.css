@@ -971,6 +971,10 @@ p,span,td,li { color: inherit; }
 [data-theme="dark"] .btn-outline-primary { color: var(--ios-blue) !important; }
 [data-theme="dark"] .btn-outline-success { color: var(--ios-green) !important; }
 [data-theme="dark"] .btn-outline-danger  { color: var(--ios-red) !important; }
+/* Prevent history day-tabs from wrapping on narrow screens */
+#histDayTabs { flex-wrap: nowrap !important; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+#histDayTabs .nav-item { flex-shrink: 0; }
+
 [data-theme="dark"] .nav-tabs .nav-link { color: var(--label-2) !important; }
 [data-theme="dark"] .nav-tabs .nav-link.active {
   background: var(--fill-3) !important;
