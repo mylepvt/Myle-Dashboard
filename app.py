@@ -1757,7 +1757,9 @@ def watch_batch(slot, v):
         return render_template('watch_video.html', error='Invalid link', title='Batch Video'), 404
     db = get_db()
     # Auto-mark batch done when prospect opens tokenized link
-    token = request.args.get('token', '').strip()
+    token = (request.args.get('token', '') or '').strip()
+    # WhatsApp/in-app browsers sometimes pass trailing punctuation in query text.
+    token = _re.sub(r'[^A-Za-z0-9_-]', '', token)
     if token:
         try:
             link = db.execute(
@@ -1780,6 +1782,8 @@ def watch_batch(slot, v):
 @app.route('/watch/<token>')
 def watch_video(token):
     """Public watch page; first view syncs to lead (Video Watched) and notifies sharer."""
+    token = (token or '').strip()
+    token = _re.sub(r'[^A-Za-z0-9_-]', '', token)
     db = get_db()
     link = db.execute(
         "SELECT * FROM enroll_share_links WHERE token=?", (token,)
