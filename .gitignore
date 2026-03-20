@@ -2,3 +2,6 @@
 # Environment files
 *.env
 *.env.*
+
+# Claude Code worktrees
+.claude/worktrees/
