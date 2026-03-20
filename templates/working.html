@@ -259,7 +259,7 @@
 
   <div class="wk-kanban-tabs mb-3">
     <button class="wk-tab active" data-col="own-stage1">
-      Ready for Day 1 <span class="badge bg-success ms-1">{{ own_stage1|length }}</span>
+      Enrollment <span class="badge bg-success ms-1">{{ own_stage1|length }}</span>
     </button>
     <button class="wk-tab" data-col="own-day1">
       Day 1 <span class="badge bg-info ms-1">{{ own_day1|length }}</span>
@@ -274,13 +274,13 @@
 
   <div class="wk-kanban-grid">
 
-    {# Own Stage 1 — Ready for Day 1 (Paid ₹196 / Mindset Lock). Call status "Payment Done" select karoge to lead Day 1 me auto chala jayega. #}
+    {# Own Stage 1 — Enrollment: all pre-Day-1 leads (New Lead → Contacted → Video Sent → Paid ₹196 / Mindset Lock). Enrollment video send karo, ₹196 pay hone par "Day 1" button appear hoga. #}
     <div class="wk-kanban-col" id="zone-own-stage1" data-col="own-stage1">
       <div class="wk-col-header">
-        <span class="wk-col-title"><i class="bi bi-check-circle me-2 text-success"></i>Ready for Day 1</span>
+        <span class="wk-col-title"><i class="bi bi-play-circle me-2" style="color:var(--ios-indigo);"></i>Enrollment</span>
         <span class="badge bg-success">{{ own_stage1|length }}</span>
       </div>
-      <div class="small text-muted mb-2" style="font-size:0.65rem;">₹196 pay hua to <strong>Call Status → Payment Done</strong> karo — lead Day 1 me auto shift ho jayegi.</div>
+      <div class="small text-muted mb-2" style="font-size:0.65rem;">📹 Video bhejo → lead interested ho → ₹196 pay kare → <strong>Day 1</strong> button appear hoga.</div>
       {% if own_stage1 %}{% for lead in own_stage1 %}
       <div class="wk-lead-card" id="lead-{{ lead.id }}">
         <div class="d-flex justify-content-between align-items-start mb-1">
@@ -319,9 +319,11 @@
             <i class="bi bi-play-circle-fill"></i>
           </button>
           {% endif %}
+          {% if lead.status in ('Paid ₹196', 'Mindset Lock') %}
           <button class="btn btn-sm btn-success wk-btn ms-auto" onclick="pushToDay1({{ lead.id }}, this)" title="Day 1 mein bhejo">
             <i class="bi bi-arrow-right me-1"></i>Day 1
           </button>
+          {% endif %}
         </div>
       </div>
       {% endfor %}{% else %}
@@ -481,7 +483,7 @@
   {# Team sub-tabs #}
   <div class="wk-kanban-tabs mb-3">
     <button class="wk-tab active" data-col="team-stage1">
-      Ready for Day 1 <span class="badge bg-success ms-1">{{ team_stage1|length }}</span>
+      Enrollment <span class="badge bg-success ms-1">{{ team_stage1|length }}</span>
     </button>
     <button class="wk-tab" data-col="team-day1">
       Day 1 <span class="badge bg-info ms-1">{{ team_day1|length }}</span>
@@ -496,10 +498,10 @@
 
   <div class="wk-kanban-grid">
 
-    {# Team Stage 1 — Ready for Day 1 (Paid ₹196 / Mindset Lock) #}
+    {# Team Stage 1 — Enrollment: all pre-Day-1 leads #}
     <div class="wk-kanban-col" id="zone-team-stage1" data-col="team-stage1">
       <div class="wk-col-header">
-        <span class="wk-col-title"><i class="bi bi-check-circle me-2 text-success"></i>Ready for Day 1</span>
+        <span class="wk-col-title"><i class="bi bi-play-circle me-2" style="color:var(--ios-indigo);"></i>Enrollment</span>
         <span class="badge bg-success">{{ team_stage1|length }}</span>
       </div>
       {% if team_stage1 %}{% for lead in team_stage1 %}
@@ -536,9 +538,11 @@
             <i class="bi bi-play-circle-fill"></i>
           </button>
           {% endif %}
+          {% if lead.status in ('Paid ₹196', 'Mindset Lock') %}
           <button class="btn btn-sm btn-success wk-btn ms-auto" onclick="pushToDay1({{ lead.id }}, this)" title="Day 1 mein bhejo">
             <i class="bi bi-arrow-right me-1"></i>Day 1
           </button>
+          {% endif %}
         </div>
       </div>
       {% endfor %}{% else %}
@@ -733,7 +737,7 @@
 
 <!-- Zone 2: Kanban Pipeline (desktop) / Tabs (mobile) -->
 <div class="wk-kanban-tabs mb-3">
-  <button class="wk-tab active" data-col="stage1">Ready for Day 1 <span class="badge bg-success ms-1">{{ stage1_leads|length }}</span></button>
+  <button class="wk-tab active" data-col="stage1">Enrollment <span class="badge bg-success ms-1">{{ stage1_leads|length }}</span></button>
   <button class="wk-tab" data-col="day1">Day 1 <span class="badge bg-info ms-1">{{ day1_leads|length }}</span></button>
   <button class="wk-tab" data-col="day2">Day 2 <span class="badge bg-warning text-dark ms-1">{{ day2_leads|length }}</span></button>
   <button class="wk-tab" data-col="day3">Day 3 <span class="badge bg-danger ms-1">{{ day3_leads|length }}</span></button>
@@ -741,10 +745,10 @@
 
 <div class="wk-kanban-grid">
 
-  {# ── Stage 1 Column (Ready for Day 1) ───────────────────────── #}
+  {# ── Stage 1 Column (Enrollment — all pre-Day-1 leads) ──────── #}
   <div class="wk-kanban-col" id="zone-stage1" data-col="stage1">
     <div class="wk-col-header">
-      <span class="wk-col-title"><i class="bi bi-check-circle me-2 text-success"></i>Ready for Day 1</span>
+      <span class="wk-col-title"><i class="bi bi-play-circle me-2 text-indigo"></i>Enrollment</span>
       <span class="badge bg-success">{{ stage1_leads|length }}</span>
     </div>
     {% if enrollment_video_url %}
@@ -876,11 +880,13 @@
           <i class="bi bi-play-circle-fill"></i>
         </button>
         {% endif %}
+        {% if lead.status in ('Paid ₹196', 'Mindset Lock') %}
         <button class="btn btn-sm btn-success wk-btn ms-auto"
                 onclick="pushToDay1({{ lead.id }}, this)"
                 title="Day 1 mein bhejo">
           <i class="bi bi-arrow-right me-1"></i>Day 1
         </button>
+        {% endif %}
       </div>
     </div>
     {% endfor %}

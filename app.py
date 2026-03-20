@@ -8033,11 +8033,13 @@ def working():
 
         _base = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' "
         _s1_ph = ','.join('?' * len(STAGE1_STATUSES))
+        _e_ph  = ','.join('?' * len(ENROLLMENT_STATUSES))
 
         # ── OWN LEADS (leader's personal work) ──────────────────
+        # own_stage1 includes ALL pre-Day-1 leads so enrollment video button is reachable
         own_stage1 = db.execute(
-            _base + _own_where + f" AND status IN ({_s1_ph}) ORDER BY updated_at DESC",
-            _own_params + list(STAGE1_STATUSES)
+            _base + _own_where + f" AND status IN ({_e_ph}) ORDER BY updated_at DESC",
+            _own_params + list(ENROLLMENT_STATUSES)
         ).fetchall()
         own_day1 = db.execute(
             _base + _own_where + " AND status='Day 1' ORDER BY updated_at DESC",
@@ -8064,9 +8066,10 @@ def working():
         if _team_params:
             _t_ph = ','.join('?' * len(_team_params))
             _team_base = f"SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to IN ({_t_ph}) "
+            # team_stage1: all pre-Day-1 leads so leader can track enrollment progress
             team_stage1 = db.execute(
-                _team_base + f"AND status IN ({_s1_ph}) ORDER BY assigned_to, updated_at DESC",
-                _team_params + list(STAGE1_STATUSES)
+                _team_base + f"AND status IN ({_e_ph}) ORDER BY assigned_to, updated_at DESC",
+                _team_params + list(ENROLLMENT_STATUSES)
             ).fetchall()
             team_day1 = db.execute(
                 _team_base + "AND status='Day 1' ORDER BY assigned_to, updated_at DESC",
@@ -8276,9 +8279,11 @@ def working():
     _s1_ph = ','.join('?' * len(STAGE1_STATUSES))
     _e_ph = ','.join('?' * len(ENROLLMENT_STATUSES))
 
+    # stage1_leads shows ALL pre-Day-1 leads (New Lead → Paid ₹196 → Mindset Lock)
+    # so team members can see and send enrollment video to newly claimed leads
     stage1_leads = db.execute(
-        _base_team + f"AND status IN ({_s1_ph}) ORDER BY updated_at DESC",
-        _tp + list(STAGE1_STATUSES)
+        _base_team + f"AND status IN ({_e_ph}) ORDER BY updated_at DESC",
+        _tp + list(ENROLLMENT_STATUSES)
     ).fetchall()
     day1_leads = db.execute(
         _base_team + "AND status='Day 1' ORDER BY updated_at DESC",
