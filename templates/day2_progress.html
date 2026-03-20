@@ -292,9 +292,18 @@ function openD2BatchPopup(leadId, batch, phone, name, btn) {
     else { const w = D2_WATCH_URLS[batch]||{}; link1 = w.v1||''; link2 = w.v2||''; }
 
     if (link1 || link2) {
-      let html = '<div class="small fw-semibold text-muted mb-2">Lead ko bhejo:</div>';
-      if (link1) html += `<div class="d2-link-box mb-2">${link1}</div>`;
-      if (link2) html += `<div class="d2-link-box">${link2}</div>`;
+      let html = '<div class="small text-muted mb-2">WhatsApp pe bhejne ke liye:</div><div class="d-flex flex-column gap-2">';
+      if (link1) html += `<div class="d-flex align-items-center gap-2 p-2 rounded" style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);">
+        <i class="bi bi-play-circle-fill text-primary fs-5"></i>
+        <div class="flex-grow-1"><div class="fw-semibold small">Video 1</div><div class="text-muted" style="font-size:.7rem;word-break:break-all;">${link1}</div></div>
+        <button class="btn btn-sm btn-outline-primary py-0 px-2" onclick="navigator.clipboard.writeText('${link1}').then(()=>showToast('Copied!','success'))" style="font-size:.7rem;">Copy</button>
+      </div>`;
+      if (link2) html += `<div class="d-flex align-items-center gap-2 p-2 rounded" style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);">
+        <i class="bi bi-play-circle-fill text-primary fs-5"></i>
+        <div class="flex-grow-1"><div class="fw-semibold small">Video 2</div><div class="text-muted" style="font-size:.7rem;word-break:break-all;">${link2}</div></div>
+        <button class="btn btn-sm btn-outline-primary py-0 px-2" onclick="navigator.clipboard.writeText('${link2}').then(()=>showToast('Copied!','success'))" style="font-size:.7rem;">Copy</button>
+      </div>`;
+      html += '</div>';
       document.getElementById('d2PopupLinks').innerHTML = html;
 
       const msg = `${D2_BATCH_LABELS[batch]||batch}\n\n`
@@ -315,8 +324,11 @@ function openD2BatchPopup(leadId, batch, phone, name, btn) {
     const w = D2_WATCH_URLS[batch]||{};
     const link1 = w.v1||'', link2 = w.v2||'';
     document.getElementById('d2PopupLinks').innerHTML = (link1||link2)
-      ? `<div class="d2-link-box mb-2">${link1}</div>${link2?`<div class="d2-link-box">${link2}</div>`:''}`
-      : '<div class="text-muted small text-center">Network error</div>';
+      ? `<div class="d-flex flex-column gap-2">
+          ${link1?`<div class="d-flex align-items-center gap-2 p-2 rounded" style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);"><i class="bi bi-play-circle-fill text-primary fs-5"></i><div class="flex-grow-1"><div class="fw-semibold small">Video 1</div></div></div>`:''}
+          ${link2?`<div class="d-flex align-items-center gap-2 p-2 rounded" style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);"><i class="bi bi-play-circle-fill text-primary fs-5"></i><div class="flex-grow-1"><div class="fw-semibold small">Video 2</div></div></div>`:''}
+        </div>`
+      : '<div class="text-muted small text-center py-2">Network error — retry karo</div>';
     if (link1||link2) {
       const msg = `${D2_BATCH_LABELS[batch]||batch}\n\n`
         + (link1?`📹 Video 1:\n${link1}\n`:'')
