@@ -4,6 +4,55 @@
 
 {% block extra_head %}
 <meta http-equiv="refresh" content="60">
+<style>
+/* ── Summary chips ── */
+.d2-summary-chip{display:inline-flex;align-items:center;padding:6px 14px;border-radius:999px;font-size:.82rem;font-weight:600;border:1.5px solid;}
+.d2-chip-complete  {background:rgba(var(--bs-success-rgb),.12);color:var(--bs-success);border-color:var(--bs-success);}
+.d2-chip-progress  {background:rgba(var(--bs-warning-rgb),.15);color:#d97706;border-color:#f59e0b;}
+.d2-chip-notstarted{background:rgba(var(--bs-secondary-rgb),.12);color:var(--bs-secondary);border-color:var(--bs-secondary);}
+
+/* ── Lead card ── */
+.d2-lead-card{border-radius:16px;overflow:hidden;transition:box-shadow .2s;}
+.d2-lead-card.d2-row-complete {border-left:4px solid var(--bs-success)!important;}
+.d2-lead-card.d2-row-progress {border-left:4px solid #f59e0b!important;}
+.d2-lead-card.d2-row-notstarted{border-left:4px solid var(--bs-secondary)!important;}
+
+/* ── Batch buttons ── */
+.d2-batch-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;flex:1;padding:10px 6px;border-radius:12px;border:2px solid;
+  font-size:.75rem;font-weight:600;cursor:pointer;transition:all .15s;
+  background:transparent;
+  border-color:rgba(var(--bs-secondary-rgb),.3);
+  color:var(--bs-secondary);
+  min-height:60px;
+}
+.d2-batch-btn .bi{font-size:1.3rem;}
+.d2-batch-btn.done{
+  background:rgba(var(--bs-success-rgb),.12);
+  border-color:var(--bs-success);
+  color:var(--bs-success);
+}
+.d2-batch-btn.done .bi::before{content:"\f26b";} /* check-circle-fill */
+.d2-batch-btn:active{transform:scale(.96);}
+
+/* ── Popup ── */
+#d2BatchPopup .popup-sheet{
+  background:var(--bs-body-bg);
+  border-radius:20px 20px 0 0;
+  padding:20px;
+  max-height:85vh;
+  overflow-y:auto;
+}
+.d2-link-box{
+  background:rgba(99,102,241,.08);
+  border-radius:10px;
+  padding:10px 12px;
+  font-size:.78rem;
+  word-break:break-all;
+  border:1px solid rgba(99,102,241,.2);
+}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -11,7 +60,7 @@
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
   <div>
     <h5 class="mb-1 fw-bold"><i class="bi bi-2-circle me-2 text-warning"></i>Day 2 Progress</h5>
-    <div class="text-muted small">Auto-refreshes every 60 seconds · Visible to all team members</div>
+    <div class="text-muted small">Auto-refreshes every 60s · Visible to all</div>
   </div>
   <a href="{{ url_for('working') }}" class="btn btn-outline-secondary btn-sm">
     <i class="bi bi-arrow-left me-1"></i>Back to Working
@@ -19,7 +68,7 @@
 </div>
 
 <!-- Summary bar -->
-<div class="d-flex gap-3 flex-wrap mb-4">
+<div class="d-flex gap-2 flex-wrap mb-4">
   <div class="d2-summary-chip d2-chip-complete">
     <i class="bi bi-check-circle-fill me-1"></i>{{ complete_count }} complete
   </div>
@@ -35,7 +84,7 @@
   </div>
   {% endif %}
   <div class="ms-auto text-muted small d-flex align-items-center">
-    <i class="bi bi-arrow-clockwise me-1"></i>Refreshes every 60s
+    <i class="bi bi-arrow-clockwise me-1"></i>60s
   </div>
 </div>
 
@@ -48,26 +97,15 @@
   </div>
   <div class="card-body pb-3">
     <div class="row g-2">
-      {% set batches = [
-        ('🌅 Morning',   d2_videos.morning_v1,   d2_videos.morning_v2),
-        ('☀️ Afternoon', d2_videos.afternoon_v1, d2_videos.afternoon_v2),
-        ('🌙 Evening',   d2_videos.evening_v1,   d2_videos.evening_v2),
-      ] %}
-      {% for label, v1, v2 in batches %}
+      {% for label, v1, v2 in [('🌅 Morning', d2_videos.morning_v1, d2_videos.morning_v2),
+                                ('☀️ Afternoon', d2_videos.afternoon_v1, d2_videos.afternoon_v2),
+                                ('🌙 Evening', d2_videos.evening_v1, d2_videos.evening_v2)] %}
       {% if v1 or v2 %}
       <div class="col-12 col-md-4">
-        <div class="border rounded p-2 h-100" style="background:var(--bs-tertiary-bg,#f8f9fa);">
+        <div class="border rounded p-2 h-100" style="background:var(--bs-tertiary-bg,rgba(0,0,0,.04));">
           <div class="fw-semibold small mb-2">{{ label }}</div>
-          {% if v1 %}
-          <a href="{{ v1 }}" target="_blank" class="btn btn-sm btn-outline-warning w-100 mb-1">
-            <i class="bi bi-play-fill me-1"></i>Video 1
-          </a>
-          {% endif %}
-          {% if v2 %}
-          <a href="{{ v2 }}" target="_blank" class="btn btn-sm btn-outline-secondary w-100">
-            <i class="bi bi-play-fill me-1"></i>Video 2
-          </a>
-          {% endif %}
+          {% if v1 %}<a href="{{ v1 }}" target="_blank" class="btn btn-sm btn-outline-warning w-100 mb-1"><i class="bi bi-play-fill me-1"></i>Video 1</a>{% endif %}
+          {% if v2 %}<a href="{{ v2 }}" target="_blank" class="btn btn-sm btn-outline-secondary w-100"><i class="bi bi-play-fill me-1"></i>Video 2</a>{% endif %}
         </div>
       </div>
       {% endif %}
@@ -78,161 +116,105 @@
 {% endif %}
 
 {% if day2_leads %}
-<!-- Progress table -->
-<div class="card border-0 shadow-sm">
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th class="ps-4">Lead Name</th>
-            <th>Member</th>
-            {% if can_edit %}
-            <th>Leader</th>
-            {% endif %}
-            <th class="text-center"><i class="bi bi-sunrise-fill text-warning me-1"></i>Morning</th>
-            <th class="text-center"><i class="bi bi-sun-fill text-orange me-1"></i>Afternoon</th>
-            <th class="text-center"><i class="bi bi-moon-fill text-indigo me-1"></i>Evening</th>
-            <th class="text-center d2-status-col">Status</th>
-            {% if can_edit %}
-            <th class="text-center text-muted small">Last Update</th>
-            <th class="text-center">Action</th>
-            {% endif %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for lead in day2_leads %}
-          {% set done_count = lead.d2_morning + lead.d2_afternoon + lead.d2_evening %}
-          {% set is_own = (lead.assigned_to == current_user) %}
-          {% set can_toggle = can_edit or is_own %}
-          <tr class="d2-lead-row
-            {% if done_count == 3 %}d2-row-complete
-            {% elif done_count > 0 %}d2-row-progress
-            {% else %}d2-row-notstarted{% endif %}"
-            data-lead-id="{{ lead.id }}">
+<!-- Lead cards -->
+<div class="d-flex flex-column gap-3" id="d2LeadList">
+  {% for lead in day2_leads %}
+  {% set done_count = lead.d2_morning + lead.d2_afternoon + lead.d2_evening %}
+  {% set is_own = (lead.assigned_to == current_user) %}
+  {% set can_toggle = can_edit or is_own %}
+  <div class="card border-0 shadow-sm d2-lead-card
+    {% if done_count == 3 %}d2-row-complete
+    {% elif done_count > 0 %}d2-row-progress
+    {% else %}d2-row-notstarted{% endif %}"
+    data-lead-id="{{ lead.id }}">
 
-            <td class="ps-4">
-              <div class="fw-semibold">{{ lead.name }}</div>
-              {% if lead.city %}
-              <div class="small text-muted"><i class="bi bi-geo-alt me-1"></i>{{ lead.city }}</div>
-              {% endif %}
-            </td>
+    <div class="card-body p-3">
 
-            <td>
-              <span class="badge {% if is_own %}bg-primary{% else %}bg-light text-dark{% endif %}">
-                {{ lead.assigned_to }}
-                {% if is_own %}<small>(you)</small>{% endif %}
-              </span>
-            </td>
-
+      <!-- Row 1: Name + status -->
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <div class="fw-bold">{{ lead.name }}</div>
+          <div class="d-flex flex-wrap gap-1 mt-1">
+            <span class="badge {% if is_own %}bg-primary{% else %}bg-secondary bg-opacity-25 text-body{% endif %} small">
+              {{ lead.assigned_to }}{% if is_own %} (you){% endif %}
+            </span>
             {% if can_edit %}
-            <td>
-              {% set leader_name = leader_map.get(lead.assigned_to, '—') %}
+              {% set leader_name = leader_map.get(lead.assigned_to, '') %}
               {% if leader_name and leader_name != '—' %}
-              <span class="badge bg-purple-subtle text-purple" style="background:rgba(111,66,193,.12);color:#6f42c1;">
+              <span class="badge small" style="background:rgba(111,66,193,.15);color:#6f42c1;">
                 <i class="bi bi-person-badge me-1"></i>{{ leader_name }}
               </span>
-              {% else %}
-              <span class="text-muted small">—</span>
               {% endif %}
-            </td>
             {% endif %}
-
-            <!-- Morning -->
-            <td class="text-center">
-              {% if can_toggle %}
-              <button class="d2-batch-toggle {% if lead.d2_morning %}d2-batch-done{% endif %}"
-                      data-lead-id="{{ lead.id }}" data-batch="d2_morning"
-                      data-phone="{{ lead.phone }}" data-name="{{ lead.name|e }}">
-                {% if lead.d2_morning %}<i class="bi bi-check-circle-fill"></i>
-                {% else %}<i class="bi bi-circle"></i>{% endif %}
-              </button>
-              {% else %}
-                {% if lead.d2_morning %}
-                  <span class="text-success"><i class="bi bi-check-circle-fill"></i></span>
-                {% else %}
-                  <span class="text-muted"><i class="bi bi-circle"></i></span>
-                {% endif %}
-              {% endif %}
-            </td>
-
-            <!-- Afternoon -->
-            <td class="text-center">
-              {% if can_toggle %}
-              <button class="d2-batch-toggle {% if lead.d2_afternoon %}d2-batch-done{% endif %}"
-                      data-lead-id="{{ lead.id }}" data-batch="d2_afternoon"
-                      data-phone="{{ lead.phone }}" data-name="{{ lead.name|e }}">
-                {% if lead.d2_afternoon %}<i class="bi bi-check-circle-fill"></i>
-                {% else %}<i class="bi bi-circle"></i>{% endif %}
-              </button>
-              {% else %}
-                {% if lead.d2_afternoon %}
-                  <span class="text-success"><i class="bi bi-check-circle-fill"></i></span>
-                {% else %}
-                  <span class="text-muted"><i class="bi bi-circle"></i></span>
-                {% endif %}
-              {% endif %}
-            </td>
-
-            <!-- Evening -->
-            <td class="text-center">
-              {% if can_toggle %}
-              <button class="d2-batch-toggle {% if lead.d2_evening %}d2-batch-done{% endif %}"
-                      data-lead-id="{{ lead.id }}" data-batch="d2_evening"
-                      data-phone="{{ lead.phone }}" data-name="{{ lead.name|e }}">
-                {% if lead.d2_evening %}<i class="bi bi-check-circle-fill"></i>
-                {% else %}<i class="bi bi-circle"></i>{% endif %}
-              </button>
-              {% else %}
-                {% if lead.d2_evening %}
-                  <span class="text-success"><i class="bi bi-check-circle-fill"></i></span>
-                {% else %}
-                  <span class="text-muted"><i class="bi bi-circle"></i></span>
-                {% endif %}
-              {% endif %}
-            </td>
-
-            <!-- Status pill -->
-            <td class="text-center d2-status-cell">
-              {% if done_count == 3 %}
-              <span class="badge bg-success"><i class="bi bi-check2-all me-1"></i>Complete</span>
-              {% elif done_count > 0 %}
-              <span class="badge bg-warning text-dark">{{ done_count }}/3</span>
-              {% else %}
-              {% if lead.hours_since_update and lead.hours_since_update >= 48 %}
-              <span class="badge bg-danger"><i class="bi bi-exclamation-triangle me-1"></i>Stale</span>
-              {% else %}
-              <span class="badge bg-light text-muted">Not started</span>
-              {% endif %}
-              {% endif %}
-            </td>
-
-            {% if can_edit %}
-            <td class="text-center small text-muted">
-              {% if lead.hours_since_update is not none %}
-                {% if lead.hours_since_update < 1 %}Just now
-                {% elif lead.hours_since_update < 24 %}{{ lead.hours_since_update }}h ago
-                {% else %}{{ (lead.hours_since_update // 24) }}d ago{% endif %}
-              {% endif %}
-            </td>
-            <td class="text-center d2-action-cell">
-              {% if done_count == 3 %}
-              <button class="btn btn-sm btn-success d2-advance-btn"
-                      data-lead-id="{{ lead.id }}"
-                      title="Advance to Day 3">
-                <i class="bi bi-arrow-right-circle me-1"></i>Day 3
-              </button>
-              {% else %}
-              <span class="text-muted small">—</span>
-              {% endif %}
-            </td>
+            {% if lead.city %}
+            <span class="text-muted small"><i class="bi bi-geo-alt me-1"></i>{{ lead.city }}</span>
             {% endif %}
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          </div>
+        </div>
+        <div class="d2-card-status">
+          {% if done_count == 3 %}
+          <span class="badge bg-success"><i class="bi bi-check2-all me-1"></i>Complete</span>
+          {% elif done_count > 0 %}
+          <span class="badge bg-warning text-dark">{{ done_count }}/3</span>
+          {% else %}
+            {% if lead.hours_since_update and lead.hours_since_update >= 48 %}
+            <span class="badge bg-danger"><i class="bi bi-exclamation-triangle me-1"></i>Stale</span>
+            {% else %}
+            <span class="badge bg-secondary bg-opacity-25 text-body">Not started</span>
+            {% endif %}
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Row 2: Batch buttons -->
+      <div class="d-flex gap-2 mb-2">
+        {% for slot, icon, label, done in [
+          ('d2_morning',   'bi-sunrise-fill text-warning', 'Morning',   lead.d2_morning),
+          ('d2_afternoon', 'bi-sun-fill text-warning',     'Afternoon', lead.d2_afternoon),
+          ('d2_evening',   'bi-moon-fill text-primary',    'Evening',   lead.d2_evening),
+        ] %}
+        {% if can_toggle %}
+        <button class="d2-batch-btn {% if done %}done{% endif %}"
+                data-lead-id="{{ lead.id }}"
+                data-batch="{{ slot }}"
+                data-phone="{{ lead.phone }}"
+                data-name="{{ lead.name|e }}">
+          <i class="bi {% if done %}bi-check-circle-fill{% else %}{{ icon }}{% endif %}"></i>
+          <span>{{ label }}</span>
+        </button>
+        {% else %}
+        <div class="d2-batch-btn {% if done %}done{% endif %}" style="cursor:default;">
+          <i class="bi {% if done %}bi-check-circle-fill{% else %}{{ icon }}{% endif %}"></i>
+          <span>{{ label }}</span>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+
+      <!-- Row 3: Last updated + Day 3 action -->
+      {% if can_edit %}
+      <div class="d-flex justify-content-between align-items-center mt-1">
+        <div class="text-muted small">
+          {% if lead.hours_since_update is not none %}
+            <i class="bi bi-clock me-1"></i>
+            {% if lead.hours_since_update < 1 %}Just now
+            {% elif lead.hours_since_update < 24 %}{{ lead.hours_since_update }}h ago
+            {% else %}{{ (lead.hours_since_update // 24) }}d ago{% endif %}
+          {% endif %}
+        </div>
+        <div class="d2-card-action">
+          {% if done_count == 3 %}
+          <button class="btn btn-sm btn-success d2-advance-btn" data-lead-id="{{ lead.id }}">
+            <i class="bi bi-arrow-right-circle me-1"></i>Move to Day 3
+          </button>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
     </div>
   </div>
+  {% endfor %}
 </div>
 
 {% else %}
@@ -244,21 +226,23 @@
 {% endif %}
 
 <!-- D2 Batch Send Popup -->
-<div id="d2BatchPopup" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);">
-  <div style="position:absolute;bottom:0;left:0;right:0;background:var(--card-bg,#fff);border-radius:20px 20px 0 0;padding:20px;max-height:80vh;overflow-y:auto;">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+<div id="d2BatchPopup" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);">
+  <div class="popup-sheet" style="position:absolute;bottom:0;left:0;right:0;">
+    <div class="d-flex justify-content-between align-items-start mb-3">
       <div>
-        <div class="fw-bold" id="d2PopupTitle">Batch Video</div>
-        <div class="small text-muted" id="d2PopupSubtitle"></div>
+        <div class="fw-bold fs-6" id="d2PopupTitle">Batch Video</div>
+        <div class="small text-muted mt-1" id="d2PopupSubtitle"></div>
       </div>
-      <button onclick="closeD2Popup()" class="btn-close"></button>
+      <button onclick="closeD2Popup()" class="btn-close mt-1"></button>
     </div>
     <div id="d2PopupLinks" class="mb-3">
-      <div class="text-muted small text-center py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading links...</div>
+      <div class="text-center py-3 text-muted small">
+        <span class="spinner-border spinner-border-sm me-2"></span>Loading...
+      </div>
     </div>
     <div class="d-flex gap-2">
       <a id="d2PopupWA" href="#" target="_blank" class="btn btn-success flex-grow-1" style="display:none!important;">
-        <i class="bi bi-whatsapp me-1"></i>Send & Mark Done
+        <i class="bi bi-whatsapp me-1"></i>Send &amp; Mark Done
       </a>
       <button id="d2PopupMarkOnly" class="btn btn-outline-secondary flex-grow-1">
         <i class="bi bi-check-circle me-1"></i>Mark Done Only
@@ -274,18 +258,17 @@ const D2_WATCH_URLS = {
   'd2_afternoon': {v1:'{{ url_for("watch_batch", slot="d2_afternoon", v=1) }}', v2:'{{ url_for("watch_batch", slot="d2_afternoon", v=2) }}'},
   'd2_evening':   {v1:'{{ url_for("watch_batch", slot="d2_evening",   v=1) }}', v2:'{{ url_for("watch_batch", slot="d2_evening",   v=2) }}'},
 };
-
 const D2_BATCH_LABELS = {
   'd2_morning':   '🌅 Day 2 Morning',
   'd2_afternoon': '☀️ Day 2 Afternoon',
   'd2_evening':   '🌙 Day 2 Evening',
 };
 
-let _d2Popup = { leadId: null, batch: null, btn: null, phone: null };
+let _d2Popup = { leadId:null, batch:null, btn:null, phone:null };
 
 function closeD2Popup() {
   document.getElementById('d2BatchPopup').style.display = 'none';
-  _d2Popup = { leadId: null, batch: null, btn: null, phone: null };
+  _d2Popup = { leadId:null, batch:null, btn:null, phone:null };
 }
 
 function openD2BatchPopup(leadId, batch, phone, name, btn) {
@@ -293,174 +276,145 @@ function openD2BatchPopup(leadId, batch, phone, name, btn) {
   document.getElementById('d2BatchPopup').style.display = 'block';
   document.getElementById('d2PopupTitle').textContent = D2_BATCH_LABELS[batch] || batch;
   document.getElementById('d2PopupSubtitle').textContent = name;
-  document.getElementById('d2PopupLinks').innerHTML = '<div class="text-muted small text-center py-2"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</div>';
+  document.getElementById('d2PopupLinks').innerHTML =
+    '<div class="text-center py-3 text-muted small"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</div>';
   document.getElementById('d2PopupWA').style.cssText = 'display:none!important';
 
-  // Fetch token-based watch URL
-  fetch(`/leads/${leadId}/batch-token?slot=${batch}`, {
-    headers: { 'X-CSRF-Token': _csrf }
-  })
+  fetch(`/leads/${leadId}/batch-token?slot=${batch}`, { headers:{'X-CSRF-Token':_csrf} })
   .then(r => r.json())
   .then(d => {
     let link1 = '', link2 = '';
-    if (d.ok) {
-      link1 = d.watch_url_v1 || '';
-      link2 = d.watch_url_v2 || '';
-    } else {
-      const w = D2_WATCH_URLS[batch] || {};
-      link1 = w.v1 || '';
-      link2 = w.v2 || '';
-    }
+    if (d.ok) { link1 = d.watch_url_v1||''; link2 = d.watch_url_v2||''; }
+    else { const w = D2_WATCH_URLS[batch]||{}; link1 = w.v1||''; link2 = w.v2||''; }
 
     if (link1 || link2) {
-      let html = '<div class="small fw-semibold text-muted mb-2">Lead ko ye links bhejo:</div>';
-      if (link1) html += `<div class="mb-2 p-2 rounded" style="background:rgba(99,102,241,.08);font-size:0.78rem;word-break:break-all;">${link1}</div>`;
-      if (link2) html += `<div class="p-2 rounded" style="background:rgba(99,102,241,.08);font-size:0.78rem;word-break:break-all;">${link2}</div>`;
+      let html = '<div class="small fw-semibold text-muted mb-2">Lead ko bhejo:</div>';
+      if (link1) html += `<div class="d2-link-box mb-2">${link1}</div>`;
+      if (link2) html += `<div class="d2-link-box">${link2}</div>`;
       document.getElementById('d2PopupLinks').innerHTML = html;
 
-      const label = D2_BATCH_LABELS[batch] || batch;
-      const msg = `${label}\n\n` +
-        (link1 ? `📹 Video 1:\n${link1}\n` : '') +
-        (link2 ? `📹 Video 2:\n${link2}\n` : '') +
-        `\nDono videos dekho aur reply karo ✅`;
-      let cleanPhone = phone.replace(/[^\d]/g, '');
-      if (cleanPhone.length === 10 && '6789'.includes(cleanPhone[0])) cleanPhone = '91' + cleanPhone;
-      const waEl = document.getElementById('d2PopupWA');
-      waEl.href = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
-      waEl.style.cssText = '';
+      const msg = `${D2_BATCH_LABELS[batch]||batch}\n\n`
+        + (link1 ? `📹 Video 1:\n${link1}\n` : '')
+        + (link2 ? `📹 Video 2:\n${link2}\n` : '')
+        + `\nDono videos dekho aur reply karo ✅`;
+      let ph = phone.replace(/[^\d]/g,'');
+      if (ph.length===10 && '6789'.includes(ph[0])) ph = '91'+ph;
+      const wa = document.getElementById('d2PopupWA');
+      wa.href = `https://wa.me/${ph}?text=${encodeURIComponent(msg)}`;
+      wa.style.cssText = '';
     } else {
-      document.getElementById('d2PopupLinks').innerHTML = '<div class="text-muted small text-center">⚠️ Video links set nahi hain. Admin Settings mein add karo.</div>';
+      document.getElementById('d2PopupLinks').innerHTML =
+        '<div class="text-muted small text-center py-2">⚠️ Video links set nahi hain. Admin Settings mein add karo.</div>';
     }
   })
   .catch(() => {
-    const w = D2_WATCH_URLS[batch] || {};
-    const link1 = w.v1 || '', link2 = w.v2 || '';
-    document.getElementById('d2PopupLinks').innerHTML = link1 || link2
-      ? `<div class="small text-muted mb-1">Fallback links:</div>${link1?`<div class="mb-1">${link1}</div>`:''}${link2?`<div>${link2}</div>`:''}`
-      : '<div class="text-muted small text-center">Network error</div>';
+    const w = D2_WATCH_URLS[batch]||{};
+    document.getElementById('d2PopupLinks').innerHTML =
+      (w.v1||w.v2)
+        ? `<div class="d2-link-box mb-2">${w.v1||''}</div><div class="d2-link-box">${w.v2||''}</div>`
+        : '<div class="text-muted small text-center">Network error</div>';
   });
 }
 
 function _d2MarkBatch(leadId, batch, btn) {
   return fetch(`/leads/${leadId}/batch-toggle`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf },
-    body: JSON.stringify({ batch }),
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-CSRF-Token':_csrf},
+    body: JSON.stringify({batch}),
   })
   .then(r => r.json())
   .then(d => {
-    if (!d.ok) { showToast(d.error || 'Error', 'danger'); return; }
-    const newVal = d.new_val;
-    btn.classList.toggle('d2-batch-done', !!newVal);
-    btn.innerHTML = newVal ? '<i class="bi bi-check-circle-fill"></i>' : '<i class="bi bi-circle"></i>';
-    if (d.points > 0) showToast(`+${d.points} pts!`, 'success');
-    _updateRowStatus(btn);
+    if (!d.ok) { showToast(d.error||'Error','danger'); return; }
+    btn.classList.toggle('done', !!d.new_val);
+    const icon = btn.querySelector('i');
+    if (icon) {
+      if (d.new_val) { icon.className = 'bi bi-check-circle-fill'; }
+      else {
+        const icons = {'d2_morning':'bi-sunrise-fill text-warning','d2_afternoon':'bi-sun-fill text-warning','d2_evening':'bi-moon-fill text-primary'};
+        icon.className = 'bi ' + (icons[batch]||'bi-circle');
+      }
+    }
+    if (d.points > 0) showToast(`+${d.points} pts!`,'success');
+    _updateCardStatus(btn);
   });
 }
 
-function _updateRowStatus(btn) {
-  const row = btn.closest('tr');
-  if (!row) return;
-  const allBtns = row.querySelectorAll('.d2-batch-toggle');
-  const doneCount = [...allBtns].filter(b => b.classList.contains('d2-batch-done')).length;
-  const statusCell = row.querySelector('.d2-status-cell');
-  if (statusCell) {
-    if (doneCount === 3) {
-      statusCell.innerHTML = '<span class="badge bg-success"><i class="bi bi-check2-all me-1"></i>Complete</span>';
-      row.className = row.className.replace(/d2-row-\w+/g, '') + ' d2-row-complete';
-    } else if (doneCount > 0) {
-      statusCell.innerHTML = `<span class="badge bg-warning text-dark">${doneCount}/3</span>`;
-      row.className = row.className.replace(/d2-row-\w+/g, '') + ' d2-row-progress';
-    } else {
-      statusCell.innerHTML = '<span class="badge bg-light text-muted">Not started</span>';
-      row.className = row.className.replace(/d2-row-\w+/g, '') + ' d2-row-notstarted';
-    }
+function _updateCardStatus(btn) {
+  const card = btn.closest('.d2-lead-card');
+  if (!card) return;
+  const allBtns = card.querySelectorAll('.d2-batch-btn[data-batch]');
+  const doneCount = [...allBtns].filter(b => b.classList.contains('done')).length;
+
+  // Update left border class
+  card.classList.remove('d2-row-complete','d2-row-progress','d2-row-notstarted');
+  card.classList.add(doneCount===3?'d2-row-complete':doneCount>0?'d2-row-progress':'d2-row-notstarted');
+
+  // Update status badge
+  const sc = card.querySelector('.d2-card-status');
+  if (sc) {
+    if (doneCount===3)      sc.innerHTML = '<span class="badge bg-success"><i class="bi bi-check2-all me-1"></i>Complete</span>';
+    else if (doneCount>0)   sc.innerHTML = `<span class="badge bg-warning text-dark">${doneCount}/3</span>`;
+    else                    sc.innerHTML = '<span class="badge bg-secondary bg-opacity-25 text-body">Not started</span>';
   }
-  const actionCell = row.querySelector('.d2-action-cell');
-  if (actionCell) {
-    const leadId = row.dataset.leadId;
-    if (doneCount === 3) {
-      actionCell.innerHTML = `<button class="btn btn-sm btn-success d2-advance-btn" data-lead-id="${leadId}"><i class="bi bi-arrow-right-circle me-1"></i>Day 3</button>`;
-      bindAdvanceBtn(actionCell.querySelector('.d2-advance-btn'));
+
+  // Update action cell
+  const ac = card.querySelector('.d2-card-action');
+  if (ac) {
+    const leadId = card.dataset.leadId;
+    if (doneCount===3) {
+      ac.innerHTML = `<button class="btn btn-sm btn-success d2-advance-btn" data-lead-id="${leadId}"><i class="bi bi-arrow-right-circle me-1"></i>Move to Day 3</button>`;
+      bindAdvanceBtn(ac.querySelector('.d2-advance-btn'));
     } else {
-      actionCell.innerHTML = '<span class="text-muted small">—</span>';
+      ac.innerHTML = '';
     }
   }
 }
 
-// Mark Only button
 document.getElementById('d2PopupMarkOnly').addEventListener('click', function() {
   if (!_d2Popup.leadId) return;
-  _d2MarkBatch(_d2Popup.leadId, _d2Popup.batch, _d2Popup.btn)
-    .then(() => closeD2Popup());
+  _d2MarkBatch(_d2Popup.leadId, _d2Popup.batch, _d2Popup.btn).then(() => closeD2Popup());
 });
 
-// WA button also marks done after opening
 document.getElementById('d2PopupWA').addEventListener('click', function() {
   if (!_d2Popup.leadId) return;
-  _d2MarkBatch(_d2Popup.leadId, _d2Popup.batch, _d2Popup.btn)
-    .then(() => closeD2Popup());
+  _d2MarkBatch(_d2Popup.leadId, _d2Popup.batch, _d2Popup.btn).then(() => closeD2Popup());
 });
 
-// Batch toggle — open popup if not done, unmark directly if done
-document.querySelectorAll('.d2-batch-toggle').forEach(btn => {
+document.querySelectorAll('.d2-batch-btn[data-batch]').forEach(btn => {
   btn.addEventListener('click', function() {
-    const leadId = this.dataset.leadId;
-    const batch  = this.dataset.batch;
-    const phone  = this.dataset.phone || '';
-    const name   = this.dataset.name  || '';
-
-    if (this.classList.contains('d2-batch-done')) {
-      // Already done — unmark directly
-      _d2MarkBatch(leadId, batch, this);
+    if (this.classList.contains('done')) {
+      _d2MarkBatch(this.dataset.leadId, this.dataset.batch, this);
     } else {
-      // Not done — show popup with send option
-      openD2BatchPopup(leadId, batch, phone, name, this);
+      openD2BatchPopup(this.dataset.leadId, this.dataset.batch, this.dataset.phone||'', this.dataset.name||'', this);
     }
   });
 });
 
-// Advance to Day 3
 function bindAdvanceBtn(btn) {
   btn.addEventListener('click', function() {
     const leadId = this.dataset.leadId;
-    const self   = this;
-    self.disabled = true;
-    self.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
     fetch(`/leads/${leadId}/stage-advance`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': _csrf,
-      },
-      body: JSON.stringify({ action: 'day2_complete' }),
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRF-Token':_csrf},
+      body: JSON.stringify({action:'day2_complete'}),
     })
     .then(r => r.json())
     .then(d => {
-      if (!d.ok) {
-        showToast(d.error || 'Error advancing lead', 'danger');
-        self.disabled = false;
-        self.innerHTML = '<i class="bi bi-arrow-right-circle me-1"></i>Day 3';
-        return;
-      }
-      showToast('Lead moved to Day 3!', 'success');
-      // Remove row from table
-      const row = self.closest('tr');
-      if (row) {
-        row.style.transition = 'opacity 0.4s';
-        row.style.opacity = '0';
-        setTimeout(() => row.remove(), 400);
-      }
+      if (!d.ok) { showToast(d.error||'Error','danger'); this.disabled=false; this.innerHTML='<i class="bi bi-arrow-right-circle me-1"></i>Move to Day 3'; return; }
+      showToast('Lead moved to Day 3!','success');
+      const card = this.closest('.d2-lead-card');
+      if (card) { card.style.transition='opacity .4s'; card.style.opacity='0'; setTimeout(()=>card.remove(),400); }
     })
-    .catch(() => {
-      showToast('Network error', 'danger');
-      self.disabled = false;
-      self.innerHTML = '<i class="bi bi-arrow-right-circle me-1"></i>Day 3';
-    });
+    .catch(() => { showToast('Network error','danger'); this.disabled=false; this.innerHTML='<i class="bi bi-arrow-right-circle me-1"></i>Move to Day 3'; });
   });
 }
-
 document.querySelectorAll('.d2-advance-btn').forEach(bindAdvanceBtn);
+
+// Close popup on backdrop click
+document.getElementById('d2BatchPopup').addEventListener('click', function(e) {
+  if (e.target === this) closeD2Popup();
+});
 </script>
 {% endblock %}
