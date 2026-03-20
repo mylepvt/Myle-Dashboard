@@ -9,7 +9,7 @@
     })();
   </script>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>{% block title %}Myle Community{% endblock %}</title>
 
   <!-- PWA -->
@@ -18,7 +18,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <!-- iOS PWA -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   <meta name="apple-mobile-web-app-title" content="Myle" />
   <link rel="apple-touch-icon" href="/static/icon-192.png" />
 
@@ -661,27 +661,35 @@ if (!window.CSS || !window.CSS.supports) {
     const sidebar      = document.getElementById('sidebar');
     const backdrop     = document.getElementById('sidebarBackdrop');
     const toggle       = document.getElementById('sidebarToggle');
-    const pageWrapper  = document.getElementById('page-content-wrapper');
     if (!sidebar || !backdrop || !toggle) return;
 
     function isMobile() { return window.innerWidth <= 991; }
 
     function closeMobileSidebar() {
+      const savedY = parseInt(document.body.dataset.scrollY || '0', 10);
       sidebar.classList.remove('mobile-open');
       backdrop.classList.remove('show');
       document.body.style.overflow = '';
-      if (pageWrapper) pageWrapper.style.overflowY = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, savedY);
+      delete document.body.dataset.scrollY;
     }
 
     toggle.addEventListener('click', () => {
       if (isMobile()) {
         const opening = !sidebar.classList.contains('mobile-open');
         if (opening) {
+          const scrollY = window.scrollY || 0;
           sidebar.classList.remove('collapsed');
           sidebar.classList.add('mobile-open');
           backdrop.classList.add('show');
+          document.body.dataset.scrollY = String(scrollY);
           document.body.style.overflow = 'hidden';
-          if (pageWrapper) pageWrapper.style.overflowY = 'hidden';
+          document.body.style.position = 'fixed';
+          document.body.style.top = '-' + scrollY + 'px';
+          document.body.style.width = '100%';
         } else {
           closeMobileSidebar();
         }
@@ -703,10 +711,15 @@ if (!window.CSS || !window.CSS.supports) {
         if (isMobile()) {
           sidebar.classList.remove('collapsed');
         } else {
+          const savedY = parseInt(document.body.dataset.scrollY || '0', 10);
           sidebar.classList.remove('mobile-open');
           backdrop.classList.remove('show');
           document.body.style.overflow = '';
-          if (pageWrapper) pageWrapper.style.overflowY = '';
+          document.body.style.position = '';
+          document.body.style.top = '';
+          document.body.style.width = '';
+          window.scrollTo(0, savedY);
+          delete document.body.dataset.scrollY;
         }
       });
     }, { passive: true });
