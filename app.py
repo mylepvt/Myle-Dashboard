@@ -1771,19 +1771,31 @@ def watch_batch(slot, v):
             pass
     setting_key = f'batch_{slot}_v{v}'
     yt_url = _get_setting(db, setting_key, '')
-    fallback_used = False
-    # Fallback: if v1 not configured (common misconfig), allow Watch 1 to open v2.
-    # Token auto-marking is based only on `slot`, so using v2 embed is safe.
-    if not yt_url and int(v) == 1:
-        yt_url = _get_setting(db, f'batch_{slot}_v2', '')
-        fallback_used = True
-    db.close()
     embed_url = _youtube_embed_url(yt_url)
+    fallback_used = False
+
+    # Fallback: If Watch 1's embed URL can't be derived (empty OR invalid URL),
+    # open Video 2 embed instead. Token auto-marking is based only on `slot`,
+    # so using v2 is safe for marking completion.
+    if int(v) == 1 and not embed_url:
+        yt_url_v2 = _get_setting(db, f'batch_{slot}_v2', '')
+        embed_url = _youtube_embed_url(yt_url_v2)
+        yt_url = yt_url_v2
+        fallback_used = bool(embed_url)
+
+    db.close()
+
     if not embed_url:
-        return render_template('watch_video.html', error='Video not configured', title=_BATCH_LABELS.get(slot, 'Batch Video')), 404
+        return render_template(
+            'watch_video.html',
+            error='Video not configured',
+            title=_BATCH_LABELS.get(slot, 'Batch Video')
+        ), 404
+
     title = _BATCH_LABELS.get(slot, 'Batch Video') + ' — Video ' + str(v)
     if fallback_used:
         title = _BATCH_LABELS.get(slot, 'Batch Video') + ' — Video 1 (using Video 2)'
+
     return render_template('watch_batch.html', embed_url=embed_url, title=title, slot=slot, v=v)
 
 
