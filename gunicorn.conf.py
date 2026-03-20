@@ -3,6 +3,9 @@ gunicorn.conf.py — Myle Dashboard production config
 """
 import os
 
+# Render / Railway / etc. set PORT; bind required for public HTTP.
+bind = "0.0.0.0:" + os.environ.get("PORT", "5003")
+
 workers      = 2
 worker_class = "sync"
 timeout      = 120

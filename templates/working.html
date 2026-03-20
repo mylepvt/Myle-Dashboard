@@ -1596,14 +1596,6 @@ function spawnConfetti(anchorEl) {
 // BATCH VIDEO POPUP
 // ═══════════════════════════════════════════════════════════════════════════
 
-const BATCH_VIDEOS = {
-  d1_morning:   { v1: "{{ batch_videos.d1_morning_v1|default('') }}", v2: "{{ batch_videos.d1_morning_v2|default('') }}" },
-  d1_afternoon: { v1: "{{ batch_videos.d1_afternoon_v1|default('') }}", v2: "{{ batch_videos.d1_afternoon_v2|default('') }}" },
-  d1_evening:   { v1: "{{ batch_videos.d1_evening_v1|default('') }}", v2: "{{ batch_videos.d1_evening_v2|default('') }}" },
-  d2_morning:   { v1: "{{ batch_videos.d2_morning_v1|default('') }}", v2: "{{ batch_videos.d2_morning_v2|default('') }}" },
-  d2_afternoon: { v1: "{{ batch_videos.d2_afternoon_v1|default('') }}", v2: "{{ batch_videos.d2_afternoon_v2|default('') }}" },
-  d2_evening:   { v1: "{{ batch_videos.d2_evening_v1|default('') }}", v2: "{{ batch_videos.d2_evening_v2|default('') }}" },
-};
 const BATCH_WATCH_URLS = {
   d1_morning:   { v1: "{{ batch_watch_urls.d1_morning.v1|default('') }}", v2: "{{ batch_watch_urls.d1_morning.v2|default('') }}" },
   d1_afternoon: { v1: "{{ batch_watch_urls.d1_afternoon.v1|default('') }}", v2: "{{ batch_watch_urls.d1_afternoon.v2|default('') }}" },
@@ -1660,15 +1652,20 @@ async function openBatchPopup(leadId, batchKey, phone, leadName, btnEl) {
       body: JSON.stringify({ slot: batchKey })
     });
     const data = await res.json();
-    if (data.ok) {
+    if (res.ok && data.ok) {
       link1 = data.watch_url_v1 || '';
       link2 = data.watch_url_v2 || '';
+    } else {
+      // Keep links in-app even when token API fails.
+      const watch = BATCH_WATCH_URLS[batchKey] || {};
+      link1 = watch.v1 || '';
+      link2 = watch.v2 || '';
     }
   } catch (e) {
-    // Fallback to static URLs if network error
-    const videos = BATCH_VIDEOS[batchKey] || {};
-    link1 = videos.v1 || '';
-    link2 = videos.v2 || '';
+    // Network fallback: still use in-app watch URLs (never raw YouTube links)
+    const watch = BATCH_WATCH_URLS[batchKey] || {};
+    link1 = watch.v1 || '';
+    link2 = watch.v2 || '';
   }
 
   const hasLinks = link1 || link2;

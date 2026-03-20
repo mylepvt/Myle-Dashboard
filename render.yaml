@@ -1,0 +1,21 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Dashboard: New → Blueprint → Connect this repo → Apply
+# Ya existing Web Service me repo + branch verify karo.
+
+services:
+  - type: web
+    name: myle-dashboard
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app -c gunicorn.conf.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      # Dashboard → Environment → add SECRET_KEY (random long string)
+      - key: SECRET_KEY
+        sync: false
+      # SQLite persistence (optional): Render disk mount + DATABASE_PATH=/var/data/leads.db
+      # - key: DATABASE_PATH
+      #   value: /var/data/leads.db

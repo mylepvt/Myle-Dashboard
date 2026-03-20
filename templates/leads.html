@@ -1160,6 +1160,7 @@ function setBatch(leadId, day, batchVal) {
     var t = document.createElement('input');
     t.setAttribute('type', 'text');
     t.setAttribute('inputmode', 'text');
+    t.setAttribute('data-ios-temp-focus', '1');
     // opacity:0.01 (not 0) + no pointer-events override so iOS WebKit
     // still treats this as a valid focusable / touchable element.
     // z-index:99999 ensures it's above backdrop so iOS hit-testing sees it.
@@ -1171,6 +1172,12 @@ function setBatch(leadId, day, batchVal) {
     return t;
   }
 
+  function removeIosTempFocusInputs() {
+    document.querySelectorAll('input[data-ios-temp-focus], textarea[data-ios-temp-focus]').forEach(function(n) {
+      try { n.remove(); } catch (e) {}
+    });
+  }
+
   function iosFocusModal(modalId, realInputSelector) {
     var triggers = document.querySelectorAll('[data-bs-target="' + modalId + '"]');
     var modalEl  = document.querySelector(modalId);
@@ -1178,6 +1185,8 @@ function setBatch(leadId, day, batchVal) {
 
     triggers.forEach(function(btn) {
       btn.addEventListener('click', function() {
+        // Never leave orphaned temp inputs (double-tap Quick Add → ghost layer bugs)
+        removeIosTempFocusInputs();
         // Step 1: focus temp input within the synchronous gesture chain → keyboard opens
         var tmp = makeTempInput();
         document.body.appendChild(tmp);
@@ -1209,6 +1218,43 @@ function setBatch(leadId, day, batchVal) {
   iosFocusModal('#importModal',   'input:not([type=file]), select');
 })();
 
+/* ── iOS: tap-to-focus inside modals (WebKit hit-testing vs keyboard) ───
+   After the keyboard opens, touches sometimes miss lower inputs (Enter still
+   works). Re-focus from touchend in the same user gesture restores taps.   ── */
+(function() {
+  var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (!isIOS) return;
+  function fieldFromTarget(t) {
+    if (!t || !t.closest) return null;
+    var field = t.closest('input, select, textarea');
+    if (field) return field;
+    var lbl = t.closest('label');
+    if (lbl) {
+      if (lbl.control) return lbl.control;
+      var fid = lbl.getAttribute('for');
+      if (fid) return document.getElementById(fid);
+    }
+    return null;
+  }
+  ['#quickAddModal', '#importModal'].forEach(function(sel) {
+    var modal = document.querySelector(sel);
+    if (!modal) return;
+    modal.addEventListener('touchend', function(e) {
+      var field = fieldFromTarget(e.target);
+      if (!field || field.disabled || field.type === 'file' || field.type === 'hidden') return;
+      if (document.activeElement === field) return;
+      requestAnimationFrame(function() {
+        try {
+          field.focus({ preventScroll: false });
+          if (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA') {
+            try { field.setSelectionRange(field.value.length, field.value.length); } catch (err) {}
+          }
+        } catch (err) {}
+      });
+    }, { passive: true, capture: true });
+  });
+})();
+
 /* ── iOS visual-viewport / keyboard fix ─────────────────────────────────
    Problem: when iOS keyboard opens, it covers the bottom of the modal —
    hiding the footer buttons (Cancel / Add Lead). The keyboard shrinks the
@@ -1220,10 +1266,16 @@ function setBatch(leadId, day, batchVal) {
    forces the body to scroll inside a shorter container and keeps the
    footer always visible above the keyboard.
 
-   CRITICAL: visualViewport fires 30–60×/sec when keyboard animates. Without
-   throttling, onVVChange caused layout thrashing → app freeze on iOS.       ── */
+   IMPORTANT (Mar 2025+): Updating max-height on every visualViewport frame
+   causes layout thrashing AND mis-aligns touch hit-testing vs painted pixels
+   on iOS — taps miss fields below the first row; whole page can feel "dead".
+   We therefore SKIP this JS on iOS and rely on CSS dvh + inner scroll.
+   Non-iOS (e.g. Android Chrome) still gets the dynamic cap.                ── */
 (function() {
   if (!window.visualViewport) return;
+  var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isIOS) return;
+
   var TOP_MARGIN = Math.max(10, Math.round(window.innerHeight * 0.02));
   var lastRun = 0;
   var rafId = null;
@@ -1260,6 +1312,25 @@ function setBatch(leadId, day, batchVal) {
       var cnt = m.querySelector('.modal-content');
       if (dlg) dlg.style.maxHeight = '';
       if (cnt) cnt.style.maxHeight = '';
+    });
+  });
+})();
+
+/* ── Modal close: strip temp focus hacks + heal body if Bootstrap glitches ─ */
+(function() {
+  document.addEventListener('hidden.bs.modal', function(ev) {
+    document.querySelectorAll('input[data-ios-temp-focus], textarea[data-ios-temp-focus]').forEach(function(n) {
+      try { n.remove(); } catch (e) {}
+    });
+    var id = ev.target && ev.target.id;
+    if (id !== 'quickAddModal' && id !== 'importModal') return;
+    requestAnimationFrame(function() {
+      if (!document.querySelector('.modal.show')) {
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+        document.querySelectorAll('.modal-backdrop').forEach(function(b) { b.remove(); });
+      }
     });
   });
 })();
@@ -1361,6 +1432,16 @@ document.querySelectorAll('#importModal form').forEach(function(form) {
 #importModal   .modal-content {
   max-height: 94vh;
   overflow: hidden;
+}
+
+/* Safari/iOS: dvh tracks visible viewport (keyboard) — must come AFTER 94vh fallback */
+@supports (height: 100dvh) {
+  #quickAddModal .modal-dialog,
+  #importModal   .modal-dialog,
+  #quickAddModal .modal-content,
+  #importModal   .modal-content {
+    max-height: min(94dvh, 94vh);
+  }
 }
 
 /* Form inside modal-content: flex column so body expands and footer sticks */

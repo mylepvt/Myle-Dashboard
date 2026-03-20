@@ -1659,7 +1659,7 @@ def enroll_generate_link():
     db.commit()
     db.close()
 
-    watch_url = url_for('watch_video', token=token, _external=True)
+    watch_url = _public_external_url('watch_video', token=token)
     return jsonify({'ok': True, 'token': token, 'watch_url': watch_url})
 
 
@@ -1677,6 +1677,19 @@ def _youtube_embed_url(raw_url):
         vid = m.group(1)
         return 'https://www.youtube-nocookie.com/embed/' + vid + '?rel=0&modestbranding=1&playsinline=1'
     return ''
+
+
+def _public_external_url(endpoint, **values):
+    """Build stable absolute URLs behind proxies (Render/Cloudflare/Nginx)."""
+    path = url_for(endpoint, _external=False, **values)
+    try:
+        proto = (request.headers.get('X-Forwarded-Proto') or request.scheme or 'https').split(',')[0].strip()
+        host = (request.headers.get('X-Forwarded-Host') or request.host or '').split(',')[0].strip()
+        if host:
+            return f"{proto}://{host}{path}"
+    except RuntimeError:
+        pass
+    return url_for(endpoint, _external=True, **values)
 
 
 @app.route('/watch/enrollment')
@@ -1702,8 +1715,8 @@ _BATCH_LABELS = {
 def _batch_watch_urls():
     """In-app watch URLs for each batch slot (v1, v2). Prospect opens our page, not YouTube."""
     return {
-        slot: {'v1': url_for('watch_batch', slot=slot, v=1, _external=True),
-               'v2': url_for('watch_batch', slot=slot, v=2, _external=True)}
+        slot: {'v1': _public_external_url('watch_batch', slot=slot, v=1),
+               'v2': _public_external_url('watch_batch', slot=slot, v=2)}
         for slot in _BATCH_SLOTS
     }
 
@@ -8435,8 +8448,8 @@ def batch_share_url(lead_id):
         )
         db.commit()
     db.close()
-    watch_url_v1 = url_for('watch_batch', slot=slot, v=1, _external=True) + '?token=' + token
-    watch_url_v2 = url_for('watch_batch', slot=slot, v=2, _external=True) + '?token=' + token
+    watch_url_v1 = _public_external_url('watch_batch', slot=slot, v=1) + '?token=' + token
+    watch_url_v2 = _public_external_url('watch_batch', slot=slot, v=2) + '?token=' + token
     return {'ok': True, 'watch_url_v1': watch_url_v1, 'watch_url_v2': watch_url_v2}
 
 
