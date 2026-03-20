@@ -29,6 +29,11 @@
   <div class="d2-summary-chip d2-chip-notstarted">
     <i class="bi bi-circle me-1"></i>{{ not_started_count }} not started
   </div>
+  {% if can_edit and complete_count > 0 %}
+  <div class="d2-summary-chip" style="background:rgba(var(--bs-success-rgb),.12);color:var(--bs-success);border-color:var(--bs-success);">
+    <i class="bi bi-arrow-right-circle-fill me-1"></i>{{ complete_count }} ready for Day 3
+  </div>
+  {% endif %}
   <div class="ms-auto text-muted small d-flex align-items-center">
     <i class="bi bi-arrow-clockwise me-1"></i>Refreshes every 60s
   </div>
@@ -44,12 +49,16 @@
           <tr>
             <th class="ps-4">Lead Name</th>
             <th>Member</th>
+            {% if can_edit %}
+            <th>Leader</th>
+            {% endif %}
             <th class="text-center"><i class="bi bi-sunrise-fill text-warning me-1"></i>Morning</th>
             <th class="text-center"><i class="bi bi-sun-fill text-orange me-1"></i>Afternoon</th>
             <th class="text-center"><i class="bi bi-moon-fill text-indigo me-1"></i>Evening</th>
-            <th class="text-center">Status</th>
+            <th class="text-center d2-status-col">Status</th>
             {% if can_edit %}
             <th class="text-center text-muted small">Last Update</th>
+            <th class="text-center">Action</th>
             {% endif %}
           </tr>
         </thead>
@@ -61,7 +70,8 @@
           <tr class="d2-lead-row
             {% if done_count == 3 %}d2-row-complete
             {% elif done_count > 0 %}d2-row-progress
-            {% else %}d2-row-notstarted{% endif %}">
+            {% else %}d2-row-notstarted{% endif %}"
+            data-lead-id="{{ lead.id }}">
 
             <td class="ps-4">
               <div class="fw-semibold">{{ lead.name }}</div>
@@ -76,6 +86,19 @@
                 {% if is_own %}<small>(you)</small>{% endif %}
               </span>
             </td>
+
+            {% if can_edit %}
+            <td>
+              {% set leader_name = leader_map.get(lead.assigned_to, '—') %}
+              {% if leader_name and leader_name != '—' %}
+              <span class="badge bg-purple-subtle text-purple" style="background:rgba(111,66,193,.12);color:#6f42c1;">
+                <i class="bi bi-person-badge me-1"></i>{{ leader_name }}
+              </span>
+              {% else %}
+              <span class="text-muted small">—</span>
+              {% endif %}
+            </td>
+            {% endif %}
 
             <!-- Morning -->
             <td class="text-center">
@@ -130,7 +153,7 @@
             </td>
 
             <!-- Status pill -->
-            <td class="text-center">
+            <td class="text-center d2-status-cell">
               {% if done_count == 3 %}
               <span class="badge bg-success"><i class="bi bi-check2-all me-1"></i>Complete</span>
               {% elif done_count > 0 %}
@@ -150,6 +173,17 @@
                 {% if lead.hours_since_update < 1 %}Just now
                 {% elif lead.hours_since_update < 24 %}{{ lead.hours_since_update }}h ago
                 {% else %}{{ (lead.hours_since_update // 24) }}d ago{% endif %}
+              {% endif %}
+            </td>
+            <td class="text-center d2-action-cell">
+              {% if done_count == 3 %}
+              <button class="btn btn-sm btn-success d2-advance-btn"
+                      data-lead-id="{{ lead.id }}"
+                      title="Advance to Day 3">
+                <i class="bi bi-arrow-right-circle me-1"></i>Day 3
+              </button>
+              {% else %}
+              <span class="text-muted small">—</span>
               {% endif %}
             </td>
             {% endif %}
@@ -172,6 +206,7 @@
 <script>
 const _csrf = window._csrfToken || '{{ csrf_token }}';
 
+// Batch toggle
 document.querySelectorAll('.d2-batch-toggle').forEach(btn => {
   btn.addEventListener('click', function() {
     const leadId = this.dataset.leadId;
@@ -199,12 +234,13 @@ document.querySelectorAll('.d2-batch-toggle').forEach(btn => {
       const pts = d.points;
       if (pts > 0) showToast(`+${pts} pts!`, 'success');
 
-      // Update row status
+      // Update row status + action cell
       const row = self.closest('tr');
       if (row) {
         const allBtns = row.querySelectorAll('.d2-batch-toggle');
         const doneCount = [...allBtns].filter(b => b.classList.contains('d2-batch-done')).length;
-        const statusCell = row.querySelector('td:nth-last-child({% if can_edit %}2{% else %}1{% endif %})');
+
+        const statusCell = row.querySelector('.d2-status-cell');
         if (statusCell) {
           if (doneCount === 3) {
             statusCell.innerHTML = '<span class="badge bg-success"><i class="bi bi-check2-all me-1"></i>Complete</span>';
@@ -217,10 +253,65 @@ document.querySelectorAll('.d2-batch-toggle').forEach(btn => {
             row.className = row.className.replace(/d2-row-\w+/g, '') + ' d2-row-notstarted';
           }
         }
+
+        // Show/hide advance button
+        const actionCell = row.querySelector('.d2-action-cell');
+        if (actionCell) {
+          const leadId = row.dataset.leadId;
+          if (doneCount === 3) {
+            actionCell.innerHTML = `<button class="btn btn-sm btn-success d2-advance-btn" data-lead-id="${leadId}" title="Advance to Day 3"><i class="bi bi-arrow-right-circle me-1"></i>Day 3</button>`;
+            bindAdvanceBtn(actionCell.querySelector('.d2-advance-btn'));
+          } else {
+            actionCell.innerHTML = '<span class="text-muted small">—</span>';
+          }
+        }
       }
     })
     .catch(() => showToast('Network error', 'danger'));
   });
 });
+
+// Advance to Day 3
+function bindAdvanceBtn(btn) {
+  btn.addEventListener('click', function() {
+    const leadId = this.dataset.leadId;
+    const self   = this;
+    self.disabled = true;
+    self.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    fetch(`/leads/${leadId}/stage-advance`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': _csrf,
+      },
+      body: JSON.stringify({ action: 'day2_complete' }),
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok) {
+        showToast(d.error || 'Error advancing lead', 'danger');
+        self.disabled = false;
+        self.innerHTML = '<i class="bi bi-arrow-right-circle me-1"></i>Day 3';
+        return;
+      }
+      showToast('Lead moved to Day 3!', 'success');
+      // Remove row from table
+      const row = self.closest('tr');
+      if (row) {
+        row.style.transition = 'opacity 0.4s';
+        row.style.opacity = '0';
+        setTimeout(() => row.remove(), 400);
+      }
+    })
+    .catch(() => {
+      showToast('Network error', 'danger');
+      self.disabled = false;
+      self.innerHTML = '<i class="bi bi-arrow-right-circle me-1"></i>Day 3';
+    });
+  });
+}
+
+document.querySelectorAll('.d2-advance-btn').forEach(bindAdvanceBtn);
 </script>
 {% endblock %}

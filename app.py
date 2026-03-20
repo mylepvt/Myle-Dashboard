@@ -1675,7 +1675,7 @@ def _youtube_embed_url(raw_url):
     )
     if m:
         vid = m.group(1)
-        return 'https://www.youtube.com/embed/' + vid + '?rel=0&modestbranding=1'
+        return 'https://www.youtube-nocookie.com/embed/' + vid + '?rel=0&modestbranding=1&playsinline=1'
     return ''
 
 
@@ -1738,10 +1738,22 @@ def _mark_batch_done_for_lead(db, lead_id, slot):
 
 @app.route('/watch/batch/<slot>/<int:v>')
 def watch_batch(slot, v):
-    """Public page: 3-day batch video in minimal embed."""
+    """Public page: 3-day batch video in minimal embed.
+    If ?token= is present, auto-marks that batch slot done for the lead."""
     if slot not in _BATCH_SLOTS or v not in (1, 2):
         return render_template('watch_video.html', error='Invalid link', title='Batch Video'), 404
     db = get_db()
+    # Auto-mark batch done when prospect opens tokenized link
+    token = request.args.get('token', '').strip()
+    if token:
+        try:
+            link = db.execute(
+                "SELECT * FROM batch_share_links WHERE token=? AND used=0", (token,)
+            ).fetchone()
+            if link and link['slot'] == slot:
+                _mark_batch_done_for_lead(db, link['lead_id'], slot)
+        except Exception:
+            pass
     setting_key = f'batch_{slot}_v{v}'
     yt_url = _get_setting(db, setting_key, '')
     db.close()
@@ -2458,10 +2470,37 @@ def admin_dashboard():
         })
     team_board.sort(key=lambda x: x['score'], reverse=True)
 
-    # ── 4. Existing metrics kept ─────────────────────────────────────
-    recent = db.execute(
-        f"SELECT * FROM leads WHERE {_base_w} ORDER BY created_at DESC LIMIT 5"
-    ).fetchall()
+    # ── 4. Recent Live Activity ───────────────────────────────────────
+    _stage_acts = db.execute(f"""
+        SELECT lsh.created_at, 'stage' AS type,
+               COALESCE(l.name,'Unknown') AS lead_name, lsh.lead_id,
+               lsh.stage, lsh.triggered_by AS actor
+        FROM lead_stage_history lsh
+        LEFT JOIN leads l ON l.id = lsh.lead_id
+        WHERE lsh.lead_id IN (SELECT id FROM leads WHERE {_base_w})
+        ORDER BY lsh.created_at DESC LIMIT 12
+    """).fetchall()
+    _new_acts = db.execute(f"""
+        SELECT created_at, 'new_lead' AS type,
+               COALESCE(name,'Unknown') AS lead_name, id AS lead_id,
+               status AS stage, assigned_to AS actor
+        FROM leads WHERE {_base_w} AND in_pool=0
+        AND created_at >= datetime('now','-7 days','localtime')
+        ORDER BY created_at DESC LIMIT 6
+    """).fetchall()
+    _pay_acts = db.execute(f"""
+        SELECT updated_at AS created_at, 'payment' AS type,
+               COALESCE(name,'Unknown') AS lead_name, id AS lead_id,
+               status AS stage, assigned_to AS actor
+        FROM leads WHERE {_base_w} AND payment_done=1
+        AND updated_at >= datetime('now','-7 days','localtime')
+        ORDER BY updated_at DESC LIMIT 6
+    """).fetchall()
+    _all_acts = [dict(r) for r in list(_stage_acts) + list(_new_acts) + list(_pay_acts)]
+    _all_acts.sort(key=lambda x: x.get('created_at') or '', reverse=True)
+    recent_activity = _all_acts[:12]
+
+    recent = []  # kept for template compat but unused
 
     _sc = db.execute(
         f"SELECT status, COUNT(*) as c FROM leads WHERE {_base_w} GROUP BY status"
@@ -2498,7 +2537,6 @@ def admin_dashboard():
         GROUP BY d ORDER BY d
     """, (today,)).fetchall()
 
-    recent = _enrich_leads(recent)
     db.close()
     resp = make_response(render_template('admin.html',
                            metrics=metrics,
@@ -2507,7 +2545,7 @@ def admin_dashboard():
                            pulse=pulse,
                            team_board=team_board,
                            stale_leads=stale_leads,
-                           recent=recent,
+                           recent_activity=recent_activity,
                            status_data=status_data,
                            monthly=monthly,
                            daily_trend=daily_trend,
@@ -7995,11 +8033,13 @@ def working():
 
         _base = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' "
         _s1_ph = ','.join('?' * len(STAGE1_STATUSES))
+        _e_ph  = ','.join('?' * len(ENROLLMENT_STATUSES))
 
         # ── OWN LEADS (leader's personal work) ──────────────────
+        # own_stage1 includes ALL pre-Day-1 leads so enrollment video button is reachable
         own_stage1 = db.execute(
-            _base + _own_where + f" AND status IN ({_s1_ph}) ORDER BY updated_at DESC",
-            _own_params + list(STAGE1_STATUSES)
+            _base + _own_where + f" AND status IN ({_e_ph}) ORDER BY updated_at DESC",
+            _own_params + list(ENROLLMENT_STATUSES)
         ).fetchall()
         own_day1 = db.execute(
             _base + _own_where + " AND status='Day 1' ORDER BY updated_at DESC",
@@ -8026,9 +8066,10 @@ def working():
         if _team_params:
             _t_ph = ','.join('?' * len(_team_params))
             _team_base = f"SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to IN ({_t_ph}) "
+            # team_stage1: all pre-Day-1 leads so leader can track enrollment progress
             team_stage1 = db.execute(
-                _team_base + f"AND status IN ({_s1_ph}) ORDER BY assigned_to, updated_at DESC",
-                _team_params + list(STAGE1_STATUSES)
+                _team_base + f"AND status IN ({_e_ph}) ORDER BY assigned_to, updated_at DESC",
+                _team_params + list(ENROLLMENT_STATUSES)
             ).fetchall()
             team_day1 = db.execute(
                 _team_base + "AND status='Day 1' ORDER BY assigned_to, updated_at DESC",
@@ -8238,9 +8279,11 @@ def working():
     _s1_ph = ','.join('?' * len(STAGE1_STATUSES))
     _e_ph = ','.join('?' * len(ENROLLMENT_STATUSES))
 
+    # stage1_leads shows ALL pre-Day-1 leads (New Lead → Paid ₹196 → Mindset Lock)
+    # so team members can see and send enrollment video to newly claimed leads
     stage1_leads = db.execute(
-        _base_team + f"AND status IN ({_s1_ph}) ORDER BY updated_at DESC",
-        _tp + list(STAGE1_STATUSES)
+        _base_team + f"AND status IN ({_e_ph}) ORDER BY updated_at DESC",
+        _tp + list(ENROLLMENT_STATUSES)
     ).fetchall()
     day1_leads = db.execute(
         _base_team + "AND status='Day 1' ORDER BY updated_at DESC",
@@ -8921,6 +8964,19 @@ def day2_progress():
     can_edit = session.get('role') == 'admin'
     username = session['username']
 
+    # Build leader map: assigned_to → upline_name (for admin view)
+    leader_map = {}
+    if can_edit and day2_leads:
+        usernames_list = list(set(l['assigned_to'] for l in day2_leads if l['assigned_to']))
+        if usernames_list:
+            ph = ','.join('?' * len(usernames_list))
+            urows = db.execute(
+                f"SELECT username, upline_name FROM users WHERE username IN ({ph})",
+                usernames_list
+            ).fetchall()
+            for r in urows:
+                leader_map[r['username']] = r['upline_name'] or '—'
+
     db.close()
     return render_template('day2_progress.html',
         day2_leads=day2_leads,
@@ -8929,6 +8985,8 @@ def day2_progress():
         not_started_count=not_started_count,
         can_edit=can_edit,
         current_user=username,
+        leader_map=leader_map,
+        csrf_token=session.get('_csrf_token', ''),
     )
 
 
