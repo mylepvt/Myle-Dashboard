@@ -125,8 +125,42 @@ else:
 app.permanent_session_lifetime = datetime.timedelta(days=3650)  # ~10 years = effectively forever
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-# Only send session cookie over HTTPS in production (when SECRET_KEY env var is set)
-app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('SECRET_KEY'))
+
+
+def _use_secure_cookies():
+    """True when app is served over HTTPS (Render, explicit env, or legacy SECRET_KEY signal)."""
+    override = (os.environ.get('SESSION_COOKIE_SECURE') or '').strip().lower()
+    if override in ('0', 'false', 'no'):
+        return False
+    if override in ('1', 'true', 'yes'):
+        return True
+    if (os.environ.get('RENDER') or '').lower() == 'true':
+        return True
+    if (os.environ.get('FLASK_ENV') or '').lower() == 'production':
+        return True
+    return bool(_env_secret)
+
+
+app.config['SESSION_COOKIE_SECURE'] = _use_secure_cookies()
+
+
+@app.after_request
+def _security_headers(response):
+    """Baseline security headers for HTML/API responses (disable with SECURITY_HEADERS=0)."""
+    if (os.environ.get('SECURITY_HEADERS') or '1').strip().lower() in ('0', 'false', 'no'):
+        return response
+    # Do not override if something else already set (e.g. future middleware)
+    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
+    response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+    response.headers.setdefault(
+        'Permissions-Policy',
+        'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), '
+        'microphone=(), payment=(), usb=()'
+    )
+    if _use_secure_cookies():
+        response.headers.setdefault('Strict-Transport-Security', 'max-age=31536000')
+    return response
 
 # Persistent upload root: set UPLOAD_ROOT to a persistent path (e.g. /data on Render) so
 # PDF/audio uploads survive restarts; default is project directory (ephemeral on Render).

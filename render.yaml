@@ -13,6 +13,9 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.0"
+      # Render sets RENDER=true → Secure session cookies + HSTS + security headers
+      # Optional: SESSION_COOKIE_SECURE=0 for local HTTP debugging only
+      # Optional: SECURITY_HEADERS=0 to disable X-Frame-Options etc. (debug only)
       # Dashboard → Environment → add SECRET_KEY (random long string)
       - key: SECRET_KEY
         sync: false
