@@ -9013,6 +9013,19 @@ def day2_progress():
     can_edit = session.get('role') == 'admin'
     username = session['username']
 
+    # Build leader map: assigned_to → upline_name (for admin view)
+    leader_map = {}
+    if can_edit and day2_leads:
+        usernames_list = list(set(l['assigned_to'] for l in day2_leads if l['assigned_to']))
+        if usernames_list:
+            ph = ','.join('?' * len(usernames_list))
+            urows = db.execute(
+                f"SELECT username, upline_name FROM users WHERE username IN ({ph})",
+                usernames_list
+            ).fetchall()
+            for r in urows:
+                leader_map[r['username']] = r['upline_name'] or '—'
+
     db.close()
     return render_template('day2_progress.html',
         day2_leads=day2_leads,
@@ -9021,6 +9034,8 @@ def day2_progress():
         not_started_count=not_started_count,
         can_edit=can_edit,
         current_user=username,
+        leader_map=leader_map,
+        csrf_token=session.get('_csrf_token', ''),
     )
 
 
