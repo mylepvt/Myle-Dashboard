@@ -2003,8 +2003,8 @@ function reactivateLead(leadId, selectEl) {
       background:#f8f9fc; border-radius:10px; padding:12px;">
     </div>
 
-    <!-- Buttons -->
-    <div style="position:sticky; bottom:0; background:#fff; padding-top:8px; border-top:1px solid #eef2f7;">
+    <!-- Buttons (non-sticky: iOS Safari can clip sticky inside overflow sheets) -->
+    <div style="background:#fff; padding-top:8px; padding-bottom:calc(8px + env(safe-area-inset-bottom, 0px)); border-top:1px solid #eef2f7;">
     <button id="popupSendBtn"
       onclick="sendAndMark()"
       style="width:100%; padding:14px; border-radius:12px;
@@ -2035,6 +2035,9 @@ function reactivateLead(leadId, selectEl) {
 </div>
 
 <style>
+#batchPopup {
+  touch-action: pan-y;
+}
 @keyframes slideUp {
   from { transform: translateY(100%); opacity: 0.8; }
   to   { transform: translateY(0); opacity: 1; }
