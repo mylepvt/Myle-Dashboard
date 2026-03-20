@@ -1623,32 +1623,65 @@ let _popupState = {
   cardEl: null,
 };
 
-function openBatchPopup(leadId, batchKey, phone, leadName, btnEl) {
+async function openBatchPopup(leadId, batchKey, phone, leadName, btnEl) {
   _popupState = { leadId, batchKey, phone, cardEl: btnEl.closest('.wk-lead-card') };
   document.getElementById('popupBatchName').textContent = BATCH_LABELS[batchKey] || batchKey;
   document.getElementById('popupLeadName').textContent = leadName;
 
-  const videos = BATCH_VIDEOS[batchKey] || {};
-  const watchUrls = (typeof BATCH_WATCH_URLS !== 'undefined' && BATCH_WATCH_URLS[batchKey]) ? BATCH_WATCH_URLS[batchKey] : {};
-  const link1 = watchUrls.v1 || videos.v1 || '';
-  const link2 = watchUrls.v2 || videos.v2 || '';
-  const hasLinks = link1 || link2;
   const linksDiv = document.getElementById('popupVideoLinks');
+  document.getElementById('popupSendBtn').style.display = 'none';
 
+  // Show popup first with loading state
+  const popup = document.getElementById('batchPopup');
+  popup.style.display = 'flex';
+  popup.style.opacity = '0';
+  document.body.style.overflow = 'hidden';
+  requestAnimationFrame(function() {
+    popup.style.transition = 'opacity 0.25s cubic-bezier(0.25,0.1,0.25,1)';
+    popup.style.opacity = '1';
+  });
+
+  linksDiv.innerHTML = `<div style="font-size:0.8rem;color:#9ca3af;text-align:center;">
+    <span class="spinner-border spinner-border-sm me-2"></span>Link generate ho rahi hai...
+  </div>`;
+
+  // Fetch lead-specific token URLs (prospect opens → batch auto-marks)
+  let link1 = '', link2 = '';
+  try {
+    const res = await fetch(`/leads/${leadId}/batch-share-url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf },
+      body: JSON.stringify({ slot: batchKey })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      link1 = data.watch_url_v1 || '';
+      link2 = data.watch_url_v2 || '';
+    }
+  } catch (e) {
+    // Fallback to static URLs if network error
+    const videos = BATCH_VIDEOS[batchKey] || {};
+    link1 = videos.v1 || '';
+    link2 = videos.v2 || '';
+  }
+
+  const hasLinks = link1 || link2;
   if (hasLinks) {
     linksDiv.dataset.v1 = link1;
     linksDiv.dataset.v2 = link2;
+    _popupState.link1 = link1;
+    _popupState.link2 = link2;
     linksDiv.innerHTML = `
       <div style="font-size:0.75rem;font-weight:700;color:var(--label-3,#6b7280);margin-bottom:8px;">
         Prospect ko ye link bhejoge — video humari site pe open hogi, YouTube nahi. Nice focus! 🎯
       </div>
       ${link1 ? `<div style="font-size:0.8rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <button type="button" class="btn btn-sm btn-primary py-1 btn-watch-batch" data-video-key="v1"><i class="bi bi-play-fill me-1"></i>Watch 1</button>
-        <span style="word-break:break-all;color:#6366f1;">${link1}</span>
+        <span style="word-break:break-all;color:#6366f1;font-size:0.7rem;">${link1}</span>
       </div>` : ''}
       ${link2 ? `<div style="font-size:0.8rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <button type="button" class="btn btn-sm btn-primary py-1 btn-watch-batch" data-video-key="v2"><i class="bi bi-play-fill me-1"></i>Watch 2</button>
-        <span style="word-break:break-all;color:#6366f1;">${link2}</span>
+        <span style="word-break:break-all;color:#6366f1;font-size:0.7rem;">${link2}</span>
       </div>` : ''}
     `;
     linksDiv.querySelectorAll('.btn-watch-batch').forEach(function(btn) {
@@ -1667,15 +1700,6 @@ function openBatchPopup(leadId, batchKey, phone, leadName, btnEl) {
     `;
     document.getElementById('popupSendBtn').style.display = 'none';
   }
-
-  const popup = document.getElementById('batchPopup');
-  popup.style.display = 'flex';
-  popup.style.opacity = '0';
-  document.body.style.overflow = 'hidden';
-  requestAnimationFrame(function() {
-    popup.style.transition = 'opacity 0.25s cubic-bezier(0.25,0.1,0.25,1)';
-    popup.style.opacity = '1';
-  });
 }
 
 function closeBatchPopup() {
@@ -1690,10 +1714,9 @@ function closeBatchPopup() {
 
 async function sendAndMark() {
   const { leadId, batchKey, phone } = _popupState;
-  var watchUrls = (typeof BATCH_WATCH_URLS !== 'undefined' && BATCH_WATCH_URLS[batchKey]) ? BATCH_WATCH_URLS[batchKey] : {};
-  var videos = BATCH_VIDEOS[batchKey] || {};
-  var link1 = (watchUrls.v1 || videos.v1) || '';
-  var link2 = (watchUrls.v2 || videos.v2) || '';
+  // Use token URLs already fetched in openBatchPopup (lead-specific, auto-marks when prospect watches)
+  var link1 = _popupState.link1 || '';
+  var link2 = _popupState.link2 || '';
 
   await _markBatchDone(leadId, batchKey);
 

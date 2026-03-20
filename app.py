@@ -1738,10 +1738,22 @@ def _mark_batch_done_for_lead(db, lead_id, slot):
 
 @app.route('/watch/batch/<slot>/<int:v>')
 def watch_batch(slot, v):
-    """Public page: 3-day batch video in minimal embed."""
+    """Public page: 3-day batch video in minimal embed.
+    If ?token= is present, auto-marks that batch slot done for the lead."""
     if slot not in _BATCH_SLOTS or v not in (1, 2):
         return render_template('watch_video.html', error='Invalid link', title='Batch Video'), 404
     db = get_db()
+    # Auto-mark batch done when prospect opens tokenized link
+    token = request.args.get('token', '').strip()
+    if token:
+        try:
+            link = db.execute(
+                "SELECT * FROM batch_share_links WHERE token=? AND used=0", (token,)
+            ).fetchone()
+            if link and link['slot'] == slot:
+                _mark_batch_done_for_lead(db, link['lead_id'], slot)
+        except Exception:
+            pass
     setting_key = f'batch_{slot}_v{v}'
     yt_url = _get_setting(db, setting_key, '')
     db.close()
