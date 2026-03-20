@@ -173,6 +173,12 @@
           <i class="bi bi-people-fill me-2"></i><span>My Team</span>
         </a>
       </li>
+      <li class="nav-item">
+        <a href="{{ url_for('leader_coaching') }}"
+           class="nav-link {% if request.endpoint == 'leader_coaching' %}active{% endif %}">
+          <i class="bi bi-person-lines-fill me-2"></i><span>Coaching Panel</span>
+        </a>
+      </li>
       {% endif %}
       {% if session.get('role') != 'admin' %}
       <li class="nav-item">
@@ -243,6 +249,18 @@
         <a href="{{ url_for('admin_activity') }}"
            class="nav-link {% if request.endpoint == 'admin_activity' %}active{% endif %}">
           <i class="bi bi-activity me-2"></i><span>Activity Log</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('leader_coaching') }}"
+           class="nav-link {% if request.endpoint == 'leader_coaching' %}active{% endif %}">
+          <i class="bi bi-person-lines-fill me-2"></i><span>Coaching Panel</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{{ url_for('admin_pipeline_analytics') }}"
+           class="nav-link {% if request.endpoint == 'admin_pipeline_analytics' %}active{% endif %}">
+          <i class="bi bi-bar-chart-steps me-2"></i><span>Pipeline Analytics</span>
         </a>
       </li>
       {% endif %}
@@ -1857,6 +1875,220 @@ window.mayaSend=function(){};window.mayaClear=function(){};window.mayaToggle=fun
 })();
 </script>
 {% endif %}
+
+<!-- ══════════════════════════════════════════════════════
+     Module 1 — Prospect Timeline Drawer
+     ══════════════════════════════════════════════════════ -->
+<div id="timelineDrawer" class="timeline-drawer" role="dialog" aria-modal="true" aria-label="Prospect Timeline">
+  <div class="timeline-overlay" id="timelineOverlay" onclick="closeTimeline()"></div>
+  <div class="timeline-panel">
+    <!-- Header -->
+    <div class="timeline-header d-flex justify-content-between align-items-start gap-2">
+      <div>
+        <div class="fw-semibold" id="tlLeadName" style="font-size:1rem;">—</div>
+        <div id="tlLeadMeta" class="text-muted small">Loading…</div>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary flex-shrink-0" onclick="closeTimeline()" style="min-height:32px;">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="timeline-header pt-0 pb-2">
+      <div class="tl-tabs">
+        <button class="tl-tab-btn active" id="tlTab-history"  onclick="tlSwitchTab('history')">
+          <i class="bi bi-arrow-right-circle me-1"></i>Stages
+        </button>
+        <button class="tl-tab-btn" id="tlTab-notes"   onclick="tlSwitchTab('notes')">
+          <i class="bi bi-chat-left-text me-1"></i>Notes
+        </button>
+        <button class="tl-tab-btn" id="tlTab-calls"   onclick="tlSwitchTab('calls')">
+          <i class="bi bi-telephone me-1"></i>Calls
+        </button>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="timeline-body">
+      <!-- Loading -->
+      <div id="tlLoading" class="text-center py-4">
+        <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+        <div class="text-muted small mt-2">Loading history…</div>
+      </div>
+
+      <!-- Stage History tab -->
+      <div id="tlContent-history" class="d-none"></div>
+
+      <!-- Notes tab -->
+      <div id="tlContent-notes" class="d-none"></div>
+
+      <!-- Call Events tab -->
+      <div id="tlContent-calls" class="d-none"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var _currentTab = 'history';
+  var _stageLabels = {
+    enrollment:'Enrollment', day1:'Day 1', day2:'Day 2', day3:'Day 3',
+    seat_hold:'Seat Hold', closing:'Closing', training:'Training',
+    complete:'Complete', lost:'Lost'
+  };
+  var _stageColors = {
+    enrollment:'var(--ios-blue)', day1:'var(--ios-orange)', day2:'var(--ios-yellow)',
+    day3:'var(--ios-purple)', seat_hold:'var(--ios-green)', closing:'var(--ios-teal)',
+    training:'var(--ios-indigo)', complete:'var(--ios-green)', lost:'var(--ios-red)'
+  };
+
+  function _esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function _fmt(ts) {
+    if (!ts) return '—';
+    try {
+      var d = new Date(ts.replace(' ','T'));
+      if (isNaN(d)) return ts;
+      return d.toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true});
+    } catch(e) { return ts; }
+  }
+
+  window.openTimeline = function(leadId, leadName) {
+    var drawer = document.getElementById('timelineDrawer');
+    document.getElementById('tlLeadName').textContent = leadName || 'Lead #'+leadId;
+    document.getElementById('tlLeadMeta').textContent = 'Loading…';
+    document.getElementById('tlLoading').classList.remove('d-none');
+    document.getElementById('tlContent-history').classList.add('d-none');
+    document.getElementById('tlContent-history').innerHTML = '';
+    document.getElementById('tlContent-notes').classList.add('d-none');
+    document.getElementById('tlContent-notes').innerHTML = '';
+    document.getElementById('tlContent-calls').classList.add('d-none');
+    document.getElementById('tlContent-calls').innerHTML = '';
+    tlSwitchTab('history');
+    drawer.classList.add('tl-open');
+    document.body.classList.add('tl-locked');
+
+    fetch('/leads/' + leadId + '/timeline')
+      .then(function(r){ return r.json(); })
+      .then(function(data) {
+        document.getElementById('tlLoading').classList.add('d-none');
+        if (!data.ok) {
+          document.getElementById('tlContent-history').innerHTML =
+            '<div class="tl-empty"><i class="bi bi-x-circle-fill text-danger fs-4 d-block mb-2"></i>' + _esc(data.error||'Error') + '</div>';
+          document.getElementById('tlContent-history').classList.remove('d-none');
+          return;
+        }
+        var lead = data.lead || {};
+        document.getElementById('tlLeadMeta').textContent =
+          (lead.pipeline_stage ? (_stageLabels[lead.pipeline_stage]||lead.pipeline_stage) + ' · ' : '') +
+          (lead.status || '');
+
+        _renderStages(data.stages || []);
+        _renderNotes(data.notes || []);
+        _renderCalls(data.call_events || []);
+        document.getElementById('tlContent-history').classList.remove('d-none');
+      })
+      .catch(function() {
+        document.getElementById('tlLoading').classList.add('d-none');
+        document.getElementById('tlContent-history').innerHTML =
+          '<div class="tl-empty"><i class="bi bi-wifi-off fs-4 d-block mb-2"></i>Could not load timeline</div>';
+        document.getElementById('tlContent-history').classList.remove('d-none');
+      });
+  };
+
+  window.closeTimeline = function() {
+    document.getElementById('timelineDrawer').classList.remove('tl-open');
+    document.body.classList.remove('tl-locked');
+  };
+
+  window.tlSwitchTab = function(name) {
+    ['history','notes','calls'].forEach(function(t) {
+      var btn = document.getElementById('tlTab-'+t);
+      var content = document.getElementById('tlContent-'+t);
+      if (!btn) return;
+      if (t === name) {
+        btn.classList.add('active');
+        if (content) content.classList.remove('d-none');
+      } else {
+        btn.classList.remove('active');
+        if (content) content.classList.add('d-none');
+      }
+    });
+    _currentTab = name;
+  };
+
+  function _renderStages(stages) {
+    var el = document.getElementById('tlContent-history');
+    if (!stages.length) {
+      el.innerHTML = '<div class="tl-empty"><i class="bi bi-diagram-3 fs-4 d-block mb-2 opacity-50"></i>No stage history yet</div>';
+      return;
+    }
+    var html = '';
+    stages.forEach(function(s) {
+      var color = _stageColors[s.stage] || 'var(--ios-blue)';
+      var label = _stageLabels[s.stage] || s.stage;
+      html += '<div class="tl-stage-row">' +
+        '<div class="tl-dot" style="background:'+color+';"></div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div class="fw-semibold small">' + _esc(label) + '</div>' +
+          '<div class="text-muted" style="font-size:0.75rem;">' +
+            (s.owner ? 'Owner: @'+_esc(s.owner) : '') +
+            (s.triggered_by ? ' · by @'+_esc(s.triggered_by) : '') +
+          '</div>' +
+          '<div class="text-muted" style="font-size:0.72rem;">' + _fmt(s.created_at) + '</div>' +
+        '</div>' +
+        '</div>';
+    });
+    el.innerHTML = html;
+  }
+
+  function _renderNotes(notes) {
+    var el = document.getElementById('tlContent-notes');
+    if (!notes.length) {
+      el.innerHTML = '<div class="tl-empty"><i class="bi bi-chat-left-text fs-4 d-block mb-2 opacity-50"></i>No notes yet</div>';
+      return;
+    }
+    var html = '';
+    notes.forEach(function(n) {
+      html += '<div class="tl-note-row">' +
+        '<div class="d-flex justify-content-between mb-1">' +
+          '<span class="fw-semibold" style="font-size:0.78rem;">@'+_esc(n.username)+'</span>' +
+          '<span class="text-muted" style="font-size:0.72rem;">'+_fmt(n.created_at)+'</span>' +
+        '</div>' +
+        '<div style="font-size:0.83rem;white-space:pre-wrap;">'+_esc(n.note)+'</div>' +
+        '</div>';
+    });
+    el.innerHTML = html;
+  }
+
+  function _renderCalls(events) {
+    var el = document.getElementById('tlContent-calls');
+    if (!events.length) {
+      el.innerHTML = '<div class="tl-empty"><i class="bi bi-telephone fs-4 d-block mb-2 opacity-50"></i>No call events logged</div>';
+      return;
+    }
+    var html = '';
+    events.forEach(function(e) {
+      var details = (e.details||'').replace(/^Lead #\d+ /,'');
+      html += '<div class="tl-note-row">' +
+        '<div class="d-flex justify-content-between mb-1">' +
+          '<span class="fw-semibold" style="font-size:0.78rem;">@'+_esc(e.username)+'</span>' +
+          '<span class="text-muted" style="font-size:0.72rem;">'+_fmt(e.created_at)+'</span>' +
+        '</div>' +
+        '<div class="badge bg-secondary-subtle text-secondary mb-1" style="font-size:0.68rem;">'+_esc(e.event_type||'')+'</div>' +
+        '<div style="font-size:0.81rem;">'+_esc(details)+'</div>' +
+        '</div>';
+    });
+    el.innerHTML = html;
+  }
+
+  // Close on Escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') window.closeTimeline();
+  });
+})();
+</script>
 
 </body>
 </html>

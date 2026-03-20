@@ -9080,6 +9080,293 @@ def day2_progress():
     )
 
 
+# ─────────────────────────────────────────────────────────────────
+#  Module 1 — Prospect Timeline (JSON endpoint)
+# ─────────────────────────────────────────────────────────────────
+
+@app.route('/leads/<int:lead_id>/timeline')
+@login_required
+@safe_route
+def lead_timeline(lead_id):
+    """Return full prospect history: stage transitions, notes, call events."""
+    db       = get_db()
+    role     = session.get('role', 'team')
+    username = session['username']
+
+    lead = db.execute(
+        "SELECT id, name, phone, pipeline_stage, assigned_to, current_owner, status "
+        "FROM leads WHERE id=? AND in_pool=0 AND deleted_at=''",
+        (lead_id,)
+    ).fetchone()
+
+    if not lead:
+        db.close()
+        return jsonify({'ok': False, 'error': 'Lead not found'}), 404
+
+    # Ownership gate
+    if role == 'team' and lead['assigned_to'] != username:
+        db.close()
+        return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    elif role == 'leader':
+        network = _get_network_usernames(db, username)
+        if lead['assigned_to'] not in network:
+            db.close()
+            return jsonify({'ok': False, 'error': 'Access denied'}), 403
+    # admin: no restriction
+
+    stages = db.execute(
+        "SELECT stage, owner, triggered_by, created_at "
+        "FROM lead_stage_history WHERE lead_id=? ORDER BY created_at ASC",
+        (lead_id,)
+    ).fetchall()
+
+    notes = db.execute(
+        "SELECT username, note, created_at "
+        "FROM lead_notes WHERE lead_id=? ORDER BY created_at ASC",
+        (lead_id,)
+    ).fetchall()
+
+    call_events = db.execute(
+        "SELECT username, event_type, details, created_at FROM activity_log "
+        "WHERE details LIKE ? ORDER BY created_at ASC LIMIT 60",
+        (f'Lead #{lead_id} %',)
+    ).fetchall()
+
+    db.close()
+    return jsonify({
+        'ok':         True,
+        'lead':       dict(lead),
+        'stages':     [dict(r) for r in stages],
+        'notes':      [dict(r) for r in notes],
+        'call_events': [dict(r) for r in call_events],
+    })
+
+
+# ─────────────────────────────────────────────────────────────────
+#  Module 3 — Leader Coaching Panel
+# ─────────────────────────────────────────────────────────────────
+
+@app.route('/leader/coaching')
+@login_required
+@safe_route
+def leader_coaching():
+    """Coaching panel: each downline member's pipeline state + stuck leads."""
+    role     = session.get('role', 'team')
+    username = session['username']
+
+    if role not in ('leader', 'admin'):
+        flash('Access denied.', 'danger')
+        return redirect(url_for('team_dashboard'))
+
+    db    = get_db()
+    today = _today_ist().strftime('%Y-%m-%d')
+    stale24_cutoff = (_now_ist() - datetime.timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S')
+
+    # Which leaders to show coaching cards for
+    if role == 'admin':
+        leader_rows = db.execute(
+            "SELECT username FROM users WHERE role='leader' AND status='approved' ORDER BY username"
+        ).fetchall()
+        leaders_to_show = [r['username'] for r in leader_rows]
+    else:
+        leaders_to_show = [username]
+
+    coaching_cards = []
+    for leader_uname in leaders_to_show:
+        downline_all = _get_downline_usernames(db, leader_uname)
+        members      = [u for u in downline_all if u != leader_uname]
+
+        for member in members:
+            m_leads = db.execute("""
+                SELECT id, name, pipeline_stage, updated_at,
+                       d1_morning, d1_afternoon, d1_evening,
+                       d2_morning, d2_afternoon, d2_evening
+                FROM leads
+                WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
+                  AND pipeline_stage NOT IN ('complete','lost')
+            """, (member,)).fetchall()
+
+            active_count = len(m_leads)
+            stuck_leads  = [dict(l) for l in m_leads
+                            if (l['updated_at'] or '') < stale24_cutoff]
+            stuck_count  = len(stuck_leads)
+
+            # Batch completion %
+            d1_leads = [l for l in m_leads if l['pipeline_stage'] == 'day1']
+            d2_leads = [l for l in m_leads if l['pipeline_stage'] == 'day2']
+            total_possible = (len(d1_leads) + len(d2_leads)) * 3
+            batches_done = (
+                sum((l['d1_morning'] or 0) + (l['d1_afternoon'] or 0) + (l['d1_evening'] or 0)
+                    for l in d1_leads) +
+                sum((l['d2_morning'] or 0) + (l['d2_afternoon'] or 0) + (l['d2_evening'] or 0)
+                    for l in d2_leads)
+            )
+            batch_pct = round(batches_done / total_possible * 100) if total_possible else 100
+
+            # Today's calls from daily_scores
+            score_row = db.execute(
+                "SELECT calls_made, total_points, streak_days FROM daily_scores "
+                "WHERE username=? AND score_date=?", (member, today)
+            ).fetchone()
+            calls_today = score_row['calls_made']   if score_row else 0
+            pts_today   = score_row['total_points'] if score_row else 0
+
+            # Stage breakdown
+            stage_counts = {}
+            for l in m_leads:
+                s = l['pipeline_stage'] or 'enrollment'
+                stage_counts[s] = stage_counts.get(s, 0) + 1
+
+            coaching_cards.append({
+                'username':     member,
+                'upline':       leader_uname,
+                'active_count': active_count,
+                'stuck_count':  stuck_count,
+                'stuck_leads':  stuck_leads[:3],
+                'batch_pct':    batch_pct,
+                'calls_today':  calls_today,
+                'pts_today':    pts_today,
+                'stage_counts': stage_counts,
+            })
+
+    # Sort: most stuck first, then most active
+    coaching_cards.sort(key=lambda c: (-c['stuck_count'], -c['active_count']))
+
+    # Summary totals
+    total_active = sum(c['active_count'] for c in coaching_cards)
+    total_stuck  = sum(c['stuck_count']  for c in coaching_cards)
+
+    db.close()
+    return render_template('leader_coaching.html',
+        coaching_cards=coaching_cards,
+        role=role,
+        total_active=total_active,
+        total_stuck=total_stuck,
+        csrf_token=session.get('_csrf_token', ''),
+    )
+
+
+# ─────────────────────────────────────────────────────────────────
+#  Module 4 — Admin Pipeline Funnel Analytics
+# ─────────────────────────────────────────────────────────────────
+
+@app.route('/admin/pipeline-analytics')
+@admin_required
+@safe_route
+def admin_pipeline_analytics():
+    """Pipeline health: stage funnel, time-in-stage, member comparison, bottlenecks."""
+    db = get_db()
+
+    # 1. Stage funnel counts
+    STAGE_ORDER = ['enrollment', 'day1', 'day2', 'day3', 'seat_hold', 'closing', 'training']
+    funnel_rows = db.execute("""
+        SELECT pipeline_stage, COUNT(*) as lead_count
+        FROM leads
+        WHERE in_pool=0 AND deleted_at='' AND pipeline_stage NOT IN ('complete','lost','')
+        GROUP BY pipeline_stage
+    """).fetchall()
+    funnel_map = {r['pipeline_stage']: r['lead_count'] for r in funnel_rows}
+    stage_labels = ['Enrollment', 'Day 1', 'Day 2', 'Day 3', 'Seat Hold', 'Closing', 'Training']
+    stage_counts = [funnel_map.get(s, 0) for s in STAGE_ORDER]
+
+    # 2. Avg time-in-stage (correlated self-join on lead_stage_history)
+    stage_time_rows = db.execute("""
+        SELECT
+            h1.stage,
+            COUNT(*) AS transitions,
+            CAST(AVG(
+                (julianday(COALESCE(h2.created_at, datetime('now','localtime')))
+               - julianday(h1.created_at)) * 86400
+            ) AS INTEGER) AS avg_seconds,
+            CAST(MAX(
+                (julianday(COALESCE(h2.created_at, datetime('now','localtime')))
+               - julianday(h1.created_at)) * 86400
+            ) AS INTEGER) AS max_seconds
+        FROM lead_stage_history h1
+        LEFT JOIN lead_stage_history h2
+          ON h2.lead_id = h1.lead_id
+         AND h2.id = (
+               SELECT MIN(id) FROM lead_stage_history
+               WHERE lead_id = h1.lead_id AND id > h1.id
+             )
+        GROUP BY h1.stage
+    """).fetchall()
+
+    # Build ordered stage_time list
+    stage_time_map = {r['stage']: dict(r) for r in stage_time_rows}
+    stage_time = []
+    for s in STAGE_ORDER:
+        row = stage_time_map.get(s, {'stage': s, 'transitions': 0, 'avg_seconds': 0, 'max_seconds': 0})
+        row['avg_hours'] = round((row['avg_seconds'] or 0) / 3600, 1)
+        row['max_hours'] = round((row['max_seconds'] or 0) / 3600, 1)
+        row['is_bottleneck'] = (row['avg_seconds'] or 0) > 86400 * 2  # > 48h average
+        stage_time.append(row)
+
+    # 3. Bottlenecks: stages with leads stuck > 48h
+    bottleneck_rows = db.execute("""
+        SELECT pipeline_stage, COUNT(*) as stuck_count
+        FROM leads
+        WHERE in_pool=0 AND deleted_at='' AND pipeline_stage NOT IN ('complete','lost','')
+          AND updated_at < datetime('now','localtime','-48 hours')
+        GROUP BY pipeline_stage
+        ORDER BY stuck_count DESC
+    """).fetchall()
+    bottlenecks = [dict(r) for r in bottleneck_rows if r['stuck_count'] > 0]
+
+    # 4. Member pipeline comparison
+    member_rows = db.execute("""
+        SELECT
+            l.assigned_to,
+            u.upline_username,
+            u.upline_name,
+            COUNT(*) AS total_leads,
+            SUM(CASE WHEN l.pipeline_stage='day1' THEN 1 ELSE 0 END) AS day1_count,
+            SUM(CASE WHEN l.pipeline_stage='day2' THEN 1 ELSE 0 END) AS day2_count,
+            SUM(CASE WHEN l.pipeline_stage='day3' THEN 1 ELSE 0 END) AS day3_count,
+            SUM(CASE WHEN l.pipeline_stage='seat_hold' THEN 1 ELSE 0 END) AS seat_hold_count,
+            SUM(CASE WHEN l.pipeline_stage IN ('closing','complete') THEN 1 ELSE 0 END) AS converted_count,
+            SUM(CASE WHEN l.pipeline_stage NOT IN ('complete','lost','')
+                      AND l.updated_at < datetime('now','localtime','-48 hours') THEN 1 ELSE 0 END) AS stuck_count,
+            ROUND(CAST(SUM(CASE WHEN l.pipeline_stage IN ('closing','complete') THEN 1 ELSE 0 END) AS REAL)
+                  / NULLIF(COUNT(*), 0) * 100, 1) AS conv_pct
+        FROM leads l
+        JOIN users u ON u.username = l.assigned_to
+        WHERE l.in_pool=0 AND l.deleted_at='' AND l.assigned_to != ''
+          AND u.role IN ('team','leader') AND u.status='approved'
+        GROUP BY l.assigned_to
+        ORDER BY converted_count DESC, total_leads DESC
+    """).fetchall()
+    member_stats = [dict(r) for r in member_rows]
+
+    # 5. Heat score distribution
+    heat_rows = db.execute("""
+        SELECT
+            CASE
+                WHEN (d1_morning+d1_afternoon+d1_evening+d2_morning+d2_afternoon+d2_evening) >= 5 THEN 'hot'
+                WHEN pipeline_stage IN ('day3','seat_hold','closing') THEN 'hot'
+                WHEN pipeline_stage IN ('day1','day2') THEN 'warm'
+                ELSE 'cold'
+            END as heat_band,
+            COUNT(*) as cnt
+        FROM leads
+        WHERE in_pool=0 AND deleted_at='' AND pipeline_stage NOT IN ('complete','lost','')
+        GROUP BY heat_band
+    """).fetchall()
+    heat_map   = {r['heat_band']: r['cnt'] for r in heat_rows}
+    heat_data  = [heat_map.get('hot', 0), heat_map.get('warm', 0), heat_map.get('cold', 0)]
+
+    db.close()
+    return render_template('admin_pipeline.html',
+        stage_labels=stage_labels,
+        stage_counts=stage_counts,
+        stage_time=stage_time,
+        bottlenecks=bottlenecks,
+        member_stats=member_stats,
+        heat_data=heat_data,
+        csrf_token=session.get('_csrf_token', ''),
+    )
+
+
 if __name__ == '__main__':
     _debug = os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true', 'yes')
     app.run(debug=_debug, host='0.0.0.0', port=int(os.environ.get('PORT', 5003)))

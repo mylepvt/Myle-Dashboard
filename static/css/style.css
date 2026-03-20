@@ -1944,3 +1944,78 @@ p,span,td,li { color: inherit; }
 /* ── Overflow fix for old Android WebView ────────────── */
 .table-responsive { -webkit-overflow-scrolling: touch; overflow-x: auto; }
 .wk-kanban-tabs   { -webkit-overflow-scrolling: touch; overflow-x: auto; }
+
+/* ══════════════════════════════════════════════════════
+   Module 1 — Prospect Timeline Drawer
+   ══════════════════════════════════════════════════════ */
+.timeline-drawer { position:fixed; inset:0; z-index:1080; pointer-events:none; }
+.timeline-drawer.tl-open { pointer-events:auto; }
+.timeline-overlay {
+  position:absolute; inset:0;
+  background:rgba(0,0,0,0.45);
+  opacity:0; transition:opacity 0.28s ease;
+}
+.timeline-drawer.tl-open .timeline-overlay { opacity:1; }
+.timeline-panel {
+  position:absolute; right:0; top:0; bottom:0;
+  width:400px; max-width:100vw;
+  background:var(--bg-card);
+  box-shadow:-4px 0 32px rgba(0,0,0,0.18);
+  transform:translateX(100%);
+  transition:transform 0.3s cubic-bezier(0.25,0.1,0.25,1);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.timeline-drawer.tl-open .timeline-panel { transform:translateX(0); }
+.timeline-header {
+  padding:1rem 1.25rem 0.75rem;
+  border-bottom:1px solid var(--sep);
+  flex-shrink:0;
+}
+.timeline-body {
+  flex:1; overflow-y:auto; padding:1rem 1.25rem;
+  -webkit-overflow-scrolling:touch;
+}
+.tl-tabs { display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap; }
+.tl-tab-btn {
+  padding:0.3rem 0.75rem; border-radius:20px; border:none;
+  background:var(--fill-2); color:var(--label-2); font-size:0.8rem;
+  cursor:pointer; transition:background 0.2s, color 0.2s;
+}
+.tl-tab-btn.active { background:var(--ios-blue); color:#fff; }
+.tl-stage-row {
+  display:flex; gap:0.75rem; align-items:flex-start;
+  padding:0.5rem 0 0.5rem 0.75rem;
+  border-left:2px solid var(--sep); margin-bottom:0.25rem;
+  position:relative;
+}
+.tl-stage-row:last-child { border-left-color:transparent; }
+.tl-dot {
+  width:10px; height:10px; border-radius:50%;
+  background:var(--ios-blue); flex-shrink:0; margin-top:4px;
+  margin-left:-15px; border:2px solid var(--bg-card);
+}
+.tl-note-row {
+  background:var(--fill-2); border-radius:10px;
+  padding:0.6rem 0.75rem; margin-bottom:0.5rem; font-size:0.82rem;
+}
+.tl-empty {
+  text-align:center; color:var(--label-3);
+  padding:2rem 1rem; font-size:0.85rem;
+}
+/* iOS drawer body scroll lock */
+body.tl-locked { position:fixed; width:100%; overflow:hidden; }
+/* Action queue stale-row indicators */
+.aq-row-stale-orange { border-left:3px solid var(--ios-orange) !important; }
+.aq-row-stale-red    { border-left:3px solid var(--ios-red) !important; }
+.aq-section-title {
+  font-size:0.7rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.06em; color:var(--label-3); margin:0.75rem 0 0.4rem;
+}
+.aq-lead-row {
+  display:flex; align-items:center; gap:0.5rem;
+  padding:0.5rem 0.75rem; border-radius:10px;
+  background:var(--fill-2); margin-bottom:0.4rem;
+  border-left:3px solid transparent;
+}
+.aq-lead-row .aq-name { font-weight:600; font-size:0.85rem; flex:1; min-width:0; }
+@media (max-width:576px) { .timeline-panel { width:100vw; } }
