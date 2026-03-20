@@ -252,21 +252,36 @@ body {
   min-height: 100dvh;
 }
 
-/* ── Prevent double-tap zoom (iOS/Android) ─────────────── */
-* { touch-action: manipulation; }
-input, textarea, select {
-  touch-action: auto;
+/* ── Touch behavior tuned for iOS scrolling ─────────────── */
+button, .btn, a, label,
+.wk-batch-btn, .wk-tab,
+.mbn-item, .nav-link {
+  touch-action: manipulation;
+  cursor: pointer;
+}
+body, html, #wrapper, #page-content-wrapper,
+.container-fluid, .wk-kanban-grid {
+  touch-action: pan-y;
+}
+input, select, textarea, .form-control, .form-select {
   font-size: 16px !important;
+}
+@media (max-width: 768px) {
+  input, select, textarea,
+  .form-control, .form-select {
+    font-size: 16px !important;
+    -webkit-text-size-adjust: 100%;
+  }
 }
 
 /* ── Mobile scroll — smooth and bouncy like iOS ─────── */
-@supports (-webkit-overflow-scrolling: touch) {
-  #page-content-wrapper,
-  .container-fluid,
-  .wk-lead-card,
-  .table-responsive {
-    -webkit-overflow-scrolling: touch;
-  }
+#page-content-wrapper,
+.container-fluid,
+.wk-kanban-grid,
+.table-responsive,
+.kpi-scroll,
+.wk-action-scroll {
+  -webkit-overflow-scrolling: touch;
 }
 body.modal-open { overflow: hidden !important; }
 html { scroll-behavior: smooth; }
@@ -282,8 +297,6 @@ button, .btn, .nav-link, .mbn-item {
   -webkit-user-select: none;
   user-select: none;
 }
-/* safe-area height consolidated into main .mobile-bottom-nav declaration below */
-
 /* ── Toast ──────────────────────────────────────────────────────── */
 #toastContainer { position:fixed;bottom:1.25rem;right:1.25rem;z-index:11000;min-width:220px;max-width:340px; }
 .toast {
@@ -419,20 +432,22 @@ button, .btn, .nav-link, .mbn-item {
 .navbar {
   position: sticky;
   top: 0;
-  z-index: 200;
-  background: rgba(242,242,247,0.85) !important;
-  backdrop-filter: saturate(200%) blur(28px) !important;
-  -webkit-backdrop-filter: saturate(200%) blur(28px) !important;
+  top: env(safe-area-inset-top, 0);
+  z-index: 100;
+  background: rgba(242,242,247,0.95) !important;
   border-bottom: 1px solid var(--sep) !important;
   box-shadow: 0 1px 0 var(--glass-border), 0 2px 16px rgba(0,0,0,0.06);
-  padding: calc(0.65rem + env(safe-area-inset-top, 0px)) 1.25rem 0.65rem !important;
+  padding-top: calc(0.65rem + env(safe-area-inset-top, 0px)) !important;
+  padding-right: 1.25rem !important;
+  padding-bottom: 0.65rem !important;
+  padding-left: 1.25rem !important;
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
   isolation: isolate;
 }
 [data-theme="dark"] .navbar {
-  background: rgba(5,5,7,0.90) !important;
+  background: rgba(5,5,7,0.95) !important;
   box-shadow: 0 1px 0 rgba(255,255,255,0.07), 0 2px 16px rgba(0,0,0,0.5);
 }
 .navbar .fw-semibold,
@@ -470,12 +485,11 @@ button, .btn, .nav-link, .mbn-item {
 /* ── Mobile Bottom Nav ──────────────────────────────────────────── */
 .mobile-bottom-nav {
   position: fixed; bottom:0; left:0; right:0;
+  bottom: env(safe-area-inset-bottom, 0);
   height: 68px;
   height: calc(68px + env(safe-area-inset-bottom, 0px)); /* iPhone X+ home indicator */
   padding-bottom: env(safe-area-inset-bottom, 0px);
   background: rgba(242,242,247,0.78);
-  backdrop-filter: saturate(200%) blur(28px);
-  -webkit-backdrop-filter: saturate(200%) blur(28px);
   border-top: 1px solid var(--sep);
   box-shadow: 0 -1px 0 var(--glass-border), 0 -4px 20px rgba(0,0,0,0.06);
   display: flex; align-items: stretch; z-index:1050;
@@ -869,10 +883,36 @@ button, .btn, .nav-link, .mbn-item {
   border:1px solid var(--glass-border);
   box-shadow:var(--shadow-lg);
   background: var(--bg-glass-heavy);
-  backdrop-filter:blur(28px) saturate(160%);
-  -webkit-backdrop-filter:blur(28px) saturate(160%);
   color:var(--label-1);
 }
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .navbar {
+    background: rgba(242,242,247,0.75) !important;
+    -webkit-backdrop-filter: saturate(200%) blur(24px);
+    backdrop-filter: saturate(200%) blur(24px);
+  }
+  [data-theme="dark"] .navbar {
+    background: rgba(5,5,7,0.78) !important;
+  }
+  #sidebar {
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+  }
+  .mobile-bottom-nav {
+    -webkit-backdrop-filter: saturate(200%) blur(24px);
+    backdrop-filter: saturate(200%) blur(24px);
+  }
+  .modal-content {
+    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    backdrop-filter: blur(28px) saturate(160%);
+    background: var(--bg-glass-heavy);
+  }
+  .toast {
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    backdrop-filter: blur(28px) saturate(180%);
+  }
+}
+
 .modal-header { border-bottom:1px solid var(--sep);border-radius:var(--r-xl) var(--r-xl) 0 0; }
 .modal-footer { border-top:1px solid var(--sep);border-radius:0 0 var(--r-xl) var(--r-xl); }
 [data-theme="dark"] .modal-content { background:rgba(28,28,32,0.92); }
@@ -1252,12 +1292,12 @@ p,span,td,li { color: inherit; }
 /* Use 991px so admin panel and all app look like mobile UI on tablet + phone */
 @media (max-width:991px) {
   /* Sidebar is highest — above navbar, bottom-nav, and backdrop */
-  .navbar { z-index: 200; }
+  .navbar { z-index: 100; }
   #sidebar {
     position:fixed!important;top:0;left:0;height:100vh;height:100dvh;width:min(320px,85vw)!important;
     padding-top:env(safe-area-inset-top,0)!important;
     padding-bottom:calc(68px + env(safe-area-inset-bottom,0px))!important;
-    z-index:1060;transform:translateX(-100%);
+    z-index:1055;transform:translateX(-100%);
     transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);
     overflow:hidden;
     box-shadow:var(--shadow-lg);
@@ -1270,7 +1310,7 @@ p,span,td,li { color: inherit; }
   #sidebar.collapsed .nav-link { text-align:left!important;padding:9px 11px!important;justify-content:flex-start!important; }
   #sidebarBackdrop {
     display:none;position:fixed;inset:0;top:0;left:0;right:0;bottom:0;
-    background:rgba(0,0,0,0.45);z-index:1053;
+    background:rgba(0,0,0,0.45);z-index:1040;
     backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
     pointer-events:none;
   }
@@ -1291,9 +1331,18 @@ p,span,td,li { color: inherit; }
 @media (max-width:768px) {
   .container-fluid { padding:0.6rem 0.75rem!important; }
   .navbar { padding:calc(0.5rem + env(safe-area-inset-top,0px)) 0.6rem 0.5rem!important; }
+  #sidebar {
+    height: 100vh;
+    height: 100dvh;
+    height: -webkit-fill-available;
+  }
   .navbar .navbar-page-title { max-width:45vw; }
   /* Touch target for sidebar toggle (mobile) */
   #sidebarToggle { min-width: 44px; min-height: 44px; padding: 0.5rem; }
+}
+
+.modal {
+  z-index: 1060;
 }
 
 /* Admin / Settings: consistent card accent, mobile-friendly forms */
