@@ -832,6 +832,8 @@ from routes.profile_routes import register_profile_routes
 from routes.social_routes import register_social_routes
 from routes.wallet_routes import register_wallet_routes
 from routes.enrollment_routes import register_enrollment_routes
+from routes.training_routes import register_training_routes
+from routes.report_routes import register_report_routes
 
 register_webhook_routes(app)
 register_misc_routes(app)
@@ -839,6 +841,8 @@ register_profile_routes(app)
 register_social_routes(app)
 register_wallet_routes(app)
 register_enrollment_routes(app)
+register_training_routes(app)
+register_report_routes(app)
 
 
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
