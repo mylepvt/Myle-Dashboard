@@ -432,7 +432,6 @@ button, .btn, .nav-link, .mbn-item {
 .navbar {
   position: sticky;
   top: 0;
-  top: env(safe-area-inset-top, 0);
   z-index: 100;
   background: rgba(242,242,247,0.95) !important;
   border-bottom: 1px solid var(--sep) !important;
@@ -485,7 +484,6 @@ button, .btn, .nav-link, .mbn-item {
 /* ── Mobile Bottom Nav ──────────────────────────────────────────── */
 .mobile-bottom-nav {
   position: fixed; bottom:0; left:0; right:0;
-  bottom: env(safe-area-inset-bottom, 0);
   height: 68px;
   height: calc(68px + env(safe-area-inset-bottom, 0px)); /* iPhone X+ home indicator */
   padding-bottom: env(safe-area-inset-bottom, 0px);
