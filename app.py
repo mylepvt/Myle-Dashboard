@@ -4419,7 +4419,10 @@ def admin_edit_member(username):
         else:
             # Update all related tables
             db.execute("UPDATE leads SET assigned_to=? WHERE assigned_to=?", (new_username, username))
-            db.execute("UPDATE leads SET added_by=? WHERE added_by=?", (new_username, username))
+            try:
+                db.execute("UPDATE leads SET added_by=? WHERE added_by=?", (new_username, username))
+            except Exception:
+                pass
             db.execute("UPDATE wallet_recharges SET username=? WHERE username=?", (new_username, username))
             db.execute("UPDATE push_subscriptions SET username=? WHERE username=?", (new_username, username))
             db.execute("UPDATE daily_reports SET username=? WHERE username=?", (new_username, username))
@@ -8509,23 +8512,22 @@ def batch_toggle(lead_id):
     role  = session.get('role', 'team')
     owner = row['assigned_to']
 
-    # Day 1 batches: only leader or admin can mark (team cannot send Day 1 task from dashboard)
+    # Day 1 batches: only leader or admin can mark (leader runs/tracks Day 1 sessions)
     if batch.startswith('d1_'):
         if role not in ('leader', 'admin'):
-            db.close(); return {'ok': False, 'error': 'Only leader/admin can send Day 1 batches'}, 403
+            db.close(); return {'ok': False, 'error': 'Only leader/admin can mark Day 1 batches'}, 403
         if role == 'leader':
             downline = _get_network_usernames(db, session['username'])
             if owner != session['username'] and owner not in downline:
                 db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
-    else:
+    elif batch.startswith('d2_'):
         # Day 2 batches: admin only
-        if batch.startswith('d2_'):
-            if role != 'admin':
-                db.close(); return {'ok': False, 'error': 'Only admin can mark Day 2 batches'}, 403
-        else:
-            # Other batches (d3_, etc.): team can mark own; admin unrestricted
-            if role != 'admin' and owner != session['username']:
-                db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
+        if role != 'admin':
+            db.close(); return {'ok': False, 'error': 'Only admin can mark Day 2 batches'}, 403
+    else:
+        # Other batches: team can mark own; admin unrestricted
+        if role != 'admin' and owner != session['username']:
+            db.close(); return {'ok': False, 'error': 'Forbidden'}, 403
 
     # Toggle (or force-mark if force_mark=true, used by "already sent" button)
     force_mark = data.get('force_mark', False)
@@ -8727,7 +8729,7 @@ def stage_advance(lead_id):
         'enroll_complete':   ('enrollment',),
         'day1_complete':     ('day1',),
         'day2_complete':     ('day2',),
-        'interview_done':    ('day2',),
+        'interview_done':    ('day2', 'day3'),
         'seat_hold_done':    ('day3',),
         'fully_converted':   ('seat_hold', 'closing'),
         'training_complete': ('training',),

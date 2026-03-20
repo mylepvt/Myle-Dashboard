@@ -860,6 +860,17 @@ def migrate_db():
           AND  role != 'admin'
     """)
 
+    # ── Fix NULL values in nullable leads columns (prevents AttributeError crashes) ──
+    for col in ('email', 'referred_by', 'notes', 'call_result', 'city'):
+        try:
+            cursor.execute(f"UPDATE leads SET {col}='' WHERE {col} IS NULL")
+        except Exception:
+            pass
+    try:
+        cursor.execute("UPDATE daily_reports SET remarks='' WHERE remarks IS NULL")
+    except Exception:
+        pass
+
     conn.commit()
     conn.close()
 
