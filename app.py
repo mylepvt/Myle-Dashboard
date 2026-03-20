@@ -111,13 +111,21 @@ _env_secret = os.environ.get('SECRET_KEY')
 if _env_secret:
     app.secret_key = _env_secret
 else:
-    # Safe fallback for local/dev when SECRET_KEY is not set.
-    # Use a strong random key to avoid predictable session signing secrets.
+    # IMPORTANT (multi-worker): secret MUST be identical in every Gunicorn worker process.
+    # Using secrets.token_hex(32) here caused a *different* key per worker → session cookies
+    # signed on worker A failed on worker B → users randomly "logged out".
+    # Stable shared fallback keeps sessions valid until SECRET_KEY is set in the environment.
     import sys as _sys
-    app.secret_key = secrets.token_hex(32)
-    print('[SECURITY WARNING] SECRET_KEY env var not set — using default fallback. '
-          'Set SECRET_KEY in your Render environment for production security!',
-          file=_sys.stderr)
+
+    app.secret_key = os.environ.get(
+        'FLASK_DEV_SECRET_FALLBACK',
+        'myle_community_secret_2024_local',
+    )
+    print(
+        '[SECURITY WARNING] SECRET_KEY env var not set — using shared dev fallback '
+        '(set SECRET_KEY on Render for strong signing + consistent sessions across deploys).',
+        file=_sys.stderr,
+    )
 
 app.permanent_session_lifetime = datetime.timedelta(days=3650)  # ~10 years = effectively forever
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
