@@ -6,6 +6,8 @@
     (function() {
       var dark = localStorage.getItem('myle-dark') === '1';
       if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+      var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      if (isStandalone) document.documentElement.classList.add('ios-standalone');
     })();
   </script>
   <meta charset="UTF-8" />

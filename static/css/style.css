@@ -212,6 +212,26 @@ body {
   line-height: 1.5;
 }
 
+/* iOS Add-to-Home-Screen (standalone): prevent visible top/bottom gap */
+.ios-standalone,
+.ios-standalone body {
+  background: var(--mesh-bg);
+}
+.ios-standalone body {
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+}
+.ios-standalone #wrapper,
+.ios-standalone #page-content-wrapper {
+  min-height: 100dvh;
+}
+.ios-standalone .navbar {
+  padding-top: calc(0.65rem + env(safe-area-inset-top, 0px)) !important;
+}
+.ios-standalone .mobile-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 @keyframes pageFadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
