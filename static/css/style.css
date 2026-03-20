@@ -282,10 +282,7 @@ button, .btn, .nav-link, .mbn-item {
   -webkit-user-select: none;
   user-select: none;
 }
-.mobile-bottom-nav {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  height: calc(68px + env(safe-area-inset-bottom, 0px));
-}
+/* safe-area height consolidated into main .mobile-bottom-nav declaration below */
 
 /* ── Toast ──────────────────────────────────────────────────────── */
 #toastContainer { position:fixed;bottom:1.25rem;right:1.25rem;z-index:11000;min-width:220px;max-width:340px; }
@@ -472,8 +469,10 @@ button, .btn, .nav-link, .mbn-item {
 
 /* ── Mobile Bottom Nav ──────────────────────────────────────────── */
 .mobile-bottom-nav {
-  position: fixed; bottom:0; left:0; right:0; height: 68px;
-  padding-bottom: env(safe-area-inset-bottom, 0);
+  position: fixed; bottom:0; left:0; right:0;
+  height: 68px;
+  height: calc(68px + env(safe-area-inset-bottom, 0px)); /* iPhone X+ home indicator */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: rgba(242,242,247,0.78);
   backdrop-filter: saturate(200%) blur(28px);
   -webkit-backdrop-filter: saturate(200%) blur(28px);
