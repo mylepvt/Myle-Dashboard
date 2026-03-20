@@ -5,6 +5,16 @@
 {% block extra_head %}
 <meta http-equiv="refresh" content="60">
 <style>
+/* ── Video slot (dark-mode aware) ── */
+.d2-video-slot {
+  background: var(--fill-4);
+}
+[data-theme="dark"] .d2-video-slot {
+  background: var(--fill-3) !important;
+  border-color: var(--sep) !important;
+  color: var(--label-1) !important;
+}
+
 /* ── Summary chips ── */
 .d2-summary-chip{display:inline-flex;align-items:center;padding:6px 14px;border-radius:999px;font-size:.82rem;font-weight:600;border:1.5px solid;}
 .d2-chip-complete  {background:rgba(var(--bs-success-rgb),.12);color:var(--bs-success);border-color:var(--bs-success);}
@@ -20,14 +30,15 @@
 /* ── Batch buttons ── */
 .d2-batch-btn{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:4px;flex:1;padding:10px 6px;border-radius:12px;border:2px solid;
+  gap:4px;flex:1;min-width:0;padding:10px 6px;border-radius:12px;border:2px solid;
   font-size:.75rem;font-weight:600;cursor:pointer;transition:all .15s;
   background:transparent;
   border-color:rgba(var(--bs-secondary-rgb),.3);
   color:var(--bs-secondary);
-  min-height:60px;
+  min-height:60px;overflow:hidden;
 }
-.d2-batch-btn .bi{font-size:1.3rem;}
+.d2-batch-btn .bi{font-size:1.3rem;flex-shrink:0;}
+.d2-batch-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .d2-batch-btn.done{
   background:rgba(var(--bs-success-rgb),.12);
   border-color:var(--bs-success);
@@ -35,6 +46,62 @@
 }
 .d2-batch-btn.done .bi::before{content:"\f26b";} /* check-circle-fill */
 .d2-batch-btn:active{transform:scale(.96);}
+
+/* ── iPhone compact overrides ── */
+@media (max-width:576px) {
+  /* Batch buttons: row layout, tighter touch target */
+  .d2-batch-btn {
+    flex-direction: row !important;
+    gap: 5px !important;
+    min-height: 44px !important;
+    padding: 6px 8px !important;
+    font-size: .70rem !important;
+    border-radius: 10px !important;
+    min-width: 0 !important;
+    justify-content: center !important;
+  }
+  .d2-batch-btn .bi {
+    font-size: 1.05rem !important;
+  }
+  /* Card body tighter padding */
+  .d2-lead-card .card-body {
+    padding: 10px 12px !important;
+  }
+  /* Card gap tighter */
+  #d2LeadList {
+    gap: 0.5rem !important;
+  }
+  /* Summary chips row tighter */
+  .d-flex.gap-2.flex-wrap.mb-4 {
+    margin-bottom: 0.75rem !important;
+  }
+  .d2-summary-chip {
+    padding: 4px 10px !important;
+    font-size: .75rem !important;
+  }
+  /* Page header tighter */
+  .d-flex.align-items-center.justify-content-between.flex-wrap.gap-3.mb-4 {
+    margin-bottom: 0.75rem !important;
+  }
+  /* Move to Day 3 button — compact */
+  .d2-advance-btn {
+    font-size: .75rem !important;
+    padding: 4px 10px !important;
+  }
+  /* Bottom row tighter */
+  .d2-lead-card .d-flex.justify-content-between.align-items-center.mt-1 {
+    margin-top: 4px !important;
+  }
+  /* Batch row tighter */
+  .d2-lead-card .d-flex.gap-2.mb-2 {
+    margin-bottom: 6px !important;
+    gap: 6px !important;
+  }
+  /* Name row tighter */
+  .d2-lead-card .d-flex.justify-content-between.align-items-start.mb-2 {
+    margin-bottom: 6px !important;
+  }
+}
 
 /* ── Popup ── */
 #d2BatchPopup .popup-sheet{
@@ -58,18 +125,18 @@
 
 {% block content %}
 <!-- Header -->
-<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+<div class="d-flex align-items-center justify-content-between gap-2 mb-2">
   <div>
-    <h5 class="mb-1 fw-bold"><i class="bi bi-2-circle me-2 text-warning"></i>Day 2 Progress</h5>
-    <div class="text-muted small">Auto-refreshes every 60s · Visible to all</div>
+    <h5 class="mb-0 fw-bold"><i class="bi bi-2-circle me-2 text-warning"></i>Day 2 Progress</h5>
+    <div class="text-muted" style="font-size:.75rem;">Auto-refreshes every 60s</div>
   </div>
-  <a href="{{ url_for('working') }}" class="btn btn-outline-secondary btn-sm">
-    <i class="bi bi-arrow-left me-1"></i>Back to Working
+  <a href="{{ url_for('working') }}" class="btn btn-outline-secondary btn-sm flex-shrink-0">
+    <i class="bi bi-arrow-left me-1"></i><span class="d-none d-sm-inline">Back to </span>Working
   </a>
 </div>
 
 <!-- Summary bar -->
-<div class="d-flex gap-2 flex-wrap mb-4">
+<div class="d-flex gap-2 flex-wrap mb-3">
   <div class="d2-summary-chip d2-chip-complete">
     <i class="bi bi-check-circle-fill me-1"></i>{{ complete_count }} complete
   </div>
@@ -92,21 +159,22 @@
 <!-- Day 2 Batch Videos -->
 {% set has_d2_videos = d2_videos.morning_v1 or d2_videos.afternoon_v1 or d2_videos.evening_v1 %}
 {% if has_d2_videos %}
-<div class="card border-0 shadow-sm mb-4">
-  <div class="card-header bg-transparent border-0 pt-3 pb-0">
-    <h6 class="mb-0 fw-semibold"><i class="bi bi-play-circle me-2 text-warning"></i>Day 2 Batch Videos</h6>
-  </div>
-  <div class="card-body pb-3">
-    <div class="row g-2">
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body p-2 pt-2">
+    <div class="d-flex align-items-center gap-1 mb-2">
+      <i class="bi bi-play-circle text-warning"></i>
+      <span class="fw-semibold small">Day 2 Batch Videos</span>
+    </div>
+    <div class="row g-1">
       {% for label, v1, v2 in [('🌅 Morning', d2_videos.morning_v1, d2_videos.morning_v2),
                                 ('☀️ Afternoon', d2_videos.afternoon_v1, d2_videos.afternoon_v2),
                                 ('🌙 Evening', d2_videos.evening_v1, d2_videos.evening_v2)] %}
       {% if v1 or v2 %}
-      <div class="col-12 col-md-4">
-        <div class="border rounded p-2 h-100" style="background:var(--bs-tertiary-bg,rgba(0,0,0,.04));">
-          <div class="fw-semibold small mb-2">{{ label }}</div>
-          {% if v1 %}<a href="{{ v1 }}" target="_blank" class="btn btn-sm btn-outline-warning w-100 mb-1"><i class="bi bi-play-fill me-1"></i>Video 1</a>{% endif %}
-          {% if v2 %}<a href="{{ v2 }}" target="_blank" class="btn btn-sm btn-outline-secondary w-100"><i class="bi bi-play-fill me-1"></i>Video 2</a>{% endif %}
+      <div class="col-4">
+        <div class="border rounded p-1 h-100 text-center d2-video-slot">
+          <div class="fw-semibold mb-1" style="font-size:.68rem;">{{ label }}</div>
+          {% if v1 %}<a href="{{ v1 }}" target="_blank" class="btn btn-xs btn-outline-warning w-100 mb-1 py-1" style="font-size:.68rem;"><i class="bi bi-play-fill"></i> V1</a>{% endif %}
+          {% if v2 %}<a href="{{ v2 }}" target="_blank" class="btn btn-xs btn-outline-secondary w-100 py-1" style="font-size:.68rem;"><i class="bi bi-play-fill"></i> V2</a>{% endif %}
         </div>
       </div>
       {% endif %}
@@ -118,7 +186,7 @@
 
 {% if day2_leads %}
 <!-- Lead cards -->
-<div class="d-flex flex-column gap-3" id="d2LeadList">
+<div class="d-flex flex-column gap-2" id="d2LeadList">
   {% for lead in day2_leads %}
   {% set done_count = lead.d2_morning + lead.d2_afternoon + lead.d2_evening %}
   {% set is_own = (lead.assigned_to == current_user) %}
@@ -181,12 +249,12 @@
                 data-phone="{{ lead.phone }}"
                 data-name="{{ lead.name|e }}">
           <i class="bi {% if done %}bi-check-circle-fill{% else %}{{ icon }}{% endif %}"></i>
-          <span>{{ label }}</span>
+          <span class="text-truncate">{{ label }}</span>
         </button>
         {% else %}
         <div class="d2-batch-btn {% if done %}done{% endif %}" style="cursor:default;">
           <i class="bi {% if done %}bi-check-circle-fill{% else %}{{ icon }}{% endif %}"></i>
-          <span>{{ label }}</span>
+          <span class="text-truncate">{{ label }}</span>
         </div>
         {% endif %}
         {% endfor %}
