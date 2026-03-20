@@ -1082,6 +1082,11 @@ function setBatch(leadId, day, batchVal) {
 
 /* ── Quick Add AJAX ────────────────────────────────────── */
 (function() {
+  function escHtml(v) {
+    return String(v || '').replace(/[&<>"']/g, function(ch) {
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch];
+    });
+  }
   var qf = document.getElementById('quickAddForm');
   if (!qf) return;
   qf.addEventListener('submit', function(e) {
@@ -1110,17 +1115,20 @@ function setBatch(leadId, day, batchVal) {
         if (container && container.classList.contains('row')) {
           var col = document.createElement('div');
           col.className = 'col-sm-6 col-lg-4';
+          var safeName = escHtml(res.data.name);
+          var safeCity = escHtml(res.data.city);
+          var safePhone = escHtml(res.data.phone).replace(/[^\d+]/g, '');
           col.innerHTML = '<div class="wl-card" data-status="New">' +
             '<div class="d-flex align-items-start justify-content-between gap-2 mb-1">' +
-              '<div><div class="wl-name">' + res.data.name + '</div>' +
-              (res.data.city ? '<div class="wl-city"><i class="bi bi-geo-alt-fill me-1"></i>' + res.data.city + '</div>' : '') +
+              '<div><div class="wl-name">' + safeName + '</div>' +
+              (safeCity ? '<div class="wl-city"><i class="bi bi-geo-alt-fill me-1"></i>' + safeCity + '</div>' : '') +
               '</div>' +
               '<span class="wl-status-badge">New</span>' +
             '</div>' +
             '<div class="d-flex align-items-center gap-2 mb-2">' +
-              '<span class="wl-phone">' + res.data.phone + '</span>' +
-              '<a href="tel:' + res.data.phone + '" class="wl-action-btn call"><i class="bi bi-telephone-fill"></i></a>' +
-              '<a href="https://wa.me/' + res.data.phone + '" target="_blank" class="wl-action-btn wa"><i class="bi bi-whatsapp"></i></a>' +
+              '<span class="wl-phone">' + safePhone + '</span>' +
+              '<a href="tel:' + safePhone + '" class="wl-action-btn call"><i class="bi bi-telephone-fill"></i></a>' +
+              '<a href="https://wa.me/' + safePhone + '" target="_blank" class="wl-action-btn wa"><i class="bi bi-whatsapp"></i></a>' +
             '</div></div>';
           container.prepend(col);
           col.style.opacity = '0'; col.style.transform = 'translateY(-10px)';

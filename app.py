@@ -37,6 +37,7 @@ from urllib.parse import quote as _url_quote
 from flask import (Flask, render_template, request, redirect, url_for,
                    flash, session, Response, make_response, abort, send_from_directory, jsonify)
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.exceptions import HTTPException
 from database import get_db, init_db, migrate_db, seed_users, seed_training_questions
 from pathlib import Path
 
@@ -113,11 +114,10 @@ _env_secret = os.environ.get('SECRET_KEY')
 if _env_secret:
     app.secret_key = _env_secret
 else:
-    # Stable fallback for dev / when SECRET_KEY env var is not set.
-    # Sessions survive restarts but are NOT cryptographically secret if the
-    # code is public.  Set SECRET_KEY env var on Render for full security.
+    # Safe fallback for local/dev when SECRET_KEY is not set.
+    # Use a strong random key to avoid predictable session signing secrets.
     import sys as _sys
-    app.secret_key = 'myle_community_secret_2024_local'
+    app.secret_key = secrets.token_hex(32)
     print('[SECURITY WARNING] SECRET_KEY env var not set — using default fallback. '
           'Set SECRET_KEY in your Render environment for production security!',
           file=_sys.stderr)
@@ -1986,8 +1986,12 @@ _DEV_BYPASS_AUTH = os.environ.get('DEV_BYPASS_AUTH', '').lower() in ('1', 'true'
 
 @app.before_request
 def dev_bypass_auth():
-    """When DEV_BYPASS_AUTH=1 and no user in session, inject admin session so local run works without login."""
+    """Allow auth bypass only for localhost development."""
     if not _DEV_BYPASS_AUTH or session.get('username'):
+        return
+    is_dev = os.environ.get('FLASK_ENV', '').lower() == 'development' or bool(os.environ.get('FLASK_DEBUG'))
+    remote = (request.remote_addr or '').strip()
+    if not is_dev or remote not in ('127.0.0.1', '::1'):
         return
     if request.path.startswith('/static') or request.path.startswith('/watch/'):
         return
@@ -2047,6 +2051,8 @@ def internal_error(error):
 
 @app.errorhandler(Exception)
 def unhandled_exception(error):
+    if isinstance(error, HTTPException):
+        return error
     import traceback as _tb
     app.logger.error(f"Unhandled exception: {error}\n{_tb.format_exc()}")
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
@@ -6770,7 +6776,11 @@ def member_detail(username):
 def admin_activity():
     db = get_db()
 
-    page    = int(request.args.get('page', 1))
+    try:
+        page = int(request.args.get('page', 1))
+    except (TypeError, ValueError):
+        page = 1
+    page = max(1, page)
     per_pg  = 50
     offset  = (page - 1) * per_pg
     filter_user  = request.args.get('user', '')

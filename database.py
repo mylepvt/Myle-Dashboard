@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import secrets
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # On Render: set DATABASE_PATH=/var/data/leads.db (persistent disk)
@@ -882,10 +883,16 @@ def seed_users():
     cursor = conn.cursor()
     count = cursor.execute("SELECT COUNT(*) FROM users").fetchone()[0]
     if count == 0:
+        bootstrap_password = os.environ.get('BOOTSTRAP_ADMIN_PASSWORD') or secrets.token_urlsafe(12)
         cursor.execute(
             "INSERT INTO users (username, password, role, status) VALUES (?, ?, ?, ?)",
-            ('admin', generate_password_hash('admin123', method='pbkdf2:sha256'), 'admin', 'approved')
+            ('admin', generate_password_hash(bootstrap_password, method='pbkdf2:sha256'), 'admin', 'approved')
         )
+        if not os.environ.get('BOOTSTRAP_ADMIN_PASSWORD'):
+            print(
+                f"[SECURITY WARNING] Seeded admin password: {bootstrap_password} "
+                "(set BOOTSTRAP_ADMIN_PASSWORD to control this value)."
+            )
         conn.commit()
     else:
         cursor.execute("UPDATE users SET status='approved' WHERE role='admin'")
