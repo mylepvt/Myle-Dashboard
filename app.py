@@ -1876,9 +1876,9 @@ def edit_lead(lead_id):
         stage_changed = new_pipeline_stage != lead_pipeline_stage
         _updated_at = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
 
-        # Set pipeline_entered_at when lead enters an auto-expirable pipeline stage
+        # Reset pipeline_entered_at on every status change for auto-expirable statuses
         _entering_pipeline = status in PIPELINE_AUTO_EXPIRE_STATUSES
-        _pipeline_entered_at_val = _updated_at if _entering_pipeline else lead.get('pipeline_entered_at', '')
+        _pipeline_entered_at_val = _updated_at if _entering_pipeline else ''
 
         # Single UPDATE: always set status and pipeline_stage together
         db.execute("""
@@ -2241,7 +2241,7 @@ def update_status(lead_id):
             )
     else:
         _entering_pipeline = new_status in PIPELINE_AUTO_EXPIRE_STATUSES
-        _pipe_entered = now_str if _entering_pipeline else (lead.get('pipeline_entered_at') or '')
+        _pipe_entered = now_str if _entering_pipeline else ''
         db.execute(
             "UPDATE leads SET status=?, pipeline_stage=?, updated_at=?, pipeline_entered_at=? WHERE id=? AND in_pool=0",
             (new_status, new_pipeline_stage, now_str, _pipe_entered, lead_id)

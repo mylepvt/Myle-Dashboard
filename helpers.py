@@ -27,9 +27,13 @@ STATUSES = ['New Lead', 'New', 'Contacted', 'Invited', 'Video Sent', 'Video Watc
             'Track Selected', 'Seat Hold Confirmed', 'Fully Converted',
             'Training', 'Converted', 'Lost', 'Retarget', 'Pending']
 
-# Statuses that are "active pipeline" — auto-expire to Pending after 24 hrs of no update
+# All active pipeline statuses — auto-expire to Pending after 24 hrs of no status change
+# Terminal statuses (Fully Converted, Converted, Lost, Pending) are excluded
 PIPELINE_AUTO_EXPIRE_STATUSES = [
     'New Lead', 'New', 'Contacted', 'Invited', 'Video Sent', 'Video Watched',
+    'Paid ₹196', 'Mindset Lock',
+    'Day 1', 'Day 2', 'Interview', 'Track Selected', 'Seat Hold Confirmed',
+    'Training', 'Retarget',
 ]
 
 STATUS_TO_STAGE = {
@@ -622,27 +626,20 @@ def _transition_stage(db, lead_id, new_stage, triggered_by, status_override=None
     new_status = status_override if status_override is not None else STAGE_TO_DEFAULT_STATUS.get(new_stage)
     now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
 
-    # Set pipeline_entered_at when lead enters an auto-expirable pipeline stage
-    entering_active_pipeline = (
-        new_status in PIPELINE_AUTO_EXPIRE_STATUSES
-        or (new_status is None and new_stage == 'enrollment')
-    )
+    # Reset pipeline_entered_at on every stage change for auto-expirable statuses
+    effective_status = new_status if new_status is not None else STAGE_TO_DEFAULT_STATUS.get(new_stage)
+    entering_active_pipeline = effective_status in PIPELINE_AUTO_EXPIRE_STATUSES
+    new_pipeline_entered_at = now_str if entering_active_pipeline else ''
 
     if new_status is not None:
-        if entering_active_pipeline:
-            db.execute(
-                "UPDATE leads SET pipeline_stage=?, current_owner=?, status=?, updated_at=?, pipeline_entered_at=? WHERE id=?",
-                (new_stage, new_owner, new_status, now_str, now_str, lead_id)
-            )
-        else:
-            db.execute(
-                "UPDATE leads SET pipeline_stage=?, current_owner=?, status=?, updated_at=? WHERE id=?",
-                (new_stage, new_owner, new_status, now_str, lead_id)
-            )
+        db.execute(
+            "UPDATE leads SET pipeline_stage=?, current_owner=?, status=?, updated_at=?, pipeline_entered_at=? WHERE id=?",
+            (new_stage, new_owner, new_status, now_str, new_pipeline_entered_at, lead_id)
+        )
     else:
         db.execute(
-            "UPDATE leads SET pipeline_stage=?, current_owner=?, updated_at=? WHERE id=?",
-            (new_stage, new_owner, now_str, lead_id)
+            "UPDATE leads SET pipeline_stage=?, current_owner=?, updated_at=?, pipeline_entered_at=? WHERE id=?",
+            (new_stage, new_owner, now_str, new_pipeline_entered_at, lead_id)
         )
 
     db.execute(
