@@ -37,7 +37,7 @@
 <div class="row g-2 mb-3">
   <div class="col-6 col-md-3">
     <div class="cmd-stat">
-      <div class="val text-primary">{{ pipeline.enrollment + pipeline.ready + pipeline.day1 + pipeline.day2 + pipeline.day3 + pipeline.seat_hold }}</div>
+      <div class="val text-primary">{{ pipeline.prospecting + pipeline.enrolled + pipeline.day1 + pipeline.day2 + pipeline.day3 + pipeline.plan_2cc + pipeline.seat_hold + pipeline.pending_as + pipeline.level_up }}</div>
       <div class="lbl">Active Leads</div>
     </div>
   </div>
@@ -62,20 +62,23 @@
 </div>
 
 {# ═══ SECTION 2: LIVE PIPELINE FUNNEL ═══ #}
-{% set total_active = pipeline.enrollment + pipeline.ready + pipeline.day1 + pipeline.day2 + pipeline.day3 + pipeline.seat_hold + pipeline.converted %}
-{% set max_pipe = [pipeline.enrollment, pipeline.ready, pipeline.day1, pipeline.day2, pipeline.day3, pipeline.seat_hold, pipeline.converted]|max or 1 %}
+{% set total_active = pipeline.prospecting + pipeline.enrolled + pipeline.day1 + pipeline.day2 + pipeline.day3 + pipeline.plan_2cc + pipeline.seat_hold + pipeline.pending_as + pipeline.level_up + pipeline.converted %}
+{% set max_pipe = [pipeline.prospecting, pipeline.enrolled, pipeline.day1, pipeline.day2, pipeline.day3, pipeline.plan_2cc, pipeline.seat_hold, pipeline.pending_as, pipeline.level_up, pipeline.converted]|max or 1 %}
 <div class="card border-0 shadow-sm mb-3">
   <div class="card-header bg-transparent border-0 pt-3 pb-1">
     <h6 class="mb-0 fw-bold"><i class="bi bi-funnel-fill me-2 text-primary"></i>Live Pipeline</h6>
   </div>
   <div class="card-body pt-1">
     {% set stages = [
-      ('Prospecting', pipeline.enrollment, '#6b7280'),
-      ('Ready ₹196', pipeline.ready, '#0d6efd'),
+      ('Prospecting', pipeline.prospecting, '#6b7280'),
+      ('Enrolled', pipeline.enrolled, '#0d6efd'),
       ('Day 1', pipeline.day1, '#0dcaf0'),
       ('Day 2', pipeline.day2, '#ffc107'),
       ('Day 3', pipeline.day3, '#fd7e14'),
+      ('2cc Plan', pipeline.plan_2cc, '#e11d48'),
       ('Seat Hold', pipeline.seat_hold, '#7c3aed'),
+      ('Pending AS', pipeline.pending_as, '#f59e0b'),
+      ('Level Up', pipeline.level_up, '#06b6d4'),
       ('Converted', pipeline.converted, '#198754'),
     ] %}
     {% for label, count, color in stages %}

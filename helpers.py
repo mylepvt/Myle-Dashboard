@@ -24,38 +24,46 @@ except ImportError:
 STATUSES = ['New Lead', 'New', 'Contacted', 'Invited', 'Video Sent', 'Video Watched',
             'Paid ₹196', 'Mindset Lock',
             'Day 1', 'Day 2', 'Interview',
-            'Track Selected', 'Seat Hold Confirmed', 'Fully Converted',
-            'Training', 'Converted', 'Lost', 'Retarget', 'Pending']
+            '2cc Plan',
+            'Track Selected', 'Seat Hold Confirmed',
+            'Pending',
+            'Level Up',
+            'Fully Converted',
+            'Training', 'Converted', 'Lost', 'Retarget', 'Inactive']
 
-# All active pipeline statuses — auto-expire to Pending after 24 hrs of no status change
-# Terminal statuses (Fully Converted, Converted, Lost, Pending) are excluded
+# All active pipeline statuses — auto-expire to Inactive after 24 hrs of no status change
+# Terminal statuses (Fully Converted, Converted, Lost, Pending, Inactive) are excluded
 PIPELINE_AUTO_EXPIRE_STATUSES = [
     'New Lead', 'New', 'Contacted', 'Invited', 'Video Sent', 'Video Watched',
     'Paid ₹196', 'Mindset Lock',
-    'Day 1', 'Day 2', 'Interview', 'Track Selected', 'Seat Hold Confirmed',
+    'Day 1', 'Day 2', 'Interview', '2cc Plan', 'Track Selected', 'Seat Hold Confirmed',
+    'Level Up',
     'Training', 'Retarget',
 ]
 
 STATUS_TO_STAGE = {
-    'New Lead':            'enrollment',
-    'New':                 'enrollment',
-    'Contacted':           'enrollment',
-    'Invited':             'enrollment',
-    'Video Sent':          'enrollment',
-    'Video Watched':       'enrollment',
-    'Paid ₹196':           'enrollment',
-    'Mindset Lock':        'enrollment',
+    'New Lead':            'prospecting',
+    'New':                 'prospecting',
+    'Contacted':           'prospecting',
+    'Invited':             'prospecting',
+    'Video Sent':          'prospecting',
+    'Video Watched':       'prospecting',
+    'Paid ₹196':           'enrolled',
+    'Mindset Lock':        'enrolled',
     'Day 1':               'day1',
     'Day 2':               'day2',
     'Interview':           'day3',
+    '2cc Plan':            'plan_2cc',
     'Track Selected':      'day3',
     'Seat Hold Confirmed': 'seat_hold',
+    'Pending':             'pending',
+    'Level Up':            'level_up',
     'Fully Converted':     'closing',
     'Training':            'training',
     'Converted':           'complete',
     'Lost':                'lost',
-    'Retarget':            'enrollment',
-    'Pending':             'pending',
+    'Retarget':            'prospecting',
+    'Inactive':            'inactive',
 }
 
 CALL_STATUS_VALUES = [
@@ -703,11 +711,11 @@ def _auto_expire_pipeline_leads(db, username):
     now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
     for lead in expired:
         db.execute("""
-            UPDATE leads SET status='Pending', pipeline_stage='pending', updated_at=?
+            UPDATE leads SET status='Inactive', pipeline_stage='inactive', updated_at=?
             WHERE id=?
         """, (now_str, lead['id']))
         _log_activity(db, 'system', 'pipeline_expired',
-                      f'Lead #{lead["id"]} ({lead["name"]}) auto-moved to Pending after 24hr inactivity')
+                      f'Lead #{lead["id"]} ({lead["name"]}) auto-moved to Inactive after 24hr inactivity')
     if expired:
         db.commit()
     return len(expired)

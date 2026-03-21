@@ -757,8 +757,8 @@
       </div>
       <!-- Pipeline indicator -->
       <div class="pipeline-indicator mb-2">
-        {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-        {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+        {% set stages = [('prospecting','P'),('enrolled','E'),('day1','1'),('day2','2'),('day3','3'),('plan_2cc','2c'),('seat_hold','S'),('pending','PA'),('level_up','LU'),('closing','C'),('training','T')] %}
+        {% set stage_order = ['prospecting','enrolled','day1','day2','day3','plan_2cc','seat_hold','pending','level_up','closing','training'] %}
         {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
         <div class="d-flex align-items-center" style="gap:3px;">
           {% for stage_id, stage_short in stages %}
@@ -897,8 +897,8 @@
       </div>
       <!-- Pipeline indicator -->
       <div class="pipeline-indicator mb-2">
-        {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-        {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+        {% set stages = [('prospecting','P'),('enrolled','E'),('day1','1'),('day2','2'),('day3','3'),('plan_2cc','2c'),('seat_hold','S'),('pending','PA'),('level_up','LU'),('closing','C'),('training','T')] %}
+        {% set stage_order = ['prospecting','enrolled','day1','day2','day3','plan_2cc','seat_hold','pending','level_up','closing','training'] %}
         {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
         <div class="d-flex align-items-center" style="gap:3px;">
           {% for stage_id, stage_short in stages %}
@@ -1018,8 +1018,8 @@
       </div>
       <!-- Pipeline indicator -->
       <div class="pipeline-indicator mb-1">
-        {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-        {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+        {% set stages = [('prospecting','P'),('enrolled','E'),('day1','1'),('day2','2'),('day3','3'),('plan_2cc','2c'),('seat_hold','S'),('pending','PA'),('level_up','LU'),('closing','C'),('training','T')] %}
+        {% set stage_order = ['prospecting','enrolled','day1','day2','day3','plan_2cc','seat_hold','pending','level_up','closing','training'] %}
         {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
         <div class="d-flex align-items-center" style="gap:3px;">
           {% for stage_id, stage_short in stages %}
@@ -1111,8 +1111,8 @@
       </div>
       <!-- Pipeline indicator -->
       <div class="pipeline-indicator mb-2">
-        {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-        {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+        {% set stages = [('prospecting','P'),('enrolled','E'),('day1','1'),('day2','2'),('day3','3'),('plan_2cc','2c'),('seat_hold','S'),('pending','PA'),('level_up','LU'),('closing','C'),('training','T')] %}
+        {% set stage_order = ['prospecting','enrolled','day1','day2','day3','plan_2cc','seat_hold','pending','level_up','closing','training'] %}
         {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
         <div class="d-flex align-items-center" style="gap:3px;">
           {% for stage_id, stage_short in stages %}
@@ -1213,7 +1213,7 @@
     {% set all_q_leads = stage1_leads + day1_leads + day2_leads + day3_leads + pending_leads %}
     {% for l in all_q_leads %}
     {"id":{{ l.id }},"name":{{ l.name|tojson }},"phone":"{{ l.phone or '' }}",
-     "stage":"{{ l.pipeline_stage or 'enrollment' }}","heat":{{ l.heat|default(0) }},
+     "stage":"{{ l.pipeline_stage or 'prospecting' }}","heat":{{ l.heat|default(0) }},
      "next_action":{{ (l.next_action or '')|tojson }},"next_action_type":"{{ l.next_action_type or 'followup' }}",
      "updated_at":"{{ l.updated_at or '' }}",
      "d1_morning":{{ l.d1_morning|int }},"d1_afternoon":{{ l.d1_afternoon|int }},"d1_evening":{{ l.d1_evening|int }},
@@ -1246,8 +1246,8 @@
           </div>
           <!-- Pipeline indicator -->
           <div class="pipeline-indicator mb-2">
-            {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-            {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+            {% set stages = [('prospecting','P'),('enrolled','E'),('day1','1'),('day2','2'),('day3','3'),('plan_2cc','2c'),('seat_hold','S'),('pending','PA'),('level_up','LU'),('closing','C'),('training','T')] %}
+            {% set stage_order = ['prospecting','enrolled','day1','day2','day3','plan_2cc','seat_hold','pending','level_up','closing','training'] %}
             {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
             <div class="d-flex align-items-center" style="gap:3px;">
               {% for stage_id, stage_short in stages %}
@@ -2027,7 +2027,7 @@ function buildActionQueue() {
     var staleClass = hoursStale > 48 ? 'aq-row-stale-red' :
                      hoursStale > 24 ? 'aq-row-stale-orange' : '';
 
-    if (l.stage === 'enrollment' || l.next_action_type === 'urgent') {
+    if (l.stage === 'prospecting' || l.stage === 'enrolled' || l.next_action_type === 'urgent') {
       callsDue.push(Object.assign({}, l, {staleClass: staleClass}));
     } else if (l.next_action_type === 'today') {
       callsDue.push(Object.assign({}, l, {staleClass: staleClass}));

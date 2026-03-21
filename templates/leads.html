@@ -475,7 +475,7 @@
             <span class="badge rounded-pill status-{{ lead.status|replace(' ','') }}"
                   style="font-size:0.7rem;padding:3px 8px;">{{ lead.status }}</span>
             {# Pipeline stage indicator — shows which stage and with whom #}
-            {% if lead.pipeline_stage and lead.pipeline_stage != 'enrollment' %}
+            {% if lead.pipeline_stage and lead.pipeline_stage not in ('prospecting', 'enrolled') %}
             <div style="font-size:0.63rem;background:#f0f4ff;color:#6366f1;
                         border-radius:4px;padding:2px 7px;display:inline-block;
                         margin-top:3px;font-weight:600;">
@@ -725,7 +725,7 @@
                   </select>
                 </form>
                 {# Pipeline stage indicator — shows which stage and with whom #}
-                {% if lead.pipeline_stage and lead.pipeline_stage != 'enrollment' %}
+                {% if lead.pipeline_stage and lead.pipeline_stage not in ('prospecting', 'enrolled') %}
                 <div style="font-size:0.63rem;background:#f0f4ff;color:#6366f1;
                             border-radius:4px;padding:2px 7px;display:inline-block;
                             margin-top:3px;font-weight:600;">
