@@ -9,7 +9,7 @@
     <h5 class="fw-bold mb-0"><i class="bi bi-archive me-1 text-secondary"></i>Old Leads</h5>
     <span class="badge bg-secondary rounded-pill">{{ leads|length }}</span>
   </div>
-  <p class="text-muted small mb-0">Lost leads — restore karo to retarget list mein wapas aa jaayenge</p>
+  <p class="text-muted small mb-0">Lost &amp; Pending leads — restore karo to retarget list mein wapas aa jaayenge</p>
 </div>
 
 <!-- Search -->
@@ -39,8 +39,9 @@
             {% if session.get('role') in ('admin', 'leader') %}
             <th>Assigned To</th>
             {% endif %}
+            <th>Status</th>
             <th>Last Stage</th>
-            <th>Lost On</th>
+            <th>Moved On</th>
             <th></th>
           </tr>
         </thead>
@@ -66,6 +67,19 @@
             {% if session.get('role') in ('admin', 'leader') %}
             <td class="text-muted small">{{ lead.assigned_to or '—' }}</td>
             {% endif %}
+            <td>
+              {% if lead.status == 'Pending' %}
+              <span class="badge bg-warning-subtle text-warning border border-warning-subtle"
+                    style="font-size:.72rem;">
+                <i class="bi bi-clock me-1"></i>Pending
+              </span>
+              {% else %}
+              <span class="badge bg-danger-subtle text-danger border border-danger-subtle"
+                    style="font-size:.72rem;">
+                <i class="bi bi-x-circle me-1"></i>Lost
+              </span>
+              {% endif %}
+            </td>
             <td>
               {% set ps = lead.pipeline_stage if lead.pipeline_stage is defined else '' %}
               {% if ps %}
@@ -104,7 +118,7 @@
   {% if search %}
   <a href="{{ url_for('old_leads') }}" class="btn btn-sm btn-outline-secondary mt-2">Clear Search</a>
   {% else %}
-  <p class="text-muted small">Jab koi lead "Lost" status milegi, yahan dikhegi</p>
+  <p class="text-muted small">Jab koi lead "Lost" ya "Pending" hogi, yahan dikhegi</p>
   {% endif %}
 </div>
 {% endif %}

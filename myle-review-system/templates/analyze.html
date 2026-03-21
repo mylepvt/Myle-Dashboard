@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}New Analysis — Myle Review System{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-3">
+  <a href="/" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i></a>
+  <h5 class="fw-bold mb-0">New Analysis</h5>
+</div>
+
+{% if error %}
+<div class="alert alert-danger border-0 rounded-3">
+  <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+</div>
+{% endif %}
+
+<div class="card shadow-sm p-4">
+  <form method="POST" action="/analyze">
+
+    <div class="row g-3 mb-3">
+      <div class="col-sm-6">
+        <label class="form-label fw-semibold small">Lead ka naam <span class="text-danger">*</span></label>
+        <input type="text" name="lead_name" class="form-control" placeholder="e.g. Rahul Sharma"
+               value="{{ form.lead_name if form else '' }}" required>
+      </div>
+      <div class="col-sm-3">
+        <label class="form-label fw-semibold small">Phone (optional)</label>
+        <input type="text" name="phone" class="form-control" placeholder="9876543210"
+               value="{{ form.phone if form else '' }}">
+      </div>
+      <div class="col-sm-3">
+        <label class="form-label fw-semibold small">Batch</label>
+        <select name="batch" class="form-select">
+          <option value="">-- Select --</option>
+          <option value="Morning" {% if form and form.batch == 'Morning' %}selected{% endif %}>Morning</option>
+          <option value="Afternoon" {% if form and form.batch == 'Afternoon' %}selected{% endif %}>Afternoon</option>
+          <option value="Evening" {% if form and form.batch == 'Evening' %}selected{% endif %}>Evening</option>
+          <option value="D2 Morning" {% if form and form.batch == 'D2 Morning' %}selected{% endif %}>D2 Morning</option>
+          <option value="D2 Afternoon" {% if form and form.batch == 'D2 Afternoon' %}selected{% endif %}>D2 Afternoon</option>
+          <option value="D2 Evening" {% if form and form.batch == 'D2 Evening' %}selected{% endif %}>D2 Evening</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label class="form-label fw-semibold small">
+        Conversation Transcript <span class="text-danger">*</span>
+        <span class="text-muted fw-normal ms-1">(WhatsApp chat ya call transcript paste karo)</span>
+      </label>
+      <textarea name="transcript" class="form-control" rows="12"
+                placeholder="Yahan conversation paste karo...
+Example:
+Salesperson: Bhai, aapko kya laga presentation ke baare mein?
+Prospect: Haan, dekh lena chahiye... soch raha hoon
+Salesperson: Koi doubt hai?
+Prospect: Nahi nahi, seedha interest nahi hai abhi, baad mein dekhte hain"
+                style="font-size:.88rem;line-height:1.6;" required>{{ form.transcript if form else '' }}</textarea>
+    </div>
+
+    <button type="submit" class="btn btn-warning fw-bold w-100" id="submitBtn">
+      <i class="bi bi-cpu me-2"></i>Analyse Psychology
+    </button>
+  </form>
+</div>
+
+<div class="text-muted small text-center mt-3">
+  <i class="bi bi-shield-check me-1"></i>Transcript sirf analysis ke liye use hota hai, securely stored hai.
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelector('form').addEventListener('submit', function() {
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analysing...';
+});
+</script>
+{% endblock %}

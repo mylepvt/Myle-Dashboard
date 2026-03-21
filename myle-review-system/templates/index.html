@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}All Reviews — Myle Review System{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h5 class="fw-bold mb-0"><i class="bi bi-list-ul me-2 text-primary"></i>All Reviews</h5>
+  <span class="text-muted small">{{ reviews|length }} analyses saved</span>
+</div>
+
+{% if reviews %}
+<div class="d-flex flex-column gap-2">
+  {% for r in reviews %}
+  <a href="/review/{{ r.id }}" class="text-decoration-none">
+    <div class="card shadow-sm p-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="fw-bold text-dark">{{ r.lead_name }}</div>
+          <div class="text-muted small mt-1">
+            {% if r.phone %}<i class="bi bi-phone me-1"></i>{{ r.phone }} &nbsp;{% endif %}
+            {% if r.batch %}<i class="bi bi-layers me-1"></i>{{ r.batch }} &nbsp;{% endif %}
+            <i class="bi bi-clock me-1"></i>{{ r.created_at }}
+          </div>
+        </div>
+        {% if r.prediction %}
+        <span class="badge-prediction pred-{{ r.prediction }}">
+          {% if r.prediction == 'will_buy' %}Will Buy
+          {% elif r.prediction == 'needs_push' %}Needs Push
+          {% elif r.prediction == 'will_delay' %}Will Delay
+          {% elif r.prediction == 'will_not_buy' %}Will Not Buy
+          {% else %}{{ r.prediction }}{% endif %}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-clipboard2-x fs-1 mb-3 d-block opacity-25"></i>
+  <div class="fw-semibold mb-1">Koi review nahi abhi</div>
+  <div class="small mb-3">Pehla transcript paste karo aur analysis karo</div>
+  <a href="/analyze" class="btn btn-warning fw-semibold">
+    <i class="bi bi-plus-circle me-1"></i>New Analysis
+  </a>
+</div>
+{% endif %}
+{% endblock %}
