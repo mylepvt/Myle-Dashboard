@@ -5604,10 +5604,13 @@ def api_today_score():
 @app.route('/team/day2-progress')
 @login_required
 def day2_progress():
+    if session.get('role') != 'admin':
+        flash('Access denied. Day 2 Board is admin only.', 'danger')
+        return redirect(url_for('team_dashboard'))
     db = get_db()
     now = _now_ist()
 
-    # All Day 2 leads visible to everyone
+    # All Day 2 leads visible to admin
     day2_leads = db.execute("""
         SELECT l.*,
                CAST((julianday('now','localtime') - julianday(l.updated_at)) * 24 AS INTEGER) AS hours_since_update

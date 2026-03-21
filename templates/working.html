@@ -1001,9 +1001,11 @@
     <div class="wk-col-header">
       <span class="wk-col-title"><i class="bi bi-2-circle me-2 text-warning"></i>Day 2</span>
       <span class="badge bg-warning text-dark">{{ day2_leads|length }}</span>
+      {% if is_admin %}
       <a href="{{ url_for('day2_progress') }}" class="btn btn-sm btn-link py-0 ms-auto text-muted small" style="font-size:0.72rem;">
         <i class="bi bi-people me-1"></i>Team View
       </a>
+      {% endif %}
     </div>
     {% if day2_leads %}
     {% for lead in day2_leads %}

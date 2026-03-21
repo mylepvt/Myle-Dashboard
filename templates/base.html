@@ -127,7 +127,7 @@
           {% endif %}
         </a>
       </li>
-      {% if session.get('role') != 'admin' %}
+      {% if session.get('role') == 'admin' %}
       <li class="nav-item">
         <a href="{{ url_for('day2_progress') }}"
            class="nav-link {% if request.endpoint == 'day2_progress' %}active{% endif %}">

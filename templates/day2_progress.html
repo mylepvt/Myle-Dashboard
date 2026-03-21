@@ -199,7 +199,7 @@
   {% for lead in day2_leads %}
   {% set done_count = lead.d2_morning + lead.d2_afternoon + lead.d2_evening %}
   {% set is_own = (lead.assigned_to == current_user) %}
-  {% set can_toggle = can_edit or is_own %}
+  {% set can_toggle = can_edit %}
   <div class="card border-0 shadow-sm d2-lead-card
     {% if done_count == 3 %}d2-row-complete
     {% elif done_count > 0 %}d2-row-progress
