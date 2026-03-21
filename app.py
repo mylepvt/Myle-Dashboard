@@ -127,7 +127,11 @@ else:
         file=_sys.stderr,
     )
 
-app.permanent_session_lifetime = datetime.timedelta(days=3650)  # ~10 years = effectively forever
+app.config['SESSION_PERMANENT'] = True                                    # every session permanent by default
+app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(days=30)    # 30-day rolling sessions
+# SESSION_TYPE is intentionally NOT set to filesystem/redis:
+# Render's disk is ephemeral — server-side filesystem sessions are wiped on every deploy.
+# Flask's default client-side signed cookies survive deploys as long as SECRET_KEY is stable.
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 
