@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Pool Duplicate Cleanup{% endblock %}
+{% block page_title %}Pool Duplicate Cleanup{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{{ url_for('admin_lead_pool') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Back to Lead Pool
+  </a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in messages %}
+    <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
+      {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  {% endfor %}
+{% endwith %}
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <h5 class="fw-bold mb-1">
+      <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+      Pool mein duplicate leads
+    </h5>
+    <p class="text-muted small mb-0">
+      Ye woh leads hain jo pool mein hain <strong>aur</strong> inhi phone numbers ki active leads already kisi ke paas hain.
+      Sirf inhe safely delete kar sakte ho — active leads ko koi touch nahi hoga.
+    </p>
+  </div>
+</div>
+
+{% if not dupes %}
+  <div class="alert alert-success">
+    <i class="bi bi-check-circle-fill me-2"></i>
+    Koi duplicate nahi mila! Pool bilkul clean hai.
+  </div>
+{% else %}
+  <form method="POST" action="{{ url_for('pool_duplicate_cleanup_delete') }}" id="deleteForm">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+        <span class="fw-semibold">{{ dupes|length }} duplicate pool lead(s) mili</span>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll()">
+            <i class="bi bi-check-all me-1"></i>Select All
+          </button>
+          <button type="submit" class="btn btn-sm btn-danger" onclick="return confirmDelete()">
+            <i class="bi bi-trash me-1"></i>Delete Selected
+          </button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th style="width:40px"></th>
+              <th>Pool mein (delete hogi)</th>
+              <th>Active lead (safe rahegi)</th>
+              <th>Phone</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in dupes %}
+            <tr>
+              <td>
+                <input type="checkbox" name="lead_ids" value="{{ d.id }}"
+                       class="form-check-input lead-checkbox" checked>
+              </td>
+              <td>
+                <div class="fw-semibold">{{ d.name }}</div>
+                <div class="text-muted small">
+                  {% if d.city %}<i class="bi bi-geo-alt me-1"></i>{{ d.city }}{% endif %}
+                  {% if d.source %} &bull; {{ d.source }}{% endif %}
+                </div>
+                <span class="badge bg-warning text-dark mt-1">In Pool</span>
+              </td>
+              <td>
+                <div class="fw-semibold">{{ d.active_name }}</div>
+                <div class="text-muted small">
+                  <i class="bi bi-person me-1"></i>{{ d.active_owner }}
+                </div>
+                <span class="badge bg-success mt-1">{{ d.active_status }}</span>
+              </td>
+              <td>
+                <span class="font-monospace">{{ d.phone }}</span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </form>
+{% endif %}
+
+<script>
+function toggleAll() {
+  const boxes = document.querySelectorAll('.lead-checkbox');
+  const anyUnchecked = [...boxes].some(b => !b.checked);
+  boxes.forEach(b => b.checked = anyUnchecked);
+}
+function confirmDelete() {
+  const selected = document.querySelectorAll('.lead-checkbox:checked').length;
+  if (selected === 0) { alert('Pehle koi lead select karo.'); return false; }
+  return confirm(`Kya tum sure ho? ${selected} pool lead(s) permanently delete ho jayengi.\nActive leads bilkul safe rahenge.`);
+}
+</script>
+{% endblock %}
