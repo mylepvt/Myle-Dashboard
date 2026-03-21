@@ -2961,6 +2961,46 @@ def admin_upi_qr_preview():
 #  Admin \u2013 Lead Pool Management
 # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
+@app.route('/admin/lead-pool/duplicate-cleanup')
+@admin_required
+def pool_duplicate_cleanup():
+    """Show pool leads whose phone numbers already exist as active leads."""
+    db = get_db()
+    dupes = db.execute("""
+        SELECT p.id, p.name, p.phone, p.city, p.source, p.created_at,
+               a.name AS active_name, a.assigned_to AS active_owner, a.status AS active_status
+        FROM leads p
+        JOIN leads a ON a.phone = p.phone
+        WHERE p.in_pool = 1
+          AND p.deleted_at = ''
+          AND a.in_pool = 0
+          AND a.deleted_at = ''
+        ORDER BY p.phone
+    """).fetchall()
+    db.close()
+    return render_template('pool_duplicate_cleanup.html', dupes=dupes)
+
+
+@app.route('/admin/lead-pool/duplicate-cleanup/delete', methods=['POST'])
+@admin_required
+def pool_duplicate_cleanup_delete():
+    """Delete selected pool duplicate leads."""
+    ids = request.form.getlist('lead_ids')
+    if not ids:
+        flash('Koi lead select nahi ki.', 'warning')
+        return redirect(url_for('pool_duplicate_cleanup'))
+    db = get_db()
+    placeholders = ','.join('?' * len(ids))
+    deleted = db.execute(
+        f"DELETE FROM leads WHERE id IN ({placeholders}) AND in_pool=1",
+        ids
+    ).rowcount
+    db.commit()
+    db.close()
+    flash(f'{deleted} duplicate pool lead(s) safely deleted.', 'success')
+    return redirect(url_for('pool_duplicate_cleanup'))
+
+
 @app.route('/admin/lead-pool')
 @admin_required
 def admin_lead_pool():
