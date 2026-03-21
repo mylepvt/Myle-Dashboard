@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}{{ review.lead_name }} — Myle Review System{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-3">
+  <a href="/" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i></a>
+  <div>
+    <h5 class="fw-bold mb-0">{{ review.lead_name }}</h5>
+    <div class="text-muted small">
+      {% if review.phone %}<i class="bi bi-phone me-1"></i>{{ review.phone }} &nbsp;{% endif %}
+      {% if review.batch %}<i class="bi bi-layers me-1"></i>{{ review.batch }} &nbsp;{% endif %}
+      <i class="bi bi-clock me-1"></i>{{ review.created_at }}
+    </div>
+  </div>
+  {% if analysis and analysis.prediction %}
+  <span class="ms-auto badge-prediction pred-{{ analysis.prediction }} fw-bold">
+    {% if analysis.prediction == 'will_buy' %}Will Buy
+    {% elif analysis.prediction == 'needs_push' %}Needs Push
+    {% elif analysis.prediction == 'will_delay' %}Will Delay
+    {% elif analysis.prediction == 'will_not_buy' %}Will Not Buy
+    {% else %}{{ analysis.prediction }}{% endif %}
+  </span>
+  {% endif %}
+</div>
+
+{% if analysis %}
+
+<!-- Quick Stats -->
+<div class="analysis-grid mb-3">
+
+  <!-- Confidence -->
+  <div class="analysis-item">
+    <div class="analysis-label">Confidence Level</div>
+    <div class="analysis-value">{{ analysis.confidence_level }}</div>
+    {% set conf_num = analysis.confidence_level.split('/')[0]|int if '/' in analysis.confidence_level else 5 %}
+    <div class="level-bar"><div class="level-fill" style="width:{{ (conf_num/10*100)|int }}%;"></div></div>
+  </div>
+
+  <!-- Trust -->
+  <div class="analysis-item">
+    <div class="analysis-label">Trust Level</div>
+    <div class="analysis-value">
+      {% if analysis.trust_level == 'high' %}<span class="text-success">High</span>
+      {% elif analysis.trust_level == 'medium' %}<span class="text-warning">Medium</span>
+      {% else %}<span class="text-danger">Low</span>{% endif %}
+    </div>
+  </div>
+
+  <!-- Intent -->
+  <div class="analysis-item">
+    <div class="analysis-label">Intent Level</div>
+    <div class="analysis-value">
+      {% if analysis.intent_level == 'high' %}<span class="text-success">High</span>
+      {% elif analysis.intent_level == 'medium' %}<span class="text-warning">Medium</span>
+      {% else %}<span class="text-danger">Low</span>{% endif %}
+    </div>
+  </div>
+
+  <!-- Decision Speed -->
+  <div class="analysis-item">
+    <div class="analysis-label">Decision Speed</div>
+    <div class="analysis-value">
+      {% if analysis.decision_speed == 'fast' %}<span class="text-success">Fast</span>
+      {% elif analysis.decision_speed == 'medium' %}<span class="text-warning">Medium</span>
+      {% else %}<span class="text-danger">Slow</span>{% endif %}
+    </div>
+  </div>
+
+  <!-- Personality -->
+  <div class="analysis-item">
+    <div class="analysis-label">Personality Type</div>
+    <div class="analysis-value text-capitalize">{{ analysis.personality_type }}</div>
+  </div>
+
+  <!-- Emotional State -->
+  <div class="analysis-item">
+    <div class="analysis-label">Emotional State</div>
+    <div class="analysis-value text-capitalize">{{ analysis.emotional_state }}</div>
+  </div>
+
+  <!-- Seriousness -->
+  <div class="analysis-item">
+    <div class="analysis-label">Seriousness</div>
+    <div class="analysis-value">
+      {% if analysis.seriousness == 'ready_to_buy' %}<span class="text-success fw-bold">Ready to Buy</span>
+      {% elif analysis.seriousness == 'serious' %}<span class="text-primary">Serious</span>
+      {% elif analysis.seriousness == 'exploring' %}<span class="text-warning">Exploring</span>
+      {% else %}<span class="text-secondary">Timepass</span>{% endif %}
+    </div>
+  </div>
+
+  <!-- Logic vs Emotion -->
+  <div class="analysis-item">
+    <div class="analysis-label">Logic vs Emotion</div>
+    <div class="analysis-value text-capitalize">{{ analysis.logic_vs_emotion }}</div>
+  </div>
+
+  <!-- Risk Appetite -->
+  <div class="analysis-item">
+    <div class="analysis-label">Risk Appetite</div>
+    <div class="analysis-value">
+      {% if analysis.risk_appetite == 'high' %}<span class="text-success">High</span>
+      {% elif analysis.risk_appetite == 'medium' %}<span class="text-warning">Medium</span>
+      {% else %}<span class="text-danger">Low</span>{% endif %}
+    </div>
+  </div>
+
+  <!-- Engagement Quality -->
+  <div class="analysis-item">
+    <div class="analysis-label">Engagement Quality</div>
+    <div class="analysis-value text-capitalize">
+      {% if analysis.engagement_quality == 'strong' %}<span class="text-success">Strong</span>
+      {% elif analysis.engagement_quality == 'average' %}<span class="text-warning">Average</span>
+      {% else %}<span class="text-danger">Weak</span>{% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Deep Analysis -->
+<div class="d-flex flex-column gap-2 mb-3">
+
+  {% if analysis.hidden_fear %}
+  <div class="analysis-full">
+    <div class="analysis-label"><i class="bi bi-eye-slash me-1"></i>Hidden Fear</div>
+    <div class="analysis-value">{{ analysis.hidden_fear }}</div>
+  </div>
+  {% endif %}
+
+  {% if analysis.dominant_thought_pattern %}
+  <div class="analysis-full">
+    <div class="analysis-label"><i class="bi bi-lightning me-1"></i>Dominant Thought Pattern</div>
+    <div class="analysis-value">{{ analysis.dominant_thought_pattern }}</div>
+  </div>
+  {% endif %}
+
+  {% if analysis.trust_barrier %}
+  <div class="analysis-full">
+    <div class="analysis-label"><i class="bi bi-shield-x me-1"></i>Trust Barrier</div>
+    <div class="analysis-value">{{ analysis.trust_barrier }}</div>
+  </div>
+  {% endif %}
+
+  {% if analysis.decision_blocker %}
+  <div class="analysis-full">
+    <div class="analysis-label"><i class="bi bi-x-octagon me-1"></i>Decision Blocker</div>
+    <div class="analysis-value">{{ analysis.decision_blocker }}</div>
+  </div>
+  {% endif %}
+
+  {% if analysis.behavior_summary %}
+  <div class="analysis-full" style="background:#fffbeb;border:1px solid #fde68a;">
+    <div class="analysis-label"><i class="bi bi-person-lines-fill me-1"></i>Behavior Summary</div>
+    <div class="analysis-value">{{ analysis.behavior_summary }}</div>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Transcript toggle -->
+<div class="card shadow-sm mb-4">
+  <div class="card-body p-3">
+    <button class="btn btn-link text-muted p-0 text-decoration-none small fw-semibold"
+            data-bs-toggle="collapse" data-bs-target="#transcriptCollapse">
+      <i class="bi bi-chat-text me-1"></i>Original Transcript dekhein
+    </button>
+    <div class="collapse mt-2" id="transcriptCollapse">
+      <pre class="bg-light p-3 rounded" style="font-size:.8rem;white-space:pre-wrap;word-break:break-word;">{{ review.transcript }}</pre>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="alert alert-warning">Analysis available nahi hai.</div>
+{% endif %}
+
+<!-- Delete -->
+<form method="POST" action="/review/{{ review.id }}/delete"
+      onsubmit="return confirm('Yeh review delete karna chahte ho?')">
+  <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+    <i class="bi bi-trash me-1"></i>Delete Review
+  </button>
+</form>
+
+{% endblock %}

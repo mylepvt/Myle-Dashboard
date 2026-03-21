@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Settings — Myle Review System{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-3">
+  <a href="/" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i></a>
+  <h5 class="fw-bold mb-0">Settings</h5>
+</div>
+
+{% if saved %}
+<div class="alert alert-success border-0 rounded-3">
+  <i class="bi bi-check-circle me-2"></i>Settings save ho gaye!
+</div>
+{% endif %}
+
+<div class="card shadow-sm p-4">
+  <form method="POST" action="/settings">
+
+    <div class="mb-4">
+      <label class="form-label fw-semibold">
+        Anthropic API Key
+        <span class="ms-2 badge {% if api_key_set %}bg-success{% else %}bg-danger{% endif %}">
+          {% if api_key_set %}Set{% else %}Not Set{% endif %}
+        </span>
+      </label>
+      <input type="password" name="anthropic_api_key" class="form-control"
+             placeholder="sk-ant-...">
+      <div class="form-text">
+        API key <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a> se milegi.
+        Ya <code>ANTHROPIC_API_KEY</code> environment variable set karo.
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-warning fw-bold">
+      <i class="bi bi-save me-1"></i>Save Settings
+    </button>
+  </form>
+</div>
+{% endblock %}
