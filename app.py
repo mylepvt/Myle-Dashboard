@@ -1692,10 +1692,11 @@ def add_lead():
                                    call_result_tags=CALL_RESULT_TAGS)
 
         dup = db.execute(
-            "SELECT name FROM leads WHERE phone=? AND in_pool=0 AND deleted_at=''", (phone,)
+            "SELECT name, in_pool FROM leads WHERE phone=? AND deleted_at=''", (phone,)
         ).fetchone()
         if dup:
-            msg = f'A lead with phone {phone} already exists ({dup["name"]}).'
+            loc = 'Lead Pool' if dup['in_pool'] else 'Leads'
+            msg = f'A lead with phone {phone} already exists ({dup["name"]}) in {loc}.'
             if is_ajax:
                 db.close()
                 return {'ok': False, 'error': msg}, 409
@@ -1841,11 +1842,12 @@ def edit_lead(lead_id):
                                    call_result_tags=CALL_RESULT_TAGS)
 
         dup = db.execute(
-            "SELECT name FROM leads WHERE phone=? AND id!=? AND in_pool=0 AND deleted_at=''",
+            "SELECT name, in_pool FROM leads WHERE phone=? AND id!=? AND deleted_at=''",
             (phone, lead_id)
         ).fetchone()
         if dup:
-            flash(f'Another lead with phone {phone} already exists ({dup["name"]}). Duplicate entries are not allowed.', 'danger')
+            loc = 'Lead Pool' if dup['in_pool'] else 'Leads'
+            flash(f'Another lead with phone {phone} already exists ({dup["name"]}) in {loc}. Duplicate entries are not allowed.', 'danger')
             lead_notes_rows = db.execute(
                 "SELECT * FROM lead_notes WHERE lead_id=? ORDER BY created_at ASC",
                 (lead_id,)
@@ -3472,7 +3474,7 @@ def import_leads():
 
     existing_phones = {
         r[0] for r in db.execute(
-            "SELECT phone FROM leads WHERE in_pool=0 AND deleted_at=''"
+            "SELECT phone FROM leads WHERE deleted_at=''"
         ).fetchall()
     }
 
