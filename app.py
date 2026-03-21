@@ -2324,15 +2324,22 @@ def delete_lead(lead_id):
             (lead_id, session['username'])
         ).fetchone()
 
+    is_ajax = request.is_json or request.headers.get('Content-Type', '').startswith('application/json')
+
     if lead:
         db.execute(
             "UPDATE leads SET deleted_at=? WHERE id=?", (_now_ist().strftime('%Y-%m-%d %H:%M:%S'), lead_id)
         )
         db.commit()
+        db.close()
+        if is_ajax:
+            return jsonify({'ok': True})
         flash(f'Lead "{lead["name"]}" moved to Recycle Bin.', 'warning')
     else:
+        db.close()
+        if is_ajax:
+            return jsonify({'ok': False, 'error': 'Lead not found or access denied.'})
         flash('Lead not found or access denied.', 'danger')
-    db.close()
     return redirect(url_for('leads'))
 
 

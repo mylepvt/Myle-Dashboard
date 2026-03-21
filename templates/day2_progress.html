@@ -269,16 +269,24 @@
         {% endfor %}
       </div>
 
-      <!-- Row 3: Last updated + Day 3 action -->
+      <!-- Row 3: Last updated + Day 3 action + Delete -->
       {% if can_edit %}
       <div class="d-flex justify-content-between align-items-center mt-1">
-        <div class="text-muted small">
-          {% if lead.hours_since_update is not none %}
-            <i class="bi bi-clock me-1"></i>
-            {% if lead.hours_since_update < 1 %}Just now
-            {% elif lead.hours_since_update < 24 %}{{ lead.hours_since_update }}h ago
-            {% else %}{{ (lead.hours_since_update // 24) }}d ago{% endif %}
-          {% endif %}
+        <div class="d-flex align-items-center gap-2">
+          <div class="text-muted small">
+            {% if lead.hours_since_update is not none %}
+              <i class="bi bi-clock me-1"></i>
+              {% if lead.hours_since_update < 1 %}Just now
+              {% elif lead.hours_since_update < 24 %}{{ lead.hours_since_update }}h ago
+              {% else %}{{ (lead.hours_since_update // 24) }}d ago{% endif %}
+            {% endif %}
+          </div>
+          <button class="btn btn-sm btn-outline-danger d2-delete-btn"
+                  data-lead-id="{{ lead.id }}"
+                  data-lead-name="{{ lead.name|e }}"
+                  title="Delete lead">
+            <i class="bi bi-trash3"></i>
+          </button>
         </div>
         <div class="d2-card-action">
           {% if done_count == 3 %}
@@ -516,6 +524,40 @@ function bindAdvanceBtn(btn) {
   });
 }
 document.querySelectorAll('.d2-advance-btn').forEach(bindAdvanceBtn);
+
+// ── Delete lead (admin only) ──
+document.querySelectorAll('.d2-delete-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const leadId   = this.dataset.leadId;
+    const leadName = this.dataset.leadName;
+    if (!confirm(`"${leadName}" ko Recycle Bin mein move karein?\n\nYeh action undo ho sakta hai.`)) return;
+    const self = this;
+    self.disabled = true;
+    self.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    fetch(`/leads/${leadId}/delete`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRF-Token': _csrf},
+      body: JSON.stringify({json: 1}),
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        showToast(`"${leadName}" Recycle Bin mein move ho gaya.`, 'warning');
+        const card = self.closest('.d2-lead-card');
+        if (card) { card.style.transition = 'opacity .4s'; card.style.opacity = '0'; setTimeout(() => card.remove(), 400); }
+      } else {
+        showToast(d.error || 'Delete failed', 'danger');
+        self.disabled = false;
+        self.innerHTML = '<i class="bi bi-trash3"></i>';
+      }
+    })
+    .catch(() => {
+      showToast('Network error', 'danger');
+      self.disabled = false;
+      self.innerHTML = '<i class="bi bi-trash3"></i>';
+    });
+  });
+});
 
 // Close popup on backdrop click
 document.getElementById('d2BatchPopup').addEventListener('click', function(e) {
