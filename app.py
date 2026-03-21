@@ -2110,7 +2110,7 @@ def old_leads():
     search = request.args.get('q', '').strip()
     role   = session.get('role')
 
-    base   = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' AND status='Lost'"
+    base   = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' AND status IN ('Lost','Pending')"
     params = []
 
     if role == 'admin':
@@ -2159,18 +2159,20 @@ def restore_from_lost(lead_id):
         flash('Access denied.', 'danger')
         return redirect(url_for('old_leads'))
 
-    if lead['status'] != 'Lost':
+    if lead['status'] not in ('Lost', 'Pending'):
         db.close()
-        flash('Only Lost leads can be restored.', 'warning')
+        flash('Only Lost or Pending leads can be restored.', 'warning')
         return redirect(url_for('old_leads'))
 
+    now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
     db.execute(
         """UPDATE leads
               SET status='Retarget',
                   pipeline_stage='enrollment',
-                  updated_at=datetime('now','localtime')
+                  pipeline_entered_at=?,
+                  updated_at=?
             WHERE id=?""",
-        (lead_id,)
+        (now_str, now_str, lead_id)
     )
     db.commit()
     db.close()
