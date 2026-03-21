@@ -189,6 +189,22 @@
     <div class="tab-pane fade" id="membersTab">
 
       {% if members %}
+      <div class="mb-3 d-flex align-items-center gap-2">
+        <div class="input-group input-group-sm" style="max-width:260px;">
+          <span class="input-group-text bg-white border-end-0">
+            <i class="bi bi-search text-muted"></i>
+          </span>
+          <input type="text" id="memberSearch" class="form-control border-start-0"
+                 placeholder="Search member..."
+                 oninput="filterMemberTable(this.value)">
+          <button class="btn btn-outline-secondary border-start-0" type="button"
+                  onclick="document.getElementById('memberSearch').value=''; filterMemberTable('');"
+                  id="memberSearchClear" style="display:none;">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+        <span class="text-muted small" id="memberCount">{{ members|length }} member{{ 's' if members|length != 1 }}</span>
+      </div>
       <div class="card border-0 shadow-sm rounded-3">
         <div class="card-body p-0">
           <div class="table-responsive">
@@ -203,10 +219,10 @@
                   <th class="text-end pe-3">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="memberTableBody">
                 {% for m in members %}
                 {% set days_done = all_progress.get(m.username, 0) %}
-                <tr>
+                <tr data-search="{{ m.username|lower }}">
                   <td class="ps-3 fw-semibold">{{ m.username }}</td>
                   <td class="small text-muted">{{ m.joining_date or '—' }}</td>
                   <td style="min-width:140px;">
@@ -576,5 +592,21 @@
     if (btn) { btn.click(); }
   }
 })();
+
+function filterMemberTable(query) {
+  var rows = document.querySelectorAll('#memberTableBody tr');
+  var q = query.trim().toLowerCase();
+  var visible = 0;
+  rows.forEach(function(row) {
+    var text = row.getAttribute('data-search') || '';
+    var match = !q || text.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  var countEl = document.getElementById('memberCount');
+  if (countEl) countEl.textContent = visible + ' member' + (visible !== 1 ? 's' : '');
+  var clearBtn = document.getElementById('memberSearchClear');
+  if (clearBtn) clearBtn.style.display = q ? '' : 'none';
+}
 </script>
 {% endblock %}
