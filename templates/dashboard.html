@@ -491,7 +491,7 @@
                style="width:{{ (bd/3*100)|int }}%"></div>
         </div>
         <div class="d-flex align-items-center gap-2">
-          {% if user_role in ('leader', 'admin') %}
+          {% if user_role == 'admin' %}
           <button class="dash-mael-btn {% if lead.d2_morning %}dash-mael-done{% endif %}"
                   data-lead="{{ lead.id }}" data-b="d2_morning" data-batch="d2_morning"
                   onclick="openBatchPopup('{{ lead.id }}', 'd2_morning', '{{ lead.phone }}', '{{ lead.name }}', this)">M</button>
@@ -958,7 +958,7 @@
                style="width:{{ (bd/3*100)|int }}%"></div>
         </div>
         <div class="d-flex align-items-center gap-2">
-          {% if user_role in ('leader', 'admin') %}
+          {% if user_role == 'admin' %}
           <button class="dash-mael-btn {% if lead.d2_morning %}dash-mael-done{% endif %}"
                   data-lead="{{ lead.id }}" data-b="d2_morning" data-batch="d2_morning"
                   onclick="openBatchPopup('{{ lead.id }}', 'd2_morning', '{{ lead.phone }}', '{{ lead.name }}', this)">M</button>
