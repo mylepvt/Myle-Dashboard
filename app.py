@@ -1122,6 +1122,65 @@ def admin_dashboard():
         GROUP BY month ORDER BY month DESC LIMIT 6
     """).fetchall()
 
+    # ── Monthly Pipeline Summary — activity in each month ────────────
+    # enrolled_in_month: leads that paid ₹196 (status changed) in that month
+    # converted_in_month: leads converted in that month
+    # Uses updated_at as proxy for when the status change happened
+    monthly_pipeline = db.execute(f"""
+        SELECT
+            strftime('%Y-%m', created_at) AS month,
+            COUNT(*) AS total_leads,
+            SUM(CASE WHEN pipeline_stage NOT IN ('prospecting','inactive','lost','') THEN 1 ELSE 0 END) AS enrolled_count,
+            SUM(CASE WHEN pipeline_stage IN ('day1','day2','day3','plan_2cc',
+                'seat_hold','pending','level_up','closing','complete','training') THEN 1 ELSE 0 END) AS reached_working,
+            SUM(CASE WHEN pipeline_stage IN ('seat_hold','pending','level_up',
+                'closing','complete','training') THEN 1 ELSE 0 END) AS reached_seat_hold,
+            SUM(CASE WHEN pipeline_stage IN ('closing','complete') THEN 1 ELSE 0 END) AS converted,
+            SUM(CASE WHEN pipeline_stage IN ('closing','complete') THEN track_price ELSE 0 END) AS revenue,
+            SUM(CASE WHEN pipeline_stage IN ('seat_hold','pending','level_up',
+                'closing','complete') THEN seat_hold_amount ELSE 0 END) AS seat_hold_budget,
+            SUM(CASE WHEN pipeline_stage IN ('closing','complete') THEN track_price
+                     WHEN pipeline_stage IN ('seat_hold','pending','level_up') THEN seat_hold_amount
+                     ELSE 0 END) AS total_budget
+        FROM leads WHERE {_base_w}
+        GROUP BY month ORDER BY month DESC LIMIT 6
+    """).fetchall()
+    monthly_pipeline = [dict(r) for r in monthly_pipeline]
+    # Add conversion % for template
+    for m in monthly_pipeline:
+        base = m['enrolled_count'] or 1
+        m['conv_pct'] = round(m['converted'] / base * 100, 1) if m['enrolled_count'] else 0
+        m['working_pct'] = round(m['reached_working'] / base * 100, 1) if m['enrolled_count'] else 0
+        m['seat_hold_pct'] = round(m['reached_seat_hold'] / base * 100, 1) if m['enrolled_count'] else 0
+
+    # ── Monthly Leader Breakdown (last 3 months) ─────────────────────
+    leaders_list = db.execute(
+        "SELECT username FROM users WHERE role='leader' AND status='approved' ORDER BY username"
+    ).fetchall()
+    leader_monthly = {}
+    for ldr in leaders_list:
+        ldr_uname = ldr['username']
+        downline = _get_downline_usernames(db, ldr_uname)
+        if not downline:
+            continue
+        ph = ','.join('?' * len(downline))
+        rows = db.execute(f"""
+            SELECT
+                strftime('%Y-%m', created_at) AS month,
+                COUNT(*) AS total_leads,
+                SUM(CASE WHEN pipeline_stage IN ('closing','complete') THEN 1 ELSE 0 END) AS converted,
+                SUM(CASE WHEN pipeline_stage IN ('closing','complete') THEN track_price ELSE 0 END) AS revenue,
+                SUM(CASE WHEN pipeline_stage IN ('seat_hold','pending','level_up',
+                    'closing','complete') THEN seat_hold_amount ELSE 0 END) AS seat_hold_budget,
+                SUM(CASE WHEN pipeline_stage IN ('closing','complete') THEN track_price
+                         WHEN pipeline_stage IN ('seat_hold','pending','level_up') THEN seat_hold_amount
+                         ELSE 0 END) AS total_budget
+            FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to IN ({ph})
+            GROUP BY month ORDER BY month DESC LIMIT 3
+        """, downline).fetchall()
+        if rows:
+            leader_monthly[ldr_uname] = [dict(r) for r in rows]
+
     pending_users = db.execute(
         "SELECT * FROM users WHERE status='pending' ORDER BY created_at DESC"
     ).fetchall()
@@ -1152,6 +1211,8 @@ def admin_dashboard():
                            recent_activity=recent_activity,
                            status_data=status_data,
                            monthly=monthly,
+                           monthly_pipeline=monthly_pipeline,
+                           leader_monthly=leader_monthly,
                            daily_trend=daily_trend,
                            pending_users=pending_users,
                            payment_amount=PAYMENT_AMOUNT,
@@ -5895,12 +5956,75 @@ def leader_coaching():
     total_active = sum(c['active_count'] for c in coaching_cards)
     total_stuck  = sum(c['stuck_count']  for c in coaching_cards)
 
+    # ── Monthly Pipeline Summary for leader (their team only) ────────
+    if role == 'leader':
+        my_downline = _get_downline_usernames(db, username)
+        _ph = ','.join('?' * len(my_downline)) if my_downline else "''"
+        _params = my_downline if my_downline else []
+    else:
+        # admin sees all
+        _ph = "SELECT username FROM users WHERE role IN ('team','leader') AND status='approved'"
+        _params = []
+
+    if role == 'leader' and my_downline:
+        ldr_monthly_pipeline = db.execute(f"""
+            SELECT
+                strftime('%Y-%m', created_at) AS month,
+                COUNT(*) AS total_leads,
+                SUM(CASE WHEN pipeline_stage NOT IN ('prospecting','inactive','lost','') THEN 1 ELSE 0 END) AS enrolled_count,
+                SUM(CASE WHEN pipeline_stage IN ('day1','day2','day3','plan_2cc',
+                    'seat_hold','pending','level_up','closing','complete','training') THEN 1 ELSE 0 END) AS reached_working,
+                SUM(CASE WHEN pipeline_stage IN ('seat_hold','pending','level_up',
+                    'closing','complete','training') THEN 1 ELSE 0 END) AS reached_seat_hold,
+                SUM(CASE WHEN pipeline_stage IN ('closing','complete') THEN 1 ELSE 0 END) AS converted,
+                SUM(CASE WHEN pipeline_stage IN ('closing','complete') THEN track_price ELSE 0 END) AS revenue,
+                SUM(CASE WHEN pipeline_stage IN ('seat_hold','pending','level_up',
+                    'closing','complete') THEN seat_hold_amount ELSE 0 END) AS seat_hold_budget,
+                SUM(CASE WHEN pipeline_stage IN ('closing','complete') THEN track_price
+                         WHEN pipeline_stage IN ('seat_hold','pending','level_up') THEN seat_hold_amount
+                         ELSE 0 END) AS total_budget
+            FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to IN ({_ph})
+            GROUP BY month ORDER BY month DESC LIMIT 6
+        """, _params).fetchall()
+        ldr_monthly_pipeline = [dict(r) for r in ldr_monthly_pipeline]
+        for m in ldr_monthly_pipeline:
+            base = m['enrolled_count'] or 1
+            m['conv_pct']      = round(m['converted'] / base * 100, 1) if m['enrolled_count'] else 0
+            m['working_pct']   = round(m['reached_working'] / base * 100, 1) if m['enrolled_count'] else 0
+            m['seat_hold_pct'] = round(m['reached_seat_hold'] / base * 100, 1) if m['enrolled_count'] else 0
+
+        # Per-member breakdown for leader
+        member_monthly = {}
+        for card in coaching_cards:
+            mem = card['username']
+            rows = db.execute("""
+                SELECT
+                    strftime('%Y-%m', created_at) AS month,
+                    COUNT(*) AS total_leads,
+                    SUM(CASE WHEN pipeline_stage IN ('closing','complete') THEN 1 ELSE 0 END) AS converted,
+                    SUM(CASE WHEN pipeline_stage IN ('closing','complete') THEN track_price ELSE 0 END) AS revenue,
+                    SUM(CASE WHEN pipeline_stage IN ('seat_hold','pending','level_up',
+                        'closing','complete') THEN seat_hold_amount ELSE 0 END) AS seat_hold_budget,
+                    SUM(CASE WHEN pipeline_stage IN ('closing','complete') THEN track_price
+                             WHEN pipeline_stage IN ('seat_hold','pending','level_up') THEN seat_hold_amount
+                             ELSE 0 END) AS total_budget
+                FROM leads WHERE in_pool=0 AND deleted_at='' AND assigned_to=?
+                GROUP BY month ORDER BY month DESC LIMIT 3
+            """, (mem,)).fetchall()
+            if rows:
+                member_monthly[mem] = [dict(r) for r in rows]
+    else:
+        ldr_monthly_pipeline = []
+        member_monthly = {}
+
     db.close()
     return render_template('leader_coaching.html',
         coaching_cards=coaching_cards,
         role=role,
         total_active=total_active,
         total_stuck=total_stuck,
+        ldr_monthly_pipeline=ldr_monthly_pipeline,
+        member_monthly=member_monthly,
         csrf_token=session.get('_csrf_token', ''),
     )
 
