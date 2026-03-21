@@ -959,21 +959,23 @@ def admin_dashboard():
     _base_w = "in_pool=0 AND deleted_at=''"
 
     # ── 1. Live Pipeline Funnel (current leads at each stage) ────────
-    _s1_ph = ','.join('?' * len(STAGE1_STATUSES))
     pipeline = db.execute(f"""
         SELECT
             SUM(CASE WHEN status IN ('New Lead','New','Contacted','Invited',
-                         'Video Sent','Video Watched') THEN 1 ELSE 0 END) AS enrollment,
-            SUM(CASE WHEN status IN ({_s1_ph}) THEN 1 ELSE 0 END) AS ready,
+                         'Video Sent','Video Watched') THEN 1 ELSE 0 END) AS prospecting,
+            SUM(CASE WHEN status IN ('Paid \u20b9196','Mindset Lock') THEN 1 ELSE 0 END) AS enrolled,
             SUM(CASE WHEN status='Day 1'       THEN 1 ELSE 0 END) AS day1,
             SUM(CASE WHEN status='Day 2'       THEN 1 ELSE 0 END) AS day2,
             SUM(CASE WHEN status IN ('Interview','Track Selected') THEN 1 ELSE 0 END) AS day3,
+            SUM(CASE WHEN status='2cc Plan'    THEN 1 ELSE 0 END) AS plan_2cc,
             SUM(CASE WHEN status='Seat Hold Confirmed' THEN 1 ELSE 0 END) AS seat_hold,
+            SUM(CASE WHEN status='Pending'     THEN 1 ELSE 0 END) AS pending_as,
+            SUM(CASE WHEN status='Level Up'    THEN 1 ELSE 0 END) AS level_up,
             SUM(CASE WHEN status IN ('Fully Converted','Converted') THEN 1 ELSE 0 END) AS converted
         FROM leads WHERE {_base_w}
-    """, list(STAGE1_STATUSES)).fetchone()
+    """).fetchone()
     pipeline = dict(pipeline) if pipeline else {}
-    for k in ('enrollment','ready','day1','day2','day3','seat_hold','converted'):
+    for k in ('prospecting','enrolled','day1','day2','day3','plan_2cc','seat_hold','pending_as','level_up','converted'):
         pipeline[k] = pipeline.get(k) or 0
 
     pipeline_value = db.execute(
@@ -1709,7 +1711,7 @@ def add_lead():
         if status not in STATUSES:
             status = 'New'
 
-        pipeline_stage = STATUS_TO_STAGE.get(status, 'enrollment')
+        pipeline_stage = STATUS_TO_STAGE.get(status, 'prospecting')
         db.execute("""
             INSERT INTO leads
                 (name, phone, email, referred_by, assigned_to, source,
@@ -1873,8 +1875,8 @@ def edit_lead(lead_id):
             assigned_to = lead['assigned_to'] or ''
 
         # Sync pipeline_stage from status (one status -> one pipeline_stage)
-        new_pipeline_stage = STATUS_TO_STAGE.get(status, 'enrollment')
-        lead_pipeline_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'enrollment'
+        new_pipeline_stage = STATUS_TO_STAGE.get(status, 'prospecting')
+        lead_pipeline_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'prospecting'
         stage_changed = new_pipeline_stage != lead_pipeline_stage
         _updated_at = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -2166,7 +2168,7 @@ def restore_from_lost(lead_id):
     db.execute(
         """UPDATE leads
               SET status='Retarget',
-                  pipeline_stage='enrollment',
+                  pipeline_stage='prospecting',
                   pipeline_entered_at=?,
                   updated_at=?
             WHERE id=?""",
@@ -2235,8 +2237,8 @@ def update_status(lead_id):
             flash(msg, 'danger')
             return redirect(request.referrer or url_for('leads'))
 
-    new_pipeline_stage = STATUS_TO_STAGE.get(new_status, 'enrollment')
-    lead_pipeline_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'enrollment'
+    new_pipeline_stage = STATUS_TO_STAGE.get(new_status, 'prospecting')
+    lead_pipeline_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'prospecting'
     stage_changed = new_pipeline_stage != lead_pipeline_stage
     now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -3683,7 +3685,7 @@ def ai_lead_intelligence():
         'leads': [{
             'id':               l.get('id'),
             'name':             l.get('name', ''),
-            'stage':            l.get('pipeline_stage', 'enrollment'),
+            'stage':            l.get('pipeline_stage', 'prospecting'),
             'heat':             l.get('heat', 0),
             'next_action':      l.get('next_action', ''),
             'next_action_type': l.get('next_action_type', 'followup'),
@@ -3845,7 +3847,7 @@ def bulk_update_leads():
             continue
         if role != 'admin' and lead['assigned_to'] != username:
             continue
-        new_stage = STATUS_TO_STAGE.get(new_status, 'enrollment')
+        new_stage = STATUS_TO_STAGE.get(new_status, 'prospecting')
         db.execute("UPDATE leads SET status=?, pipeline_stage=?, updated_at=? WHERE id=?",
                    (new_status, new_stage, now, lead_id))
         _log_lead_event(db, lead_id, username, f'[Bulk] Status → {new_status}')
@@ -3959,15 +3961,15 @@ def migrate_pipeline_stages(db):
         current_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else ''
         # If we normalized status above, re-read expected stage accordingly
         expected_status = 'Day 1' if lead['status'] == 'Paid ₹196' else lead['status']
-        expected_stage = STATUS_TO_STAGE.get(expected_status, 'enrollment')
+        expected_stage = STATUS_TO_STAGE.get(expected_status, 'prospecting')
         needs_update = (not current_stage or current_stage == '' or current_stage != expected_stage)
         if needs_update:
             stage = expected_stage
             owner = lead['current_owner'] if 'current_owner' in lead.keys() else ''
             if not owner:
-                if stage == 'enrollment':
+                if stage in ('prospecting', 'enrolled'):
                     owner = lead['assigned_to'] or ''
-                elif stage in ('day1', 'day3', 'seat_hold'):
+                elif stage in ('day1', 'day3', 'plan_2cc', 'seat_hold'):
                     owner = _get_leader_for_user(db, lead['assigned_to'])
                 else:
                     owner = _get_admin_username(db)
@@ -4559,9 +4561,12 @@ def api_chat_clear():
 # Working section Stage 1 = only leads ready for Day 1
 STAGE1_STATUSES = ('Paid ₹196', 'Mindset Lock')
 
-# My Leads enrollment statuses (for leads page filtering and pending-calls count)
+# My Leads prospecting statuses (pre-enrollment leads)
 ENROLLMENT_STATUSES = ('New Lead', 'New', 'Contacted', 'Invited',
-                       'Video Sent', 'Video Watched', 'Paid ₹196', 'Mindset Lock')
+                       'Video Sent', 'Video Watched')
+
+# Enrolled = paid ₹196
+ENROLLED_STATUSES = ('Paid ₹196', 'Mindset Lock')
 
 PAST_STATUSES   = ('Fully Converted', 'Converted', 'Lost')
 
@@ -5405,16 +5410,16 @@ def stage_advance(lead_id):
 
     # ── Stage machine guard: validate the current stage allows this action ──
     VALID_FROM = {
-        'enroll_complete':   ('enrollment',),
+        'enroll_complete':   ('prospecting', 'enrolled'),
         'day1_complete':     ('day1',),
         'day2_complete':     ('day2',),
         'interview_done':    ('day2', 'day3'),
-        'seat_hold_done':    ('day3',),
-        'fully_converted':   ('seat_hold', 'closing'),
+        'seat_hold_done':    ('day3', 'plan_2cc'),
+        'fully_converted':   ('seat_hold', 'pending', 'level_up', 'closing'),
         'training_complete': ('training',),
-        'mark_lost':         ('enrollment', 'day1', 'day2', 'day3', 'seat_hold', 'closing'),
+        'mark_lost':         ('prospecting', 'enrolled', 'day1', 'day2', 'day3', 'plan_2cc', 'seat_hold', 'pending', 'level_up', 'closing'),
     }
-    current_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead_keys else 'enrollment'
+    current_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead_keys else 'prospecting'
     valid_from = VALID_FROM.get(action, ())
     if valid_from and current_stage not in valid_from:
         db.close()
@@ -5436,7 +5441,7 @@ def stage_advance(lead_id):
         _log_activity(db, username, 'stage_advance', f'Lead #{lead_id} {action} to {new_stage_result}')
         db.close()
         stage_labels = {
-            'enrollment': 'Enrollment',
+            'prospecting': 'Prospecting', 'enrolled': 'Enrolled',
             'day1': 'Day 1',
             'day2': 'Day 2',
             'day3': 'Day 3 / Interview',
@@ -5458,7 +5463,7 @@ def stage_advance(lead_id):
     db.close()
 
     stage_labels = {
-        'enrollment': 'Enrollment',
+        'prospecting': 'Prospecting', 'enrolled': 'Enrolled',
         'day1': 'Day 1',
         'day2': 'Day 2',
         'day3': 'Day 3 / Interview',
@@ -5537,7 +5542,7 @@ def update_call_status(lead_id):
         new_idx = _STATUS_ORDER.index(new_auto_status) if new_auto_status in _STATUS_ORDER else 0
         if new_idx > cur_idx:
             # Sync pipeline_stage alongside status to keep them consistent
-            new_auto_stage = STATUS_TO_STAGE.get(new_auto_status, 'enrollment')
+            new_auto_stage = STATUS_TO_STAGE.get(new_auto_status, 'prospecting')
             db.execute(
                 "UPDATE leads SET status=?, pipeline_stage=?, updated_at=? WHERE id=?",
                 (new_auto_status, new_auto_stage, now_str, lead_id)
@@ -5576,8 +5581,8 @@ def update_call_status(lead_id):
                 lead['payment_done'] = 1
             except Exception:
                 pass
-        lead_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'enrollment'
-        if lead_stage == 'enrollment':
+        lead_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'prospecting'
+        if lead_stage in ('prospecting', 'enrolled'):
             _transition_stage(db, lead_id, 'day1', username, status_override='Day 1')
             stage_advanced = True
             db.execute(
@@ -5868,7 +5873,7 @@ def leader_coaching():
             # Stage breakdown
             stage_counts = {}
             for l in m_leads:
-                s = l['pipeline_stage'] or 'enrollment'
+                s = l['pipeline_stage'] or 'prospecting'
                 stage_counts[s] = stage_counts.get(s, 0) + 1
 
             coaching_cards.append({
@@ -5912,7 +5917,7 @@ def admin_pipeline_analytics():
     db = get_db()
 
     # 1. Stage funnel counts
-    STAGE_ORDER = ['enrollment', 'day1', 'day2', 'day3', 'seat_hold', 'closing', 'training']
+    STAGE_ORDER = ['prospecting', 'enrolled', 'day1', 'day2', 'day3', 'plan_2cc', 'seat_hold', 'pending', 'level_up', 'closing', 'training']
     funnel_rows = db.execute("""
         SELECT pipeline_stage, COUNT(*) as lead_count
         FROM leads
@@ -5997,7 +6002,7 @@ def admin_pipeline_analytics():
         SELECT
             CASE
                 WHEN (d1_morning+d1_afternoon+d1_evening+d2_morning+d2_afternoon+d2_evening) >= 5 THEN 'hot'
-                WHEN pipeline_stage IN ('day3','seat_hold','closing') THEN 'hot'
+                WHEN pipeline_stage IN ('day3','plan_2cc','seat_hold','pending','level_up','closing') THEN 'hot'
                 WHEN pipeline_stage IN ('day1','day2') THEN 'warm'
                 ELSE 'cold'
             END as heat_band,

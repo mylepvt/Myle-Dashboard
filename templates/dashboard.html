@@ -280,8 +280,8 @@
         <div class="flex-grow-1 min-w-0">
           <div class="fw-semibold small text-truncate">{{ lead.name }}</div>
           <div class="pipeline-indicator mt-1 mb-1">
-            {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-            {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+            {% set stages = [('prospecting','P'),('enrolled','E'),('day1','1'),('day2','2'),('day3','3'),('plan_2cc','2c'),('seat_hold','S'),('pending','PA'),('level_up','LU'),('closing','C'),('training','T')] %}
+            {% set stage_order = ['prospecting','enrolled','day1','day2','day3','plan_2cc','seat_hold','pending','level_up','closing','training'] %}
             {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
             <div class="d-flex align-items-center" style="gap:3px;">
               {% for stage_id, stage_short in stages %}
@@ -361,8 +361,8 @@
           <span class="small text-muted ms-2 flex-shrink-0" id="db-bd-{{ lead.id }}">{{ bd }}/3</span>
         </div>
         <div class="pipeline-indicator mb-1">
-          {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-          {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+          {% set stages = [('prospecting','P'),('enrolled','E'),('day1','1'),('day2','2'),('day3','3'),('plan_2cc','2c'),('seat_hold','S'),('pending','PA'),('level_up','LU'),('closing','C'),('training','T')] %}
+          {% set stage_order = ['prospecting','enrolled','day1','day2','day3','plan_2cc','seat_hold','pending','level_up','closing','training'] %}
           {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
           <div class="d-flex align-items-center" style="gap:3px;">
             {% for stage_id, stage_short in stages %}
@@ -458,8 +458,8 @@
           <span class="small text-muted ms-2 flex-shrink-0" id="db-bd-{{ lead.id }}">{{ bd }}/3</span>
         </div>
         <div class="pipeline-indicator mb-1">
-          {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-          {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+          {% set stages = [('prospecting','P'),('enrolled','E'),('day1','1'),('day2','2'),('day3','3'),('plan_2cc','2c'),('seat_hold','S'),('pending','PA'),('level_up','LU'),('closing','C'),('training','T')] %}
+          {% set stage_order = ['prospecting','enrolled','day1','day2','day3','plan_2cc','seat_hold','pending','level_up','closing','training'] %}
           {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
           <div class="d-flex align-items-center" style="gap:3px;">
             {% for stage_id, stage_short in stages %}
@@ -539,8 +539,8 @@
           <div class="fw-semibold small text-truncate">{{ lead.name }}</div>
           <div class="text-muted" style="font-size:0.7rem;">Seat Hold Confirmed</div>
           <div class="pipeline-indicator mt-1">
-            {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-            {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+            {% set stages = [('prospecting','P'),('enrolled','E'),('day1','1'),('day2','2'),('day3','3'),('plan_2cc','2c'),('seat_hold','S'),('pending','PA'),('level_up','LU'),('closing','C'),('training','T')] %}
+            {% set stage_order = ['prospecting','enrolled','day1','day2','day3','plan_2cc','seat_hold','pending','level_up','closing','training'] %}
             {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
             <div class="d-flex align-items-center" style="gap:3px;">
               {% for stage_id, stage_short in stages %}
@@ -594,8 +594,8 @@
           <div class="fw-semibold small text-truncate">{{ lead.name }}</div>
           <span class="badge" style="background:#eef2ff;color:#6366f1;font-size:0.65rem;">{{ lead.status }}</span>
           <div class="pipeline-indicator mt-1">
-            {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-            {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+            {% set stages = [('prospecting','P'),('enrolled','E'),('day1','1'),('day2','2'),('day3','3'),('plan_2cc','2c'),('seat_hold','S'),('pending','PA'),('level_up','LU'),('closing','C'),('training','T')] %}
+            {% set stage_order = ['prospecting','enrolled','day1','day2','day3','plan_2cc','seat_hold','pending','level_up','closing','training'] %}
             {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
             <div class="d-flex align-items-center" style="gap:3px;">
               {% for stage_id, stage_short in stages %}
@@ -739,8 +739,8 @@
           <div class="fw-semibold small text-truncate">{{ lead.name }}</div>
           <span class="badge" style="background:#eef2ff;color:#6366f1;font-size:0.65rem;">{{ lead.status }}</span>
           <div class="pipeline-indicator mt-1">
-            {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-            {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+            {% set stages = [('prospecting','P'),('enrolled','E'),('day1','1'),('day2','2'),('day3','3'),('plan_2cc','2c'),('seat_hold','S'),('pending','PA'),('level_up','LU'),('closing','C'),('training','T')] %}
+            {% set stage_order = ['prospecting','enrolled','day1','day2','day3','plan_2cc','seat_hold','pending','level_up','closing','training'] %}
             {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
             <div class="d-flex align-items-center" style="gap:3px;">
               {% for stage_id, stage_short in stages %}
@@ -823,8 +823,8 @@
           <span class="small text-muted ms-2 flex-shrink-0" id="db-bd-{{ lead.id }}">{{ bd }}/3</span>
         </div>
         <div class="pipeline-indicator mb-1">
-          {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-          {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+          {% set stages = [('prospecting','P'),('enrolled','E'),('day1','1'),('day2','2'),('day3','3'),('plan_2cc','2c'),('seat_hold','S'),('pending','PA'),('level_up','LU'),('closing','C'),('training','T')] %}
+          {% set stage_order = ['prospecting','enrolled','day1','day2','day3','plan_2cc','seat_hold','pending','level_up','closing','training'] %}
           {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
           <div class="d-flex align-items-center" style="gap:3px;">
             {% for stage_id, stage_short in stages %}
@@ -925,8 +925,8 @@
           <span class="small text-muted ms-2 flex-shrink-0" id="db-bd-{{ lead.id }}">{{ bd }}/3</span>
         </div>
         <div class="pipeline-indicator mb-1">
-          {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-          {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+          {% set stages = [('prospecting','P'),('enrolled','E'),('day1','1'),('day2','2'),('day3','3'),('plan_2cc','2c'),('seat_hold','S'),('pending','PA'),('level_up','LU'),('closing','C'),('training','T')] %}
+          {% set stage_order = ['prospecting','enrolled','day1','day2','day3','plan_2cc','seat_hold','pending','level_up','closing','training'] %}
           {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
           <div class="d-flex align-items-center" style="gap:3px;">
             {% for stage_id, stage_short in stages %}
@@ -1012,8 +1012,8 @@
         <div class="flex-grow-1 min-w-0">
           <div class="fw-semibold small text-truncate">{{ lead.name }}</div>
           <div class="pipeline-indicator mt-1 mb-1">
-            {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-            {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+            {% set stages = [('prospecting','P'),('enrolled','E'),('day1','1'),('day2','2'),('day3','3'),('plan_2cc','2c'),('seat_hold','S'),('pending','PA'),('level_up','LU'),('closing','C'),('training','T')] %}
+            {% set stage_order = ['prospecting','enrolled','day1','day2','day3','plan_2cc','seat_hold','pending','level_up','closing','training'] %}
             {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
             <div class="d-flex align-items-center" style="gap:3px;">
               {% for stage_id, stage_short in stages %}
@@ -1092,8 +1092,8 @@
           <div class="fw-semibold small text-truncate">{{ lead.name }}</div>
           <div class="text-muted" style="font-size:0.7rem;">Seat Hold Confirmed</div>
           <div class="pipeline-indicator mt-1">
-            {% set stages = [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
-            {% set stage_order = ['enrollment','day1','day2','day3','seat_hold','closing','training'] %}
+            {% set stages = [('prospecting','P'),('enrolled','E'),('day1','1'),('day2','2'),('day3','3'),('plan_2cc','2c'),('seat_hold','S'),('pending','PA'),('level_up','LU'),('closing','C'),('training','T')] %}
+            {% set stage_order = ['prospecting','enrolled','day1','day2','day3','plan_2cc','seat_hold','pending','level_up','closing','training'] %}
             {% set current_idx = stage_order.index(lead.pipeline_stage) if lead.pipeline_stage in stage_order else 0 %}
             <div class="d-flex align-items-center" style="gap:3px;">
               {% for stage_id, stage_short in stages %}

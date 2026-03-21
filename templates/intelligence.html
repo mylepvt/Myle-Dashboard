@@ -194,7 +194,7 @@
     </div>
 
     {% for lead in leads %}
-    {% set stage = lead.get('pipeline_stage','enrollment') %}
+    {% set stage = lead.get('pipeline_stage','prospecting') %}
     {% set heat  = lead.get('heat', 0) %}
     {% set nat   = lead.get('next_action_type','followup') %}
     <div class="intel-card stage-{{ stage }}">

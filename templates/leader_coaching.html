@@ -94,7 +94,7 @@
     <!-- Pipeline stage mini-bar -->
     {% if card.stage_counts %}
     <div class="d-flex flex-wrap gap-1 mb-3">
-      {% for stage_id, label in [('enrollment','E'),('day1','1'),('day2','2'),('day3','3'),('seat_hold','S'),('closing','C'),('training','T')] %}
+      {% for stage_id, label in [('prospecting','P'),('enrolled','E'),('day1','1'),('day2','2'),('day3','3'),('plan_2cc','2c'),('seat_hold','S'),('pending','PA'),('level_up','LU'),('closing','C'),('training','T')] %}
       {% if card.stage_counts.get(stage_id, 0) > 0 %}
       <span class="badge rounded-pill"
             style="background:rgba(94,92,230,0.1);color:var(--ios-indigo);font-size:0.7rem;">

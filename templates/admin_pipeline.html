@@ -56,7 +56,7 @@
           <td>
             <span class="pipeline-step {% if row.is_bottleneck %}active{% endif %}"
                   style="display:inline-flex;">
-              {{ {'enrollment':'E','day1':'1','day2':'2','day3':'3','seat_hold':'S','closing':'C','training':'T'}.get(row.stage, '?') }}
+              {{ {'prospecting':'P','enrolled':'E','day1':'1','day2':'2','day3':'3','plan_2cc':'2c','seat_hold':'S','pending':'PA','level_up':'LU','closing':'C','training':'T'}.get(row.stage, '?') }}
             </span>
             <span class="ms-2">{{ row.stage|title|replace('_',' ') }}</span>
           </td>
