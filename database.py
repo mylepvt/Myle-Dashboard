@@ -64,8 +64,9 @@ def init_db():
             d2_morning     INTEGER NOT NULL DEFAULT 0,
             d2_afternoon   INTEGER NOT NULL DEFAULT 0,
             d2_evening     INTEGER NOT NULL DEFAULT 0,
-            working_date   TEXT    NOT NULL DEFAULT '',
-            daily_score    INTEGER NOT NULL DEFAULT 0
+            working_date        TEXT    NOT NULL DEFAULT '',
+            daily_score         INTEGER NOT NULL DEFAULT 0,
+            pipeline_entered_at TEXT    NOT NULL DEFAULT ''
         )
     """)
 
@@ -358,7 +359,9 @@ def migrate_db():
         ("current_owner",    "TEXT NOT NULL DEFAULT ''"),
         ("call_status",      "TEXT NOT NULL DEFAULT 'Not Called Yet'"),
         ("priority_score",   "INTEGER NOT NULL DEFAULT 0"),
-        ("seat_hold_expiry", "TEXT NOT NULL DEFAULT ''"),
+        ("seat_hold_expiry",    "TEXT NOT NULL DEFAULT ''"),
+        # Pipeline auto-expiry: timestamp when lead entered active pipeline stage
+        ("pipeline_entered_at", "TEXT NOT NULL DEFAULT ''"),
     ]:
         try:
             cursor.execute(f"ALTER TABLE leads ADD COLUMN {col} {definition}")

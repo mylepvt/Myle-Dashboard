@@ -20,7 +20,7 @@ from werkzeug.exceptions import HTTPException
 from database import get_db, init_db, migrate_db, seed_users, seed_training_questions
 from pathlib import Path
 from helpers import (  # noqa: F401 — shared constants & utility functions
-    STATUSES, STATUS_TO_STAGE, CALL_STATUS_VALUES, TRACKS,
+    STATUSES, STATUS_TO_STAGE, PIPELINE_AUTO_EXPIRE_STATUSES, CALL_STATUS_VALUES, TRACKS,
     CALL_RESULT_TAGS, RETARGET_TAGS, FOLLOWUP_TAGS, SOURCES,
     BADGE_DEFS, PAYMENT_AMOUNT, BADGE_META, STAGE_TO_DEFAULT_STATUS,
     _now_ist, _today_ist,
@@ -32,7 +32,7 @@ from helpers import (  # noqa: F401 — shared constants & utility functions
     _calculate_priority, _leads_with_priority,
     _calculate_heat_score, _get_next_action, _generate_ai_tip,
     _enrich_lead, _enrich_leads,
-    _transition_stage, _trigger_training_unlock, _check_seat_hold_expiry,
+    _transition_stage, _trigger_training_unlock, _check_seat_hold_expiry, _auto_expire_pipeline_leads,
     _check_and_award_badges, _check_and_award_badges_inner,
     _get_user_badges_emoji,
     _upsert_daily_score, _get_today_score, _get_actual_daily_counts,
@@ -1174,8 +1174,9 @@ def team_dashboard():
     username = session['username']
     db       = get_db()
 
-    # Check seat_hold expiry on every dashboard load
+    # Check seat_hold expiry and auto-expire 24hr-old pipeline leads on every dashboard load
     _check_seat_hold_expiry(db, username)
+    _auto_expire_pipeline_leads(db, username)
 
     metrics  = _get_metrics(db, username=username)
     wallet   = _get_wallet(db, username)
@@ -1875,6 +1876,10 @@ def edit_lead(lead_id):
         stage_changed = new_pipeline_stage != lead_pipeline_stage
         _updated_at = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
 
+        # Set pipeline_entered_at when lead enters an auto-expirable pipeline stage
+        _entering_pipeline = status in PIPELINE_AUTO_EXPIRE_STATUSES
+        _pipeline_entered_at_val = _updated_at if _entering_pipeline else lead.get('pipeline_entered_at', '')
+
         # Single UPDATE: always set status and pipeline_stage together
         db.execute("""
             UPDATE leads
@@ -1884,7 +1889,8 @@ def edit_lead(lead_id):
                 follow_up_date=?, call_result=?, notes=?, city=?,
                 track_selected=?, track_price=?, seat_hold_amount=?, pending_amount=?,
                 pipeline_stage=?,
-                updated_at=?
+                updated_at=?,
+                pipeline_entered_at=?
             WHERE id=?
         """, (name, phone, email, referred_by, assigned_to, status,
               payment_done, payment_amount,
@@ -1893,6 +1899,7 @@ def edit_lead(lead_id):
               track_selected_val, track_price_val, seat_hold_amount_val, pending_amount_val,
               new_pipeline_stage,
               _updated_at,
+              _pipeline_entered_at_val,
               lead_id))
         db.commit()
 
@@ -2233,9 +2240,11 @@ def update_status(lead_id):
                 (now_str, lead_id)
             )
     else:
+        _entering_pipeline = new_status in PIPELINE_AUTO_EXPIRE_STATUSES
+        _pipe_entered = now_str if _entering_pipeline else (lead.get('pipeline_entered_at') or '')
         db.execute(
-            "UPDATE leads SET status=?, pipeline_stage=?, updated_at=? WHERE id=? AND in_pool=0",
-            (new_status, new_pipeline_stage, now_str, lead_id)
+            "UPDATE leads SET status=?, pipeline_stage=?, updated_at=?, pipeline_entered_at=? WHERE id=? AND in_pool=0",
+            (new_status, new_pipeline_stage, now_str, _pipe_entered, lead_id)
         )
 
     _log_lead_event(db, lead_id, session['username'], f'Status to {new_status}')

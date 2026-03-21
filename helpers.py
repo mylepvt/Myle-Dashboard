@@ -25,7 +25,12 @@ STATUSES = ['New Lead', 'New', 'Contacted', 'Invited', 'Video Sent', 'Video Watc
             'Paid ₹196', 'Mindset Lock',
             'Day 1', 'Day 2', 'Interview',
             'Track Selected', 'Seat Hold Confirmed', 'Fully Converted',
-            'Training', 'Converted', 'Lost', 'Retarget']
+            'Training', 'Converted', 'Lost', 'Retarget', 'Pending']
+
+# Statuses that are "active pipeline" — auto-expire to Pending after 24 hrs of no update
+PIPELINE_AUTO_EXPIRE_STATUSES = [
+    'New Lead', 'New', 'Contacted', 'Invited', 'Video Sent', 'Video Watched',
+]
 
 STATUS_TO_STAGE = {
     'New Lead':            'enrollment',
@@ -46,6 +51,7 @@ STATUS_TO_STAGE = {
     'Converted':           'complete',
     'Lost':                'lost',
     'Retarget':            'enrollment',
+    'Pending':             'pending',
 }
 
 CALL_STATUS_VALUES = [
@@ -616,11 +622,23 @@ def _transition_stage(db, lead_id, new_stage, triggered_by, status_override=None
     new_status = status_override if status_override is not None else STAGE_TO_DEFAULT_STATUS.get(new_stage)
     now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
 
+    # Set pipeline_entered_at when lead enters an auto-expirable pipeline stage
+    entering_active_pipeline = (
+        new_status in PIPELINE_AUTO_EXPIRE_STATUSES
+        or (new_status is None and new_stage == 'enrollment')
+    )
+
     if new_status is not None:
-        db.execute(
-            "UPDATE leads SET pipeline_stage=?, current_owner=?, status=?, updated_at=? WHERE id=?",
-            (new_stage, new_owner, new_status, now_str, lead_id)
-        )
+        if entering_active_pipeline:
+            db.execute(
+                "UPDATE leads SET pipeline_stage=?, current_owner=?, status=?, updated_at=?, pipeline_entered_at=? WHERE id=?",
+                (new_stage, new_owner, new_status, now_str, now_str, lead_id)
+            )
+        else:
+            db.execute(
+                "UPDATE leads SET pipeline_stage=?, current_owner=?, status=?, updated_at=? WHERE id=?",
+                (new_stage, new_owner, new_status, now_str, lead_id)
+            )
     else:
         db.execute(
             "UPDATE leads SET pipeline_stage=?, current_owner=?, updated_at=? WHERE id=?",
@@ -668,6 +686,34 @@ def _trigger_training_unlock(db, lead):
             pass
         _log_activity(db, user_row['username'], 'training_unlocked',
                       f'Lead #{lead["id"]} transitioned to training')
+
+
+def _auto_expire_pipeline_leads(db, username):
+    """
+    Move leads to 'Pending' if they've been in an active pipeline stage for 24+ hours
+    without any update. Runs on dashboard load for the given user's assigned leads.
+    """
+    from datetime import timedelta
+    cutoff = (_now_ist() - timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S')
+    placeholders = ','.join('?' * len(PIPELINE_AUTO_EXPIRE_STATUSES))
+    expired = db.execute(f"""
+        SELECT id, name FROM leads
+        WHERE assigned_to=? AND in_pool=0 AND deleted_at=''
+        AND status IN ({placeholders})
+        AND pipeline_entered_at != '' AND pipeline_entered_at < ?
+    """, (username, *PIPELINE_AUTO_EXPIRE_STATUSES, cutoff)).fetchall()
+
+    now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
+    for lead in expired:
+        db.execute("""
+            UPDATE leads SET status='Pending', pipeline_stage='pending', updated_at=?
+            WHERE id=?
+        """, (now_str, lead['id']))
+        _log_activity(db, 'system', 'pipeline_expired',
+                      f'Lead #{lead["id"]} ({lead["name"]}) auto-moved to Pending after 24hr inactivity')
+    if expired:
+        db.commit()
+    return len(expired)
 
 
 def _check_seat_hold_expiry(db, username):
