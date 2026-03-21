@@ -2110,30 +2110,18 @@ def old_leads():
     search = request.args.get('q', '').strip()
     role   = session.get('role')
 
-    # Admin: all Lost leads visible, but Pending only their own
-    # Leader: downline's Lost + Pending
-    # Team: own Lost + Pending only
+    # Admin: sees all Lost + Pending
+    # Leader & Team: only their own Lost + Pending
     uname = session['username']
+    base  = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' AND status IN ('Lost','Pending')"
+    params = []
 
-    if role == 'admin':
-        base   = """SELECT * FROM leads WHERE in_pool=0 AND deleted_at=''
-                    AND (status='Lost' OR (status='Pending' AND assigned_to=?))"""
-        params = [uname]
-    else:
-        base   = "SELECT * FROM leads WHERE in_pool=0 AND deleted_at='' AND status IN ('Lost','Pending')"
-        params = []
-
-    if role == 'leader':
-        downline = _get_downline_usernames(db, uname)
-        placeholders = ','.join('?' * len(downline))
-        base   += f" AND assigned_to IN ({placeholders})"
-        params += downline
-    elif role != 'admin':
+    if role != 'admin':
         base  += " AND assigned_to=?"
         params.append(uname)
 
     if search:
-        if role in ('admin', 'leader'):
+        if role == 'admin':
             base  += " AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR assigned_to LIKE ?)"
             params += [f'%{search}%', f'%{search}%', f'%{search}%', f'%{search}%']
         else:
