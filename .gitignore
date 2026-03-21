@@ -16,6 +16,7 @@ venv/
 
 # SQLite database
 leads.db
+myle.db
 
 # Local dev artifacts
 .scheduler.lock
