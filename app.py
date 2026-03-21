@@ -2219,6 +2219,20 @@ def update_status(lead_id):
     if new_status == 'Paid ₹196':
         new_status = 'Day 1'
 
+    # Duplicate check: prevent same phone/name from being pushed to Day 1/2/3 twice
+    if new_status in ('Day 1', 'Day 2', 'Interview') and lead['phone']:
+        dup = db.execute(
+            "SELECT name, status FROM leads WHERE phone=? AND id!=? AND status=? AND in_pool=0 AND deleted_at=''",
+            (lead['phone'], lead_id, new_status)
+        ).fetchone()
+        if dup:
+            db.close()
+            msg = f"Duplicate! {dup['name']} already exists in {new_status} with same phone number."
+            if is_ajax:
+                return {'ok': False, 'error': msg}, 409
+            flash(msg, 'danger')
+            return redirect(request.referrer or url_for('leads'))
+
     new_pipeline_stage = STATUS_TO_STAGE.get(new_status, 'enrollment')
     lead_pipeline_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'enrollment'
     stage_changed = new_pipeline_stage != lead_pipeline_stage
