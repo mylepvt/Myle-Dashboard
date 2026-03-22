@@ -5973,6 +5973,76 @@ def leader_coaching():
 #  Module 4 — Admin Pipeline Funnel Analytics
 # ─────────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────────
+
+@app.route('/admin/fix-pipeline-migration', methods=['POST'])
+@admin_required
+def admin_fix_pipeline_migration():
+    """
+    One-time migration: fix existing leads with blank/wrong pipeline_stage
+    and fix Day 1 leads with missing current_owner (leader not assigned).
+    """
+    csrf = request.form.get('csrf_token','')
+    if csrf != session.get('_csrf_token',''):
+        flash('Invalid CSRF token.', 'danger')
+        return redirect(url_for('admin_pipeline_analytics'))
+
+    db = get_db()
+    now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
+    fixed_stage = 0
+    fixed_owner = 0
+
+    # Fix 1: Leads with blank or 'enrollment' pipeline_stage → 'prospecting'
+    result = db.execute("""
+        UPDATE leads
+        SET pipeline_stage='prospecting',
+            status=CASE WHEN COALESCE(status,'')='' THEN 'New Lead' ELSE status END,
+            updated_at=?
+        WHERE in_pool=0 AND deleted_at=''
+          AND (COALESCE(pipeline_stage,'')='' OR pipeline_stage='enrollment')
+    """, (now_str,))
+    fixed_stage = result.rowcount
+
+    # Fix 2: Day 1 leads where current_owner is blank or is the team member (not leader)
+    # Assign correct leader as current_owner for each such lead
+    bad_day1 = db.execute("""
+        SELECT l.id, l.assigned_to, l.current_owner
+        FROM leads l
+        JOIN users u ON u.username = l.assigned_to
+        WHERE l.pipeline_stage='day1'
+          AND l.in_pool=0 AND l.deleted_at=''
+          AND (
+            COALESCE(l.current_owner,'') = ''
+            OR l.current_owner = l.assigned_to
+            OR u.role = 'team'
+          )
+    """).fetchall()
+
+    for lead in bad_day1:
+        correct_leader = _get_leader_for_user(db, lead['assigned_to'])
+        if correct_leader and correct_leader != lead['current_owner']:
+            db.execute(
+                "UPDATE leads SET current_owner=?, updated_at=? WHERE id=?",
+                (correct_leader, now_str, lead['id'])
+            )
+            # Also log in stage history so day2→day3 ownership lookup is correct
+            db.execute(
+                "INSERT INTO lead_stage_history (lead_id, stage, owner, triggered_by, created_at) VALUES (?,?,?,?,?)",
+                (lead['id'], 'day1', correct_leader, 'admin_migration', now_str)
+            )
+            fixed_owner += 1
+
+    db.commit()
+    db.close()
+
+    flash(
+        f'Migration complete: {fixed_stage} leads ka pipeline_stage fix hua, '
+        f'{fixed_owner} Day 1 leads ka owner (leader) sahi kiya gaya.',
+        'success'
+    )
+    return redirect(url_for('admin_pipeline_analytics'))
+
+
 @app.route('/admin/pipeline-analytics')
 @admin_required
 @safe_route

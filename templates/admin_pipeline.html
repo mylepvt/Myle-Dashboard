@@ -8,6 +8,25 @@
 
 {% block content %}
 
+<!-- ── One-time Migration Fix Banner ── -->
+<div class="alert border-0 shadow-sm mb-4 d-flex align-items-center gap-3"
+     style="border-radius:14px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border-left:4px solid #f97316!important;">
+  <i class="bi bi-tools fs-4 text-warning flex-shrink-0"></i>
+  <div class="flex-grow-1">
+    <div class="fw-semibold" style="color:#c2410c;">Purane Leads Fix Karen (One-Time)</div>
+    <div class="small text-muted">
+      Jis leads ka <strong>pipeline_stage blank</strong> hai ya <strong>Day 1 mein leader owner nahi</strong> — unhe ek click mein fix karo.
+    </div>
+  </div>
+  <form method="POST" action="{{ url_for('admin_fix_pipeline_migration') }}"
+        onsubmit="return confirm('Kya aap sure hain? Yeh sab purane leads ka pipeline_stage aur Day 1 owner fix karega.');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn btn-warning fw-semibold btn-sm" style="white-space:nowrap;">
+      <i class="bi bi-lightning-charge-fill me-1"></i>Fix Karo Abhi
+    </button>
+  </form>
+</div>
+
 <!-- Bottleneck Alert -->
 {% if bottlenecks %}
 <div class="alert alert-danger border-0 shadow-sm mb-4" style="border-radius:14px;">
