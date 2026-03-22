@@ -229,7 +229,7 @@ def register_wallet_routes(app):
             for row in available:
                 db.execute(
                     "UPDATE leads SET assigned_to=?, in_pool=0, claimed_at=?, "
-                    "pipeline_stage=CASE WHEN COALESCE(pipeline_stage,'')='' THEN 'enrollment' ELSE pipeline_stage END, "
+                    "pipeline_stage=CASE WHEN COALESCE(pipeline_stage,'')='' THEN 'prospecting' ELSE pipeline_stage END, "
                     "status=CASE WHEN COALESCE(status,'')='' THEN 'New Lead' ELSE status END, "
                     "updated_at=? WHERE id=?",
                     (username, now, now, row['id'])

@@ -612,7 +612,9 @@ def _transition_stage(db, lead_id, new_stage, triggered_by, status_override=None
     current_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead_keys else 'enrollment'
     current_owner = lead['current_owner'] if 'current_owner' in lead_keys else ''
 
-    if current_stage == 'enrollment' and new_stage == 'day1':
+    # enrollment / prospecting / enrolled → day1: ownership passes to leader
+    # 'enrollment' was legacy name; actual DB stages are 'prospecting' and 'enrolled'
+    if current_stage in ('enrollment', 'prospecting', 'enrolled') and new_stage == 'day1':
         new_owner = _get_leader_for_user(db, lead['assigned_to'])
     elif current_stage == 'day1' and new_stage == 'day2':
         new_owner = _get_admin_username(db)
