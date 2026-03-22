@@ -158,6 +158,114 @@
   </div>
 </div>
 
+{# ── Day 1 Live Detail — Admin View ── #}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header fw-semibold d-flex align-items-center gap-2">
+    <i class="bi bi-1-circle-fill text-info"></i> Day 1 — Live Detail
+    <span class="badge bg-info ms-1">{{ day1_detail|length }}</span>
+    <span class="text-muted fw-normal small ms-auto">Kiska lead hai, leader kaun hai, kab se hai</span>
+  </div>
+  {% if day1_detail %}
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0 small">
+      <thead class="table-light text-muted">
+        <tr>
+          <th class="ps-3">Lead Name</th>
+          <th>Phone</th>
+          <th><i class="bi bi-person-fill text-primary me-1"></i>Member</th>
+          <th><i class="bi bi-person-badge-fill text-success me-1"></i>Leader</th>
+          <th class="text-center">Day 1 Since</th>
+          <th class="text-center">Batches</th>
+          <th class="text-center">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in day1_detail %}
+        <tr>
+          <td class="ps-3 fw-semibold">{{ r.name }}</td>
+          <td class="text-muted">{{ r.phone }}</td>
+          <td>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+              <i class="bi bi-person me-1"></i>{{ r.member or '—' }}
+            </span>
+          </td>
+          <td>
+            <span class="badge bg-success-subtle text-success border border-success-subtle">
+              <i class="bi bi-person-badge me-1"></i>{{ r.leader }}
+            </span>
+          </td>
+          <td class="text-center text-muted">
+            {% if r.pipeline_entered_at %}
+              {{ r.pipeline_entered_at[:10] }}
+              <div class="text-muted" style="font-size:0.65rem;">{{ r.pipeline_entered_at[11:16] }}</div>
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-center">
+            {% set bd = (r.d1_morning or 0) + (r.d1_afternoon or 0) + (r.d1_evening or 0) %}
+            <div class="d-flex align-items-center gap-1 justify-content-center">
+              <span class="badge {% if r.d1_morning %}bg-success{% else %}bg-secondary{% endif %}" title="Morning" style="font-size:0.6rem;">M</span>
+              <span class="badge {% if r.d1_afternoon %}bg-success{% else %}bg-secondary{% endif %}" title="Afternoon" style="font-size:0.6rem;">A</span>
+              <span class="badge {% if r.d1_evening %}bg-success{% else %}bg-secondary{% endif %}" title="Evening" style="font-size:0.6rem;">E</span>
+              <span class="ms-1 text-muted" style="font-size:0.68rem;">{{ bd }}/3</span>
+            </div>
+          </td>
+          <td class="text-center">
+            {% if r.day1_done %}
+            <span class="badge bg-success" style="font-size:0.65rem;">Done ✓</span>
+            {% elif (r.d1_morning or 0) + (r.d1_afternoon or 0) + (r.d1_evening or 0) > 0 %}
+            <span class="badge bg-warning text-dark" style="font-size:0.65rem;">In Progress</span>
+            {% else %}
+            <span class="badge bg-secondary" style="font-size:0.65rem;">Pending</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center py-4 text-muted">
+    <i class="bi bi-1-circle fs-3 d-block mb-2"></i>Abhi koi Day 1 lead nahi hai.
+  </div>
+  {% endif %}
+</div>
+
+{# ── Admin: Puri Working Process — Quick Links ── #}
+<div class="card border-0 shadow-sm mb-4" style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);">
+  <div class="card-body">
+    <h6 class="fw-bold mb-3"><i class="bi bi-kanban-fill me-2 text-primary"></i>Puri Working Process Kahan Dekhein?</h6>
+    <div class="row g-2">
+      <div class="col-md-4">
+        <a href="{{ url_for('working') }}" class="btn btn-primary w-100 d-flex align-items-center gap-2">
+          <i class="bi bi-columns-gap fs-5"></i>
+          <div class="text-start">
+            <div class="fw-semibold">Live Kanban Board</div>
+            <div style="font-size:0.72rem;opacity:0.85;">Sab leads stage-wise dekhein</div>
+          </div>
+        </a>
+      </div>
+      <div class="col-md-4">
+        <a href="{{ url_for('admin_pipeline_analytics') }}" class="btn btn-outline-primary w-100 d-flex align-items-center gap-2">
+          <i class="bi bi-bar-chart-line fs-5"></i>
+          <div class="text-start">
+            <div class="fw-semibold">Pipeline Analytics</div>
+            <div style="font-size:0.72rem;">Funnel, bottlenecks, stats</div>
+          </div>
+        </a>
+      </div>
+      <div class="col-md-4">
+        <a href="{{ url_for('admin_lead_pool') }}" class="btn btn-outline-secondary w-100 d-flex align-items-center gap-2">
+          <i class="bi bi-inbox-fill fs-5"></i>
+          <div class="text-start">
+            <div class="fw-semibold">Lead Pool</div>
+            <div style="font-size:0.72rem;">Pool leads manage karein</div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 (function() {
   var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
