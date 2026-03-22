@@ -266,10 +266,44 @@ body {
   width: auto !important;
   overflow-x: hidden;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* iOS momentum scroll — required for smooth div scrolling on all iPhones */
+  overscroll-behavior-y: contain;   /* prevent scroll chaining to body behind */
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   min-height: 100dvh;
+}
+
+/* ── iOS Safari: fix 100vh includes hidden Safari toolbar (pre iOS 15.4, no dvh support) ── */
+@supports not (height: 1dvh) {
+  /* Fallback for iPhone running iOS < 15.4 — use -webkit-fill-available */
+  #wrapper {
+    height: -webkit-fill-available;
+  }
+  #sidebar {
+    height: -webkit-fill-available !important;
+  }
+}
+
+/* ── Mobile: wrapper should not have fixed height — let body handle height ── */
+@media (max-width: 991px) {
+  #wrapper {
+    height: auto;          /* Remove fixed height on mobile — prevents iOS viewport bug */
+    min-height: 100vh;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available; /* iOS Safari: true available height after toolbar */
+  }
+  #page-content-wrapper {
+    min-height: 0;         /* Let flex handle it — avoids double-scroll on small iPhones */
+    overflow-y: visible;   /* On mobile, let body scroll — avoids div-scroll jank on iOS */
+    -webkit-overflow-scrolling: unset;
+  }
+  html, body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch; /* Body-level momentum scroll — most reliable on all iPhones */
+    height: auto;
+    min-height: 100%;
+  }
 }
 
 /* ── Touch behavior tuned for iOS scrolling ─────────────── */
