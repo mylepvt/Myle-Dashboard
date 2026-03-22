@@ -4698,6 +4698,59 @@ def working():
             'd2_pct': round(d2_done / d2_total * 100) if d2_total else 0,
         }
 
+        # ── Admin Day 1 / Day 2 / Day 3 lead lists ──────────────
+        admin_day1_leads = db.execute("""
+            SELECT l.*,
+                   CAST((julianday('now','localtime') - julianday(l.updated_at)) * 24 AS INTEGER) AS hours_since_update
+            FROM leads l
+            WHERE l.in_pool=0 AND l.deleted_at='' AND l.status='Day 1'
+            ORDER BY (l.d1_morning + l.d1_afternoon + l.d1_evening) ASC, l.updated_at ASC
+        """).fetchall()
+        admin_day2_leads = db.execute("""
+            SELECT l.*,
+                   CAST((julianday('now','localtime') - julianday(l.updated_at)) * 24 AS INTEGER) AS hours_since_update
+            FROM leads l
+            WHERE l.in_pool=0 AND l.deleted_at='' AND l.status='Day 2'
+            ORDER BY (l.d2_morning + l.d2_afternoon + l.d2_evening) DESC, l.updated_at ASC
+        """).fetchall()
+        admin_day3_leads = db.execute("""
+            SELECT l.*,
+                   CAST((julianday('now','localtime') - julianday(l.updated_at)) * 24 AS INTEGER) AS hours_since_update
+            FROM leads l
+            WHERE l.in_pool=0 AND l.deleted_at='' AND l.status IN ('Interview','Track Selected')
+            ORDER BY l.updated_at ASC
+        """).fetchall()
+
+        # Leader map for Day 2/3: assigned_to → upline
+        _all_usernames = list(set(
+            [l['assigned_to'] for l in admin_day2_leads if l['assigned_to']] +
+            [l['assigned_to'] for l in admin_day3_leads if l['assigned_to']]
+        ))
+        admin_leader_map = {}
+        if _all_usernames:
+            _ph = ','.join('?' * len(_all_usernames))
+            _urows = db.execute(
+                f"SELECT username, upline_username, upline_name FROM users WHERE username IN ({_ph})",
+                _all_usernames
+            ).fetchall()
+            for r in _urows:
+                admin_leader_map[r['username']] = r['upline_username'] or r['upline_name'] or '—'
+
+        # ── Admin tasks ──────────────────────────────────────────
+        admin_tasks = db.execute("""
+            SELECT t.*, GROUP_CONCAT(d.username) as done_by_list
+            FROM admin_tasks t
+            LEFT JOIN admin_task_done d ON d.task_id = t.id
+            WHERE t.is_done = 0
+            GROUP BY t.id
+            ORDER BY t.priority='urgent' DESC, t.created_at DESC
+        """).fetchall()
+
+        # D2 summary counts for inline board
+        admin_d2_complete    = sum(1 for l in admin_day2_leads if l['d2_morning'] and l['d2_afternoon'] and l['d2_evening'])
+        admin_d2_in_progress = sum(1 for l in admin_day2_leads if 0 < (l['d2_morning']+l['d2_afternoon']+l['d2_evening']) < 3)
+        admin_d2_not_started = sum(1 for l in admin_day2_leads if (l['d2_morning']+l['d2_afternoon']+l['d2_evening']) == 0)
+
         # Build batch_videos BEFORE closing database
         admin_batch_videos = {
             'd1_morning_v1': _get_setting(db, 'batch_d1_morning_v1', ''),
@@ -4734,6 +4787,14 @@ def working():
             user_role='admin',
             call_status_values=CALL_STATUS_VALUES,
             csrf_token=session.get('_csrf_token', ''),
+            admin_day1_leads=admin_day1_leads,
+            admin_day2_leads=admin_day2_leads,
+            admin_day3_leads=admin_day3_leads,
+            admin_leader_map=admin_leader_map,
+            admin_tasks=admin_tasks,
+            admin_d2_complete=admin_d2_complete,
+            admin_d2_in_progress=admin_d2_in_progress,
+            admin_d2_not_started=admin_d2_not_started,
         )
 
     if role == 'leader':
@@ -4942,6 +5003,17 @@ def working():
         _leader_row = db.execute("SELECT fbo_id FROM users WHERE username=?", (username,)).fetchone()
         leader_fbo_id = (_leader_row['fbo_id'] if _leader_row and _leader_row['fbo_id'] else '')
 
+        # Tasks for leader (target='all' or 'leader' or their username)
+        leader_tasks = db.execute("""
+            SELECT t.id, t.title, t.body, t.priority, t.due_date, t.created_at,
+                   d.done_at
+            FROM admin_tasks t
+            LEFT JOIN admin_task_done d ON d.task_id=t.id AND d.username=?
+            WHERE t.is_done=0
+              AND (t.target='all' OR t.target='leader' OR t.target=?)
+            ORDER BY t.priority='urgent' DESC, t.created_at DESC
+        """, (username, username)).fetchall()
+
         db.close()
         app_register_url = url_for('register', _external=True)
 
@@ -5008,6 +5080,7 @@ def working():
             enrollment_watch_url=url_for('watch_enrollment', _external=True) if enrollment_video_url else '',
             enrollment_video_title=enrollment_video_title,
             show_day1_batches=True,
+            leader_tasks=leader_tasks,
         )
 
     # ── Team member view (own leads only) ───────────────────────────
@@ -5097,6 +5170,17 @@ def working():
     enrollment_video_title = _get_setting(db, 'enrollment_video_title', 'Enrollment Video')
     show_day1_batches     = (role or 'team') in ('leader', 'admin')
 
+    # Tasks for team member
+    team_tasks = db.execute("""
+        SELECT t.id, t.title, t.body, t.priority, t.due_date, t.created_at,
+               d.done_at
+        FROM admin_tasks t
+        LEFT JOIN admin_task_done d ON d.task_id=t.id AND d.username=?
+        WHERE t.is_done=0
+          AND (t.target='all' OR t.target='team' OR t.target=?)
+        ORDER BY t.priority='urgent' DESC, t.created_at DESC
+    """, (username, username)).fetchall()
+
     # Enrich team view leads with heat + next_action
     stage1_leads  = _enrich_leads(stage1_leads)
     day1_leads    = _enrich_leads(day1_leads)
@@ -5126,6 +5210,7 @@ def working():
         user_role=role or 'team',
         call_status_values=CALL_STATUS_VALUES,
         csrf_token=session.get('_csrf_token', ''),
+        leader_tasks=team_tasks,
     )
 
 
@@ -6041,6 +6126,95 @@ def admin_fix_pipeline_migration():
         'success'
     )
     return redirect(url_for('admin_pipeline_analytics'))
+
+
+# ─────────────────────────────────────────────────────────────────
+#  Admin Tasks — create / mark done
+# ─────────────────────────────────────────────────────────────────
+
+@app.route('/admin/tasks/create', methods=['POST'])
+@admin_required
+def admin_task_create():
+    csrf = request.form.get('csrf_token', '')
+    if csrf != session.get('_csrf_token', ''):
+        return jsonify({'ok': False, 'error': 'CSRF'}), 403
+    title    = (request.form.get('title', '') or '').strip()
+    body     = (request.form.get('body', '') or '').strip()
+    target   = request.form.get('target', 'all')
+    priority = request.form.get('priority', 'normal')
+    due_date = (request.form.get('due_date', '') or '').strip()
+    if not title:
+        return jsonify({'ok': False, 'error': 'Title required'}), 400
+    db = get_db()
+    now_str = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
+    cursor = db.execute(
+        "INSERT INTO admin_tasks (title,body,created_by,target,priority,due_date,created_at) VALUES (?,?,?,?,?,?,?)",
+        (title, body, session['username'], target, priority, due_date, now_str)
+    )
+    task_id = cursor.lastrowid
+    db.commit()
+    db.close()
+    return jsonify({'ok': True, 'id': task_id, 'title': title, 'priority': priority, 'body': body, 'due_date': due_date, 'target': target})
+
+
+@app.route('/tasks/<int:task_id>/done', methods=['POST'])
+@login_required
+def task_mark_done(task_id):
+    csrf = request.form.get('csrf_token', '') or request.get_json(silent=True, force=True).get('csrf_token','') if request.is_json else request.form.get('csrf_token','')
+    # Accept CSRF from both JSON and form
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+        csrf = data.get('csrf_token', '')
+    if csrf != session.get('_csrf_token', ''):
+        return jsonify({'ok': False, 'error': 'CSRF'}), 403
+    db = get_db()
+    username = session['username']
+    now_str  = _now_ist().strftime('%Y-%m-%d %H:%M:%S')
+    try:
+        db.execute(
+            "INSERT OR IGNORE INTO admin_task_done (task_id, username, done_at) VALUES (?,?,?)",
+            (task_id, username, now_str)
+        )
+        db.commit()
+    except Exception:
+        pass
+    db.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/admin/tasks/<int:task_id>/delete', methods=['POST'])
+@admin_required
+def admin_task_delete(task_id):
+    csrf = request.form.get('csrf_token','')
+    if csrf != session.get('_csrf_token',''):
+        return jsonify({'ok': False, 'error': 'CSRF'}), 403
+    db = get_db()
+    db.execute("UPDATE admin_tasks SET is_done=1 WHERE id=?", (task_id,))
+    db.commit()
+    db.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/my-tasks')
+@login_required
+def api_my_tasks():
+    """Return pending tasks for the current user (leader/team)."""
+    db = get_db()
+    username = session['username']
+    role     = session.get('role','team')
+    tasks = db.execute("""
+        SELECT t.id, t.title, t.body, t.priority, t.due_date, t.created_at,
+               d.done_at
+        FROM admin_tasks t
+        LEFT JOIN admin_task_done d ON d.task_id=t.id AND d.username=?
+        WHERE t.is_done=0
+          AND (t.target='all'
+               OR t.target=?
+               OR t.target=?)
+        ORDER BY t.priority='urgent' DESC, t.created_at DESC
+    """, (username, role, username)).fetchall()
+    db.close()
+    return jsonify([dict(t) for t in tasks])
 
 
 @app.route('/admin/pipeline-analytics')

@@ -1381,8 +1381,21 @@ p,span,td,li { color: inherit; }
   .kpi-card { margin-bottom:0.5rem; }
   .mobile-hide-table { display:none!important; }
   .btn-xs { padding:0.35rem 0.7rem;font-size:0.8rem; }
-  .wk-kanban-grid { flex-direction:column; }
-  .wk-kanban-col { min-width:100%; }
+  /* On mobile tabs show one column at a time — disable horizontal scroll to prevent
+     vertical-scroll jank caused by competing scroll axes */
+  .wk-kanban-grid {
+    flex-direction: column;
+    overflow-x: hidden !important;  /* no horizontal scroll when tabs are used */
+  }
+  .wk-kanban-col {
+    min-width: 100%;
+    flex: 0 0 100%;
+    contain: none; /* remove layout containment on mobile to allow normal flow */
+  }
+  /* Admin D2 inline board — same fix */
+  #admin-section-day2, #admin-section-day1, #admin-section-day3 {
+    overflow-x: hidden;
+  }
 }
 
 @media (max-width:768px) {

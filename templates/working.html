@@ -56,6 +56,30 @@
   animation: confetti-fall 0.9s cubic-bezier(0.25,0.1,0.25,1) forwards;
   pointer-events:none;
 }
+
+/* ── D2 inline board (copied from day2_progress.html for inline use) ── */
+.d2-summary-chip{display:inline-flex;align-items:center;padding:6px 14px;border-radius:999px;font-size:.82rem;font-weight:600;border:1.5px solid;}
+.d2-chip-complete  {background:rgba(var(--bs-success-rgb),.12);color:var(--bs-success);border-color:var(--bs-success);}
+.d2-chip-progress  {background:rgba(var(--bs-warning-rgb),.15);color:#d97706;border-color:#f59e0b;}
+.d2-chip-notstarted{background:rgba(var(--bs-secondary-rgb),.12);color:var(--bs-secondary);border-color:var(--bs-secondary);}
+.d2-lead-card{border-radius:16px;overflow:hidden;}
+.d2-lead-card.d2-row-complete  {border-left:4px solid var(--bs-success)!important;}
+.d2-lead-card.d2-row-progress  {border-left:4px solid #f59e0b!important;}
+.d2-lead-card.d2-row-notstarted{border-left:4px solid var(--bs-secondary)!important;}
+.d2-batch-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;flex:1;min-width:0;padding:10px 6px;border-radius:12px;border:2px solid;
+  font-size:.75rem;font-weight:600;cursor:pointer;transition:all .15s;
+  background:transparent;border-color:rgba(var(--bs-secondary-rgb),.3);color:var(--bs-secondary);min-height:56px;
+}
+.d2-batch-btn .bi{font-size:1.2rem;flex-shrink:0;}
+.d2-batch-btn.done{background:rgba(var(--bs-success-rgb),.12);border-color:var(--bs-success);color:var(--bs-success);}
+.d2-batch-btn:active{transform:scale(.96);}
+@media(max-width:576px){
+  .d2-batch-btn{flex-direction:row!important;gap:5px!important;min-height:44px!important;padding:6px 8px!important;font-size:.70rem!important;border-radius:10px!important;}
+}
+/* Admin task tab cards */
+.admin-task-card{transition:opacity .3s;}
 </style>
 {% endblock %}
 
@@ -63,41 +87,368 @@
 {# ─── ADMIN VIEW ─────────────────────────────────────────────── #}
 {% if is_admin %}
 
-<div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
-  <a href="{{ url_for('day2_progress') }}" class="btn btn-outline-primary">
-    <i class="bi bi-eye me-1"></i>Day 2 Live Board
-  </a>
-  <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
-    <i class="bi bi-speedometer2 me-1"></i>Admin Dashboard
-  </a>
+{# ── Admin main tabs ── #}
+<div class="wk-kanban-tabs mb-3" id="adminMainTabs" style="gap:6px;">
+  <button class="wk-tab active" onclick="adminTab('pipeline',this)" id="atab-pipeline">
+    <i class="bi bi-bar-chart-fill me-1"></i>Pipeline
+    {% if stale_leads %}<span class="badge bg-warning text-dark ms-1" style="font-size:.65rem;">{{ stale_leads|length }}</span>{% endif %}
+  </button>
+  <button class="wk-tab" onclick="adminTab('day1',this)" id="atab-day1">
+    <i class="bi bi-1-circle me-1"></i>Day 1
+    <span class="badge bg-info ms-1" style="font-size:.65rem;">{{ admin_day1_leads|length }}</span>
+  </button>
+  <button class="wk-tab" onclick="adminTab('day2',this)" id="atab-day2">
+    <i class="bi bi-2-circle me-1"></i>Day 2
+    <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem;">{{ admin_day2_leads|length }}</span>
+  </button>
+  <button class="wk-tab" onclick="adminTab('day3',this)" id="atab-day3">
+    <i class="bi bi-3-circle me-1"></i>Day 3
+    <span class="badge bg-danger ms-1" style="font-size:.65rem;">{{ admin_day3_leads|length }}</span>
+  </button>
+  <button class="wk-tab" onclick="adminTab('tasks',this)" id="atab-tasks">
+    <i class="bi bi-list-task me-1"></i>Tasks
+    {% if admin_tasks %}<span class="badge bg-danger ms-1" style="font-size:.65rem;">{{ admin_tasks|length }}</span>{% endif %}
+  </button>
 </div>
 
-{% if stale_leads %}
-<div class="alert alert-warning border-0 shadow-sm mb-4">
-  <h6 class="alert-heading mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Stale Leads — 48h se update nahi hua</h6>
-  <div class="table-responsive">
-    <table class="table table-sm mb-0">
-      <thead><tr><th>Name</th><th>Member</th><th>Status</th><th>Last Update</th></tr></thead>
-      <tbody>
-        {% for l in stale_leads %}
-        <tr>
-          <td><a href="{{ url_for('edit_lead', lead_id=l.id) }}" class="text-decoration-none">{{ l.name }}</a></td>
-          <td>{{ l.assigned_to }}</td>
-          <td><span class="badge bg-secondary">{{ l.status }}</span></td>
-          <td class="text-danger small">{{ l.updated_at[:16] }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+{# ══════════════════════════════════
+   ADMIN PIPELINE TAB
+══════════════════════════════════ #}
+<div id="admin-section-pipeline">
+
+  {# Batch completion progress #}
+  <div class="row g-2 mb-3">
+    <div class="col-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body p-2">
+          <div class="small fw-semibold mb-1 text-info"><i class="bi bi-1-circle me-1"></i>Day 1 Batches</div>
+          <div class="progress mb-1" style="height:6px;"><div class="progress-bar bg-info" style="width:{{ batch_completion.d1_pct }}%"></div></div>
+          <div class="small text-muted">{{ batch_completion.d1_done }}/{{ batch_completion.d1_total }} complete ({{ batch_completion.d1_pct }}%)</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body p-2">
+          <div class="small fw-semibold mb-1 text-warning"><i class="bi bi-2-circle me-1"></i>Day 2 Batches</div>
+          <div class="progress mb-1" style="height:6px;"><div class="progress-bar bg-warning" style="width:{{ batch_completion.d2_pct }}%"></div></div>
+          <div class="small text-muted">{{ batch_completion.d2_done }}/{{ batch_completion.d2_total }} complete ({{ batch_completion.d2_pct }}%)</div>
+        </div>
+      </div>
+    </div>
   </div>
-</div>
-{% else %}
-<div class="text-center py-5 text-muted">
-  <i class="bi bi-check2-circle fs-1 d-block mb-2 text-success opacity-75"></i>
-  <div class="fw-semibold">Sab leads updated hain</div>
-  <div class="small mt-1">Koi stale lead nahi — team active hai!</div>
-</div>
-{% endif %}
+
+  {# Stage count chips #}
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    <span class="wk-stat-badge wk-stat-indigo"><i class="bi bi-person-fill me-1"></i>{{ stage_counts.stage1 or 0 }} Enrollment</span>
+    <span class="wk-stat-badge wk-stat-green"><i class="bi bi-1-circle me-1"></i>{{ stage_counts.day1 or 0 }} Day 1</span>
+    <span class="wk-stat-badge wk-stat-orange"><i class="bi bi-2-circle me-1"></i>{{ stage_counts.day2 or 0 }} Day 2</span>
+    <span class="wk-stat-badge wk-stat-red"><i class="bi bi-3-circle me-1"></i>{{ stage_counts.day3 or 0 }} Day 3</span>
+    <span class="wk-stat-badge wk-stat-yellow"><i class="bi bi-hourglass me-1"></i>{{ stage_counts.pending or 0 }} Pending</span>
+  </div>
+
+  {# Team pipeline per member #}
+  {% if team_pipeline %}
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body p-2">
+      <div class="fw-semibold small mb-2"><i class="bi bi-people-fill me-1"></i>Team Pipeline</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0" style="font-size:.78rem;">
+          <thead><tr><th>Member</th><th class="text-center">D1</th><th class="text-center">D2</th><th class="text-center">D3</th><th class="text-center">Pts</th></tr></thead>
+          <tbody>
+          {% for uname, p in team_pipeline.items() %}
+          <tr>
+            <td class="fw-semibold">{{ uname }}</td>
+            <td class="text-center">{% if p.day1 > 0 %}<span class="badge bg-info">{{ p.day1 }}</span>{% else %}—{% endif %}</td>
+            <td class="text-center">{% if p.day2 > 0 %}<span class="badge bg-warning text-dark">{{ p.day2 }}</span>{% else %}—{% endif %}</td>
+            <td class="text-center">{% if p.day3 > 0 %}<span class="badge bg-danger">{{ p.day3 }}</span>{% else %}—{% endif %}</td>
+            <td class="text-center"><span class="badge bg-secondary">{{ p.score }}</span></td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# Stale leads #}
+  {% if stale_leads %}
+  <div class="card border-0 shadow-sm border-warning mb-3" style="border-left:3px solid #f59e0b!important;">
+    <div class="card-body p-2">
+      <div class="fw-semibold small mb-2 text-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i>Stale Leads — 48h+ update nahi</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0" style="font-size:.75rem;">
+          <thead><tr><th>Name</th><th>Member</th><th>Status</th><th>Last</th></tr></thead>
+          <tbody>
+          {% for l in stale_leads %}
+          <tr>
+            <td><a href="{{ url_for('edit_lead', lead_id=l.id) }}" class="text-decoration-none fw-semibold">{{ l.name }}</a></td>
+            <td>{{ l.assigned_to }}</td>
+            <td><span class="badge bg-secondary" style="font-size:.62rem;">{{ l.status }}</span></td>
+            <td class="text-danger" style="white-space:nowrap;">{{ l.updated_at[:10] }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="text-center py-3 text-muted small">
+    <i class="bi bi-check2-circle fs-2 d-block mb-1 text-success opacity-75"></i>Koi stale lead nahi — team active hai!
+  </div>
+  {% endif %}
+
+</div>{# end admin-section-pipeline #}
+
+{# ══════════════════════════════════
+   ADMIN DAY 1 TAB
+══════════════════════════════════ #}
+<div id="admin-section-day1" style="display:none;">
+  <div class="small text-muted mb-2"><i class="bi bi-info-circle me-1"></i>Day 1 leads — batches track karo. 3/3 hone pe "Day 2" button aayega.</div>
+  {% if admin_day1_leads %}
+  <div class="d-flex flex-column gap-2">
+    {% for lead in admin_day1_leads %}
+    {% set bd = lead.d1_morning + lead.d1_afternoon + lead.d1_evening %}
+    {% set all_done = bd == 3 %}
+    <div class="card border-0 shadow-sm {% if all_done %}border-success{% endif %}" style="border-radius:14px;{% if all_done %}border-left:3px solid #34c759!important;{% endif %}">
+      <div class="card-body p-3">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <div class="fw-bold">{{ lead.name }}</div>
+            <div class="d-flex gap-1 mt-1 flex-wrap">
+              <span class="badge bg-secondary bg-opacity-25 text-body" style="font-size:.65rem;">{{ lead.assigned_to }}</span>
+              {% if lead.city %}<span class="badge bg-light text-muted border" style="font-size:.62rem;">{{ lead.city }}</span>{% endif %}
+            </div>
+          </div>
+          <span class="badge {% if all_done %}bg-success{% else %}bg-info{% endif %}">{{ bd }}/3</span>
+        </div>
+        <div class="wk-batch-progress mb-2"><div class="wk-batch-bar" style="width:{{ (bd/3*100)|int }}%"></div></div>
+        <div class="d-flex gap-2 mb-2">
+          <button class="wk-batch-btn {% if lead.d1_morning %}wk-batch-done{% endif %}" onclick="openBatchPopup('{{ lead.id }}','d1_morning','{{ lead.phone }}','{{ lead.name }}',this)"><i class="bi bi-sunrise-fill"></i> M</button>
+          <button class="wk-batch-btn {% if lead.d1_afternoon %}wk-batch-done{% endif %}" onclick="openBatchPopup('{{ lead.id }}','d1_afternoon','{{ lead.phone }}','{{ lead.name }}',this)"><i class="bi bi-sun-fill"></i> A</button>
+          <button class="wk-batch-btn {% if lead.d1_evening %}wk-batch-done{% endif %}" onclick="openBatchPopup('{{ lead.id }}','d1_evening','{{ lead.phone }}','{{ lead.name }}',this)"><i class="bi bi-moon-fill"></i> E</button>
+          <div class="ms-auto d-flex gap-2">
+            <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
+            <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+            {% if all_done %}
+            <button class="btn btn-sm btn-success wk-btn" onclick="stageAdvance({{ lead.id }},'day1_complete',this)"><i class="bi bi-arrow-right me-1"></i>Day 2</button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center py-5 text-muted">
+    <i class="bi bi-1-circle fs-1 d-block mb-2 opacity-50"></i>
+    <div class="small">Koi Day 1 lead nahi abhi.</div>
+  </div>
+  {% endif %}
+</div>{# end admin-section-day1 #}
+
+{# ══════════════════════════════════
+   ADMIN DAY 2 LIVE TAB (inline)
+══════════════════════════════════ #}
+<div id="admin-section-day2" style="display:none;">
+
+  {# Summary chips #}
+  <div class="d-flex gap-2 flex-wrap mb-3">
+    <div class="d2-summary-chip d2-chip-complete"><i class="bi bi-check-circle-fill me-1"></i>{{ admin_d2_complete }} complete</div>
+    <div class="d2-summary-chip d2-chip-progress"><i class="bi bi-circle-half me-1"></i>{{ admin_d2_in_progress }} in progress</div>
+    <div class="d2-summary-chip d2-chip-notstarted"><i class="bi bi-circle me-1"></i>{{ admin_d2_not_started }} not started</div>
+    {% if admin_d2_complete > 0 %}
+    <div class="d2-summary-chip" style="background:rgba(52,199,89,.12);color:var(--ios-green);border-color:var(--ios-green);">
+      <i class="bi bi-arrow-right-circle-fill me-1"></i>{{ admin_d2_complete }} ready for Day 3
+    </div>
+    {% endif %}
+  </div>
+
+  {# Day 2 Batch Videos quick access #}
+  {% set bv = batch_videos %}
+  {% if bv.d2_morning_v1 or bv.d2_afternoon_v1 or bv.d2_evening_v1 %}
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body p-2">
+      <div class="fw-semibold small mb-2"><i class="bi bi-play-circle text-warning me-1"></i>Day 2 Batch Videos</div>
+      <div class="row g-1">
+        {% for label, v1, v2 in [('🌅 Morning', bv.d2_morning_v1, bv.d2_morning_v2), ('☀️ Afternoon', bv.d2_afternoon_v1, bv.d2_afternoon_v2), ('🌙 Evening', bv.d2_evening_v1, bv.d2_evening_v2)] %}
+        {% if v1 or v2 %}
+        <div class="col-4">
+          <div class="border rounded p-1 text-center" style="background:var(--fill-4);">
+            <div class="fw-semibold mb-1" style="font-size:.65rem;">{{ label }}</div>
+            {% if v1 %}<a href="{{ v1 }}" target="_blank" class="btn btn-outline-warning w-100 mb-1 py-1" style="font-size:.65rem;"><i class="bi bi-play-fill"></i> V1</a>{% endif %}
+            {% if v2 %}<a href="{{ v2 }}" target="_blank" class="btn btn-outline-secondary w-100 py-1" style="font-size:.65rem;"><i class="bi bi-play-fill"></i> V2</a>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# Day 2 Lead Cards #}
+  {% if admin_day2_leads %}
+  <div class="d-flex flex-column gap-2">
+    {% for lead in admin_day2_leads %}
+    {% set done_count = lead.d2_morning + lead.d2_afternoon + lead.d2_evening %}
+    <div class="card border-0 shadow-sm d2-lead-card
+      {% if done_count == 3 %}d2-row-complete{% elif done_count > 0 %}d2-row-progress{% else %}d2-row-notstarted{% endif %}">
+      <div class="card-body p-3">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <div class="fw-bold">{{ lead.name }}</div>
+            <div class="d-flex gap-1 mt-1 flex-wrap">
+              <span class="badge bg-secondary bg-opacity-25 text-body" style="font-size:.65rem;">{{ lead.assigned_to }}</span>
+              {% if admin_leader_map.get(lead.assigned_to) %}<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25" style="font-size:.62rem;">Leader: {{ admin_leader_map[lead.assigned_to] }}</span>{% endif %}
+            </div>
+          </div>
+          <span class="badge {% if done_count==3 %}bg-success{% elif done_count>0 %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ done_count }}/3</span>
+        </div>
+        <div class="wk-batch-progress mb-2"><div class="wk-batch-bar wk-batch-bar-d2" style="width:{{ (done_count/3*100)|int }}%"></div></div>
+        <div class="d-flex gap-2 mb-2">
+          <button class="d2-batch-btn {% if lead.d2_morning %}done{% endif %}" onclick="adminD2Toggle({{ lead.id }},'d2_morning',this)">
+            <i class="bi {% if lead.d2_morning %}bi-check-circle-fill{% else %}bi-sunrise-fill{% endif %}"></i><span>M</span>
+          </button>
+          <button class="d2-batch-btn {% if lead.d2_afternoon %}done{% endif %}" onclick="adminD2Toggle({{ lead.id }},'d2_afternoon',this)">
+            <i class="bi {% if lead.d2_afternoon %}bi-check-circle-fill{% else %}bi-sun-fill{% endif %}"></i><span>A</span>
+          </button>
+          <button class="d2-batch-btn {% if lead.d2_evening %}done{% endif %}" onclick="adminD2Toggle({{ lead.id }},'d2_evening',this)">
+            <i class="bi {% if lead.d2_evening %}bi-check-circle-fill{% else %}bi-moon-fill{% endif %}"></i><span>E</span>
+          </button>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+          <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
+          <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+          {% if done_count == 3 %}
+          <button class="btn btn-sm btn-success ms-auto" onclick="stageAdvance({{ lead.id }},'day2_complete',this)" style="font-size:.78rem;">
+            <i class="bi bi-arrow-right me-1"></i>Day 3
+          </button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center py-5 text-muted">
+    <i class="bi bi-2-circle fs-1 d-block mb-2 opacity-50"></i>
+    <div class="small">Koi Day 2 lead nahi abhi.</div>
+  </div>
+  {% endif %}
+
+</div>{# end admin-section-day2 #}
+
+{# ══════════════════════════════════
+   ADMIN DAY 3 TAB
+══════════════════════════════════ #}
+<div id="admin-section-day3" style="display:none;">
+  <div class="small text-muted mb-2"><i class="bi bi-info-circle me-1"></i>Day 3 — Interview aur Track Selection. Seat Hold confirm karo.</div>
+  {% if admin_day3_leads %}
+  <div class="d-flex flex-column gap-2">
+    {% for lead in admin_day3_leads %}
+    <div class="card border-0 shadow-sm" style="border-radius:14px;border-left:3px solid var(--ios-red)!important;">
+      <div class="card-body p-3">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <div class="fw-bold">{{ lead.name }}</div>
+            <div class="d-flex gap-1 mt-1 flex-wrap">
+              <span class="badge bg-secondary bg-opacity-25 text-body" style="font-size:.65rem;">{{ lead.assigned_to }}</span>
+              {% if admin_leader_map.get(lead.assigned_to) %}<span class="badge bg-primary bg-opacity-10 text-primary" style="font-size:.62rem;">{{ admin_leader_map[lead.assigned_to] }}</span>{% endif %}
+              <span class="badge bg-danger" style="font-size:.65rem;">{{ lead.status }}</span>
+            </div>
+          </div>
+          {% if lead.hours_since_update is defined and lead.hours_since_update > 24 %}
+          <span class="badge bg-warning text-dark" style="font-size:.62rem;"><i class="bi bi-clock me-1"></i>{{ lead.hours_since_update }}h</span>
+          {% endif %}
+        </div>
+        {% if lead.track_selected %}<div class="small text-muted mb-2">Track: <strong>{{ lead.track_selected }}</strong></div>{% endif %}
+        <div class="d-flex gap-2 flex-wrap">
+          <a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary wk-btn"><i class="bi bi-telephone-fill"></i></a>
+          <a href="https://wa.me/{{ lead.phone|wa_phone }}" target="_blank" class="btn btn-sm btn-outline-success wk-btn"><i class="bi bi-whatsapp"></i></a>
+          {% if lead.status == 'Interview' %}
+          <button class="btn btn-sm btn-danger wk-btn ms-auto" onclick="stageAdvance({{ lead.id }},'interview_done',this)"><i class="bi bi-arrow-right me-1"></i>Track</button>
+          {% elif lead.status == 'Track Selected' %}
+          <button class="btn btn-sm btn-danger wk-btn ms-auto" onclick="stageAdvance({{ lead.id }},'seat_hold_done',this)"><i class="bi bi-arrow-right me-1"></i>Seat Hold</button>
+          {% endif %}
+          <a href="{{ url_for('edit_lead', lead_id=lead.id) }}" class="btn btn-sm btn-outline-secondary wk-btn"><i class="bi bi-pencil"></i></a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center py-5 text-muted">
+    <i class="bi bi-3-circle fs-1 d-block mb-2 opacity-50"></i>
+    <div class="small">Koi Day 3 (Interview/Track) lead nahi abhi.</div>
+  </div>
+  {% endif %}
+</div>{# end admin-section-day3 #}
+
+{# ══════════════════════════════════
+   ADMIN TASKS TAB
+══════════════════════════════════ #}
+<div id="admin-section-tasks" style="display:none;">
+
+  {# Create task form #}
+  <div class="card border-0 shadow-sm mb-3" style="border-radius:14px;">
+    <div class="card-body p-3">
+      <div class="fw-semibold mb-2"><i class="bi bi-plus-circle me-1 text-primary"></i>Naya Task Bhejo</div>
+      <input type="text" id="taskTitle" class="form-control form-control-sm mb-2" placeholder="Task title (kya karna hai)" maxlength="100">
+      <textarea id="taskBody" class="form-control form-control-sm mb-2" rows="2" placeholder="Details (optional)" maxlength="500"></textarea>
+      <div class="d-flex gap-2 mb-2 flex-wrap">
+        <select id="taskTarget" class="form-select form-select-sm" style="flex:1;min-width:100px;">
+          <option value="all">Sabko (All)</option>
+          <option value="leader">Sirf Leaders</option>
+          <option value="team">Sirf Team Members</option>
+        </select>
+        <select id="taskPriority" class="form-select form-select-sm" style="flex:1;min-width:100px;">
+          <option value="normal">Normal</option>
+          <option value="urgent">Urgent</option>
+        </select>
+        <input type="date" id="taskDueDate" class="form-control form-control-sm" style="flex:1;min-width:120px;">
+      </div>
+      <button class="btn btn-primary btn-sm w-100" onclick="adminCreateTask()">
+        <i class="bi bi-send-fill me-1"></i>Task Bhejo
+      </button>
+    </div>
+  </div>
+
+  {# Pending tasks list #}
+  <div id="adminTaskList">
+    {% if admin_tasks %}
+    {% for t in admin_tasks %}
+    <div class="card border-0 shadow-sm mb-2 admin-task-card" id="atask-{{ t.id }}" style="border-radius:12px;{% if t.priority=='urgent' %}border-left:3px solid var(--ios-red)!important;{% else %}border-left:3px solid var(--ios-blue)!important;{% endif %}">
+      <div class="card-body p-2 px-3">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="flex-grow-1">
+            {% if t.priority == 'urgent' %}<span class="badge bg-danger me-1" style="font-size:.6rem;">URGENT</span>{% endif %}
+            <span class="fw-semibold" style="font-size:.88rem;">{{ t.title }}</span>
+            {% if t.body %}<div class="text-muted small mt-1">{{ t.body }}</div>{% endif %}
+            <div class="d-flex gap-2 flex-wrap mt-1">
+              <span class="text-muted" style="font-size:.65rem;"><i class="bi bi-people me-1"></i>{{ t.target }}</span>
+              {% if t.due_date %}<span class="text-muted" style="font-size:.65rem;"><i class="bi bi-calendar me-1"></i>{{ t.due_date }}</span>{% endif %}
+              {% if t.done_by_list %}
+              <span class="text-success" style="font-size:.65rem;"><i class="bi bi-check-all me-1"></i>Done: {{ t.done_by_list }}</span>
+              {% endif %}
+            </div>
+          </div>
+          <button class="btn btn-outline-danger btn-sm ms-2" onclick="adminDeleteTask({{ t.id }})" style="flex-shrink:0;"><i class="bi bi-trash"></i></button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="text-center py-4 text-muted" id="noTasksMsg">
+      <i class="bi bi-list-check fs-2 d-block mb-1 opacity-50"></i>
+      <div class="small">Koi pending task nahi. Upar se bhejo!</div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>{# end admin-section-tasks #}
 
 {% elif is_leader %}
 {# ═══════════════════════════════════════
@@ -634,10 +985,36 @@
   {% endif %}{# end has_team #}
 </div>{# end leader-section-team #}
 
-{# Enroll To section #}
+{# ── Leader Tasks section #}
 <div id="leader-section-enroll" style="display:none;padding:8px 0;">
   {% include 'enroll_to.html' %}
 </div>
+
+{# ── Tasks from Admin (leader & team member shared UI, shown below tabs) #}
+{% if leader_tasks %}
+<div class="mt-3" id="leaderTasksSection">
+  <div class="fw-semibold small mb-2" style="color:var(--ios-red);"><i class="bi bi-list-task me-1"></i>Admin ke Tasks ({{ leader_tasks|length }})</div>
+  {% for t in leader_tasks %}
+  <div class="card border-0 shadow-sm mb-2" id="ltask-{{ t.id }}" style="border-radius:12px;{% if t.priority=='urgent' %}border-left:3px solid var(--ios-red)!important;{% else %}border-left:3px solid var(--ios-blue)!important;{% endif %}{% if t.done_at %}opacity:0.5;{% endif %}">
+    <div class="card-body p-2 px-3 d-flex align-items-start gap-2">
+      <div class="flex-grow-1">
+        {% if t.priority == 'urgent' %}<span class="badge bg-danger me-1" style="font-size:.6rem;">URGENT</span>{% endif %}
+        <span class="fw-semibold" style="font-size:.85rem;{% if t.done_at %}text-decoration:line-through;{% endif %}">{{ t.title }}</span>
+        {% if t.body %}<div class="text-muted small">{{ t.body }}</div>{% endif %}
+        {% if t.due_date %}<div class="text-muted" style="font-size:.65rem;"><i class="bi bi-calendar me-1"></i>Due: {{ t.due_date }}</div>{% endif %}
+      </div>
+      {% if not t.done_at %}
+      <button class="btn btn-sm btn-outline-success flex-shrink-0" onclick="markTaskDone({{ t.id }}, this)" style="font-size:.72rem;padding:4px 10px;">
+        <i class="bi bi-check2"></i> Done
+      </button>
+      {% else %}
+      <span class="badge bg-success flex-shrink-0" style="font-size:.65rem;"><i class="bi bi-check-all"></i> Done</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
 
 {# Confetti container #}
 {# Confetti container is declared once at the end of the page #}
@@ -1341,6 +1718,32 @@
     {% endif %}
   </div>
 </div>
+
+{# Team member tasks from admin #}
+{% if leader_tasks %}
+<div class="mt-3" id="teamTasksSection">
+  <div class="fw-semibold small mb-2" style="color:var(--ios-red);"><i class="bi bi-list-task me-1"></i>Admin ke Tasks ({{ leader_tasks|length }})</div>
+  {% for t in leader_tasks %}
+  <div class="card border-0 shadow-sm mb-2" id="ltask-tm-{{ t.id }}" style="border-radius:12px;{% if t.priority=='urgent' %}border-left:3px solid var(--ios-red)!important;{% else %}border-left:3px solid var(--ios-blue)!important;{% endif %}{% if t.done_at %}opacity:0.5;{% endif %}">
+    <div class="card-body p-2 px-3 d-flex align-items-start gap-2">
+      <div class="flex-grow-1">
+        {% if t.priority == 'urgent' %}<span class="badge bg-danger me-1" style="font-size:.6rem;">URGENT</span>{% endif %}
+        <span class="fw-semibold" style="font-size:.85rem;{% if t.done_at %}text-decoration:line-through;{% endif %}">{{ t.title }}</span>
+        {% if t.body %}<div class="text-muted small">{{ t.body }}</div>{% endif %}
+        {% if t.due_date %}<div class="text-muted" style="font-size:.65rem;"><i class="bi bi-calendar me-1"></i>Due: {{ t.due_date }}</div>{% endif %}
+      </div>
+      {% if not t.done_at %}
+      <button class="btn btn-sm btn-outline-success flex-shrink-0" onclick="markTaskDone({{ t.id }}, this)" style="font-size:.72rem;padding:4px 10px;">
+        <i class="bi bi-check2"></i> Done
+      </button>
+      {% else %}
+      <span class="badge bg-success flex-shrink-0" style="font-size:.65rem;"><i class="bi bi-check-all"></i> Done</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
 
 {% endif %}{# end team member view #}
 
@@ -2109,6 +2512,145 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
+
+// ── Admin Tab Switcher ─────────────────────────────────────────
+function adminTab(section, btn) {
+  ['pipeline','day1','day2','day3','tasks'].forEach(s => {
+    const el = document.getElementById('admin-section-' + s);
+    const tb = document.getElementById('atab-' + s);
+    if (el) el.style.display = (s === section) ? '' : 'none';
+    if (tb) tb.classList.toggle('active', s === section);
+  });
+}
+
+// ── Admin D2 Batch Toggle (inline board) ──────────────────────
+function adminD2Toggle(leadId, slot, btn) {
+  const isDone = btn.classList.contains('done');
+  const newVal = isDone ? 0 : 1;
+  const card   = btn.closest('[data-lead-id]') || btn.closest('.card');
+
+  fetch('/leads/' + leadId + '/mark-batch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ csrf_token: _csrf, slot: slot, value: newVal })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      btn.classList.toggle('done', !!newVal);
+      const icon = btn.querySelector('.bi');
+      if (icon) {
+        if (slot.includes('morning'))   icon.className = newVal ? 'bi bi-check-circle-fill' : 'bi bi-sunrise-fill';
+        else if (slot.includes('afternoon')) icon.className = newVal ? 'bi bi-check-circle-fill' : 'bi bi-sun-fill';
+        else icon.className = newVal ? 'bi bi-check-circle-fill' : 'bi bi-moon-fill';
+      }
+      // Re-check if all 3 done to show Day 3 button
+      const siblingBtns = btn.parentElement.querySelectorAll('.d2-batch-btn');
+      const allDone = [...siblingBtns].every(b => b.classList.contains('done'));
+      const actionRow = btn.parentElement.nextElementSibling;
+      if (actionRow) {
+        let existingAdv = actionRow.querySelector('.admin-d2-adv');
+        if (allDone && !existingAdv) {
+          const advBtn = document.createElement('button');
+          advBtn.className = 'btn btn-sm btn-success ms-auto admin-d2-adv';
+          advBtn.innerHTML = '<i class="bi bi-arrow-right me-1"></i>Day 3';
+          advBtn.onclick = function() { stageAdvance(leadId, 'day2_complete', this); };
+          actionRow.appendChild(advBtn);
+        } else if (!allDone && existingAdv) {
+          existingAdv.remove();
+        }
+      }
+    }
+  }).catch(() => {});
+}
+
+// ── Admin Create Task ─────────────────────────────────────────
+function adminCreateTask() {
+  const title    = document.getElementById('taskTitle').value.trim();
+  const body     = document.getElementById('taskBody').value.trim();
+  const target   = document.getElementById('taskTarget').value;
+  const priority = document.getElementById('taskPriority').value;
+  const dueDate  = document.getElementById('taskDueDate').value;
+  if (!title) { alert('Task title likhna zaroori hai!'); return; }
+
+  const fd = new FormData();
+  fd.append('csrf_token', _csrf);
+  fd.append('title', title);
+  fd.append('body', body);
+  fd.append('target', target);
+  fd.append('priority', priority);
+  fd.append('due_date', dueDate);
+
+  fetch('/admin/tasks/create', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        // Add task card to list
+        const noMsg = document.getElementById('noTasksMsg');
+        if (noMsg) noMsg.remove();
+        const list = document.getElementById('adminTaskList');
+        const card = document.createElement('div');
+        card.className = 'card border-0 shadow-sm mb-2 admin-task-card';
+        card.id = 'atask-' + d.id;
+        card.style.cssText = 'border-radius:12px;' + (d.priority==='urgent' ? 'border-left:3px solid var(--ios-red)!important;' : 'border-left:3px solid var(--ios-blue)!important;');
+        card.innerHTML = `<div class="card-body p-2 px-3"><div class="d-flex justify-content-between align-items-start">
+          <div class="flex-grow-1">
+            ${d.priority==='urgent' ? '<span class="badge bg-danger me-1" style="font-size:.6rem;">URGENT</span>' : ''}
+            <span class="fw-semibold" style="font-size:.88rem;">${d.title}</span>
+            ${d.body ? '<div class="text-muted small">'+d.body+'</div>' : ''}
+            <div class="d-flex gap-2 flex-wrap mt-1">
+              <span class="text-muted" style="font-size:.65rem;"><i class="bi bi-people me-1"></i>${d.target}</span>
+              ${d.due_date ? '<span class="text-muted" style="font-size:.65rem;"><i class="bi bi-calendar me-1"></i>'+d.due_date+'</span>' : ''}
+            </div>
+          </div>
+          <button class="btn btn-outline-danger btn-sm ms-2" onclick="adminDeleteTask(${d.id})"><i class="bi bi-trash"></i></button>
+        </div></div>`;
+        list.insertBefore(card, list.firstChild);
+        // Clear form
+        document.getElementById('taskTitle').value = '';
+        document.getElementById('taskBody').value = '';
+        document.getElementById('taskDueDate').value = '';
+      }
+    }).catch(() => alert('Error. Try again.'));
+}
+
+// ── Admin Delete (archive) Task ───────────────────────────────
+function adminDeleteTask(taskId) {
+  if (!confirm('Is task ko archive karein?')) return;
+  const fd = new FormData();
+  fd.append('csrf_token', _csrf);
+  fetch('/admin/tasks/' + taskId + '/delete', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        const card = document.getElementById('atask-' + taskId);
+        if (card) card.remove();
+      }
+    }).catch(() => {});
+}
+
+// ── Mark Task Done (leader/team) ──────────────────────────────
+function markTaskDone(taskId, btn) {
+  const fd = new FormData();
+  fd.append('csrf_token', _csrf);
+  fetch('/tasks/' + taskId + '/done', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        // Mark card as done visually
+        ['ltask-'+taskId, 'ltask-tm-'+taskId].forEach(id => {
+          const card = document.getElementById(id);
+          if (card) {
+            card.style.opacity = '0.5';
+            const b = card.querySelector('button');
+            if (b) b.outerHTML = '<span class="badge bg-success flex-shrink-0" style="font-size:.65rem;"><i class="bi bi-check-all"></i> Done</span>';
+            const title = card.querySelector('.fw-semibold');
+            if (title) title.style.textDecoration = 'line-through';
+          }
+        });
+      }
+    }).catch(() => {});
+}
 </script>
 
 <!-- Batch Popup HTML -->

@@ -838,6 +838,36 @@ def migrate_db():
         except Exception:
             pass
 
+    # --- admin_tasks table (admin → team task broadcast) ---
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS admin_tasks (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                title       TEXT    NOT NULL,
+                body        TEXT    DEFAULT '',
+                created_by  TEXT    NOT NULL,
+                target      TEXT    DEFAULT 'all',
+                priority    TEXT    DEFAULT 'normal',
+                is_done     INTEGER DEFAULT 0,
+                due_date    TEXT    DEFAULT '',
+                created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+        """)
+    except Exception:
+        pass
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS admin_task_done (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id    INTEGER NOT NULL,
+                username   TEXT    NOT NULL,
+                done_at    TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+                UNIQUE(task_id, username)
+            )
+        """)
+    except Exception:
+        pass
+
     # ── FBO ID fix: 910900367506 is Karanveer Singh (admin) ──────────────────
     # Step 1: Set admin's FBO ID to 910900367506
     cursor.execute("""
