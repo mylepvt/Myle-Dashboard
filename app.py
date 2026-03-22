@@ -5411,7 +5411,7 @@ def stage_advance(lead_id):
 
     # ── Stage machine guard: validate the current stage allows this action ──
     VALID_FROM = {
-        'enroll_complete':   ('prospecting', 'enrolled'),
+        'enroll_complete':   ('prospecting', 'enrolled', 'enrollment'),
         'day1_complete':     ('day1',),
         'day2_complete':     ('day2',),
         'interview_done':    ('day2', 'day3'),
@@ -5583,7 +5583,7 @@ def update_call_status(lead_id):
             except Exception:
                 pass
         lead_stage = lead['pipeline_stage'] if 'pipeline_stage' in lead.keys() else 'prospecting'
-        if lead_stage in ('prospecting', 'enrolled'):
+        if lead_stage in ('prospecting', 'enrolled', 'enrollment'):
             _transition_stage(db, lead_id, 'day1', username, status_override='Day 1')
             stage_advanced = True
             db.execute(
