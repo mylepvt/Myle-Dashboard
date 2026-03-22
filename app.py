@@ -6119,6 +6119,20 @@ def admin_pipeline_analytics():
                 r['conv_pct'] = round(r['converted'] / r['total_leads'] * 100, 1) if r['total_leads'] else 0
             leader_monthly[ldr_uname] = rows_list
 
+    # 6a. Day 1 leads detail: for admin — who has them, under which leader, since when
+    day1_detail_rows = db.execute("""
+        SELECT l.id, l.name, l.phone, l.assigned_to AS member,
+               COALESCE(NULLIF(u.upline_username,''), NULLIF(u.upline_name,''), '—') AS leader,
+               l.pipeline_entered_at,
+               l.d1_morning, l.d1_afternoon, l.d1_evening, l.day1_done,
+               l.updated_at
+        FROM leads l
+        LEFT JOIN users u ON u.username = l.assigned_to
+        WHERE l.pipeline_stage='day1' AND l.in_pool=0 AND l.deleted_at=''
+        ORDER BY l.pipeline_entered_at DESC
+    """).fetchall()
+    day1_detail = [dict(r) for r in day1_detail_rows]
+
     # 6. Heat score distribution
     heat_rows = db.execute("""
         SELECT
@@ -6146,6 +6160,7 @@ def admin_pipeline_analytics():
         heat_data=heat_data,
         monthly_pipeline=monthly_pipeline,
         leader_monthly=leader_monthly,
+        day1_detail=day1_detail,
         csrf_token=session.get('_csrf_token', ''),
     )
 
