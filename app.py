@@ -1038,6 +1038,7 @@ def admin_dashboard():
     """, (today,)).fetchall()
     report_verification = {r['assigned_to']: r['cnt'] for r in _verif_rows}
 
+    _s1_ph = ','.join('?' * len(STAGE1_STATUSES))
     team_board = []
     for m in approved_members:
         uname = m['username']
