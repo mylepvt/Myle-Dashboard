@@ -221,4 +221,132 @@
 })();
 </script>
 
+{# ── Monthly Pipeline Summary ── #}
+{% if monthly_pipeline %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header fw-semibold d-flex align-items-center gap-2">
+    <i class="bi bi-calendar3" style="color:#6366f1;"></i> Monthly Pipeline Summary
+    <span class="text-muted fw-normal small ms-auto">Last 6 months — all team</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0" style="font-size:.82rem;">
+        <thead style="background:#f9fafb;">
+          <tr style="color:#6b7280;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;">
+            <th class="ps-3">Month</th>
+            <th class="text-center">Total Leads</th>
+            <th class="text-center">Enrolled</th>
+            <th class="text-center">Working %</th>
+            <th class="text-center">Seat Hold %</th>
+            <th class="text-center">Converted %</th>
+            <th class="text-end">Seat Hold ₹</th>
+            <th class="text-end">Revenue ₹</th>
+            <th class="text-end pe-3">Total Budget</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in monthly_pipeline %}
+          <tr>
+            <td class="ps-3 fw-semibold">{{ m.month }}</td>
+            <td class="text-center">{{ m.total_leads }}</td>
+            <td class="text-center">{{ m.enrolled_count }}</td>
+            <td class="text-center">
+              <div class="d-flex align-items-center justify-content-center gap-1">
+                <div class="progress flex-grow-1" style="height:5px;max-width:60px;">
+                  <div class="progress-bar bg-info" style="width:{{ m.working_pct }}%;"></div>
+                </div>
+                <span style="color:#0dcaf0;font-size:.7rem;">{{ m.working_pct }}%</span>
+              </div>
+            </td>
+            <td class="text-center">
+              <div class="d-flex align-items-center justify-content-center gap-1">
+                <div class="progress flex-grow-1" style="height:5px;max-width:60px;">
+                  <div class="progress-bar" style="width:{{ m.seat_hold_pct }}%;background:#7c3aed;"></div>
+                </div>
+                <span style="color:#7c3aed;font-size:.7rem;">{{ m.seat_hold_pct }}%</span>
+              </div>
+            </td>
+            <td class="text-center">
+              <div class="d-flex align-items-center justify-content-center gap-1">
+                <div class="progress flex-grow-1" style="height:5px;max-width:60px;">
+                  <div class="progress-bar bg-success" style="width:{{ m.conv_pct }}%;"></div>
+                </div>
+                <span style="color:#198754;font-size:.7rem;font-weight:600;">{{ m.conv_pct }}%</span>
+              </div>
+            </td>
+            <td class="text-end text-muted">₹{{ "{:,.0f}".format(m.seat_hold_budget) }}</td>
+            <td class="text-end text-success fw-semibold">₹{{ "{:,.0f}".format(m.revenue) }}</td>
+            <td class="text-end pe-3 fw-bold" style="color:#6366f1;">₹{{ "{:,.0f}".format(m.total_budget) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot style="background:#f9fafb;border-top:2px solid #e5e7eb;">
+          <tr class="fw-bold">
+            <td class="ps-3">Total (6M)</td>
+            <td class="text-center">{{ monthly_pipeline|sum(attribute='total_leads') }}</td>
+            <td class="text-center">{{ monthly_pipeline|sum(attribute='enrolled_count') }}</td>
+            <td class="text-center">{{ monthly_pipeline|sum(attribute='reached_working') }}</td>
+            <td class="text-center">{{ monthly_pipeline|sum(attribute='reached_seat_hold') }}</td>
+            <td class="text-center">{{ monthly_pipeline|sum(attribute='converted') }}</td>
+            <td class="text-end text-muted">₹{{ "{:,.0f}".format(monthly_pipeline|sum(attribute='seat_hold_budget')) }}</td>
+            <td class="text-end text-success">₹{{ "{:,.0f}".format(monthly_pipeline|sum(attribute='revenue')) }}</td>
+            <td class="text-end pe-3" style="color:#6366f1;">₹{{ "{:,.0f}".format(monthly_pipeline|sum(attribute='total_budget')) }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ── Leader-wise Monthly Breakdown ── #}
+{% if leader_monthly %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header fw-semibold d-flex align-items-center gap-2">
+    <i class="bi bi-people-fill text-primary"></i> Leader-wise Monthly Breakdown
+  </div>
+  <div class="card-body p-0">
+    {% for ldr, ldr_months in leader_monthly.items() %}
+    <div class="px-3 pt-3 pb-2 {% if not loop.last %}border-bottom{% endif %}">
+      <div class="fw-semibold mb-2" style="font-size:.85rem;">
+        <i class="bi bi-person-badge-fill me-1 text-primary"></i>{{ ldr }}
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0" style="font-size:.78rem;">
+          <thead>
+            <tr style="color:#9ca3af;font-size:.68rem;text-transform:uppercase;">
+              <th>Month</th>
+              <th class="text-center">Leads</th>
+              <th class="text-center">Converted</th>
+              <th class="text-center">Conv %</th>
+              <th class="text-end">Seat Hold ₹</th>
+              <th class="text-end">Revenue ₹</th>
+              <th class="text-end">Total Budget</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for lm in ldr_months %}
+            <tr>
+              <td class="fw-semibold">{{ lm.month }}</td>
+              <td class="text-center">{{ lm.total_leads }}</td>
+              <td class="text-center text-success fw-semibold">{{ lm.converted }}</td>
+              <td class="text-center">
+                <span class="badge rounded-pill {% if lm.conv_pct >= 20 %}bg-success{% elif lm.conv_pct >= 10 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                  {{ lm.conv_pct }}%
+                </span>
+              </td>
+              <td class="text-end text-muted">₹{{ "{:,.0f}".format(lm.seat_hold_budget) }}</td>
+              <td class="text-end text-success">₹{{ "{:,.0f}".format(lm.revenue) }}</td>
+              <td class="text-end fw-bold" style="color:#6366f1;">₹{{ "{:,.0f}".format(lm.total_budget) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
 {% endblock %}
